@@ -43,6 +43,7 @@ DEFAULT_USERS_JSON: Final[Path] = Path("/var/lib/runv/users.json")
 DEFAULT_HOMES_ROOT: Final[Path] = Path("/home")
 DEFAULT_HOST: Final[str] = "irc.portalidea.com.br"
 DEFAULT_SERVER_NAME: Final[str] = "runv"
+DEFAULT_AUTOJOIN: Final[str] = "#runv"
 
 MIN_UID_USER: Final[int] = 1000
 
@@ -66,7 +67,6 @@ IRC_PATCH_SKIP_USERS: Final[frozenset[str]] = frozenset(
         "irc",
         "_apt",
         "nobody",
-        "pmurad-admin",
         "entre",
         "admin",
         "postmaster",
@@ -207,14 +207,26 @@ def usernames_from_homes(homes_root: Path, log: logging.Logger) -> list[str]:
 
 def resolve_all_users(users_json: Path, homes_root: Path, log: logging.Logger) -> list[str]:
     from_json = load_usernames_from_json(users_json, log)
-    if from_json is not None and from_json:
-        log.info("utilizadores a partir de %s (%d)", users_json, len(from_json))
-        return [u for u in from_json if u not in IRC_PATCH_SKIP_USERS]
-    if from_json is not None and from_json == []:
-        log.info("%s vazio — fallback /home", users_json)
-    users = usernames_from_homes(homes_root, log)
-    log.info("utilizadores a partir de %s (%d)", homes_root, len(users))
-    return users
+    from_homes = usernames_from_homes(homes_root, log)
+
+    if from_json is None:
+        log.info("utilizadores a partir de %s (%d); JSON indisponível", homes_root, len(from_homes))
+        return from_homes
+
+    if not from_json:
+        log.info("%s vazio — só homes em %s (%d)", users_json, homes_root, len(from_homes))
+        return from_homes
+
+    merged = sorted(set(from_json) | set(from_homes))
+    log.info(
+        "utilizadores: união %s (%d) + %s (%d) → %d contas",
+        users_json,
+        len(from_json),
+        homes_root,
+        len(from_homes),
+        len(merged),
+    )
+    return [u for u in merged if u not in IRC_PATCH_SKIP_USERS]
 
 
 def weechat_config_dir(home: Path) -> Path:
@@ -563,9 +575,12 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     )
     p.add_argument(
         "--autojoin",
-        default="",
+        default=DEFAULT_AUTOJOIN,
         metavar="CHANNELS",
-        help='canais separados por vírgula, ex.: "#runv,#geral" (vazio = nenhum)',
+        help=(
+            f'canais separados por vírgula (padrão: {DEFAULT_AUTOJOIN!r}); '
+            'use --autojoin "" para não autoentrar em canais'
+        ),
     )
     ug = p.add_mutually_exclusive_group(required=True)
     ug.add_argument("--user", metavar="USER", help="apenas este utilizador Unix")
@@ -634,6 +649,8 @@ def main(argv: list[str] | None = None) -> int:
     print("========== patch_irc — resumo ==========")
     print(f"Modo: {'DRY-RUN' if args.dry_run else 'aplicação'}")
     print(f"Host: {args.host}:{port}  TLS: {args.tls}  servidor na config: {args.server_name}")
+    aj = args.autojoin.strip()
+    print(f"Autojoin: {aj if aj else '(nenhum)'}")
     if not args.skip_backfill:
         print(f"Utilizadores processados: {len(users)}  falhas: {failures}")
     print("Comando para utilizadores: chat")

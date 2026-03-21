@@ -18,8 +18,10 @@ sudo python3 admin/patch_irc.py --user alice --verbose
 ```
 
 - Instala **`/usr/local/bin/chat`** (salvo `--skip-launcher`).
-- Por utilizador: `~/.config/weechat/`, servidor interno **`runv`** (por defeito), nick = **username Unix**, nicks alternativos `user_`, `user__`, `user|away`.
+- Por utilizador: `~/.config/weechat/`, servidor interno **`runv`** (por defeito), nick = **username Unix**, nicks alternativos `user_`, `user__`, `user|away`, autojoin por defeito no canal **`#runv`**.
+- Com **`--all-users`**, a lista de contas é a **união** de: usernames em `users.json` **e** utilizadores com diretório em `--homes-root` (por omissão `/home`), UID ≥ 1000 e fora da lista interna de contas de sistema — assim contas de administração (ex.: `pmurad-admin`) que não estão no JSON também são provisionadas.
 - Exige **`weechat-headless`** no sistema para aplicar o patch; sem esse binário o script falha com mensagem clara (`apt install weechat-headless`).
+- Configurações já aplicadas sem o canal comum: voltar a correr com **`--force`** para atualizar `autojoin` (e restantes opções) para os defaults atuais.
 
 ## O que o utilizador faz
 
@@ -37,7 +39,7 @@ Opcional: variável de ambiente **`WEECHAT_HOME`** para outro directório de dad
 | TLS | ligado (`--tls`; omitir `--no-tls`) |
 | Porta | `6697` com TLS, `6667` sem TLS (ou `--port`) |
 | Nome do servidor na config | `runv` |
-| Autojoin | vazio; `--autojoin '#canal1,#canal2'` |
+| Autojoin | `#runv`; `--autojoin ""` para nenhum; ou `--autojoin '#canal1,#canal2'` |
 
 Não há SASL/NickServ automático; no código há comentários para extensão futura com **dados seguros** (sem senhas em texto plano).
 
@@ -60,6 +62,7 @@ sudo python3 admin/patch_irc.py --user "$(logname)" --verbose
 command -v chat && ls -l "$(command -v chat)"
 command -v weechat-headless
 sudo -u USER test -f /home/USER/.config/weechat/irc.conf && grep '^runv\.' /home/USER/.config/weechat/irc.conf
+sudo -u USER grep '^runv\.autojoin' /home/USER/.config/weechat/irc.conf
 ```
 
 Substitui `USER` por um utilizador real.

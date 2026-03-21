@@ -30,7 +30,7 @@ RUNV_ART
 # Últimas 9 sessões em last(1) → grelha 3×3 (primeiro campo = utilizador)
 print_last_sessions_3x3() {
   if ! command -v last >/dev/null 2>&1; then
-    printf '  %s\n' "${D}(comando last indisponível)${R}"
+    printf '  %b\n' "${D}(comando last indisponível)${R}"
     return
   fi
   tf=$(mktemp -t runvmotd.XXXXXX 2>/dev/null) || tf=/tmp/runvmotd.$$
@@ -43,7 +43,7 @@ print_last_sessions_3x3() {
   ' > "$tf" || true
 
   if ! [ -s "$tf" ]; then
-    printf '  %s\n' "${D}(sem registos recentes em wtmp)${R}"
+    printf '  %b\n' "${D}(sem registos recentes em wtmp)${R}"
     rm -f "$tf"
     trap - EXIT HUP INT
     return
@@ -75,7 +75,7 @@ printf '  %blynx%b         %b—%b navegador web no terminal.\n' "${G}" "${R}" "
 printf '  %btmux%b         %b—%b multiplexador de terminal (várias sessões).\n' "${G}" "${R}" "${D}" "${R}"
 printf '  %bbyobu%b        %b—%b barra de estado e atalhos sobre tmux/screen.\n' "${G}" "${R}" "${D}" "${R}"
 printf '  %bmutt%b         %b—%b cliente de e-mail no terminal.\n' "${G}" "${R}" "${D}" "${R}"
-printf '  %bchat%b        %b—%b IRC da rede da casa (configuração pelo admin).\n' "${G}" "${R}" "${D}" "${R}"
+printf '  %bchat%b        %b—%b IRC da rede da casa.\n' "${G}" "${R}" "${D}" "${R}"
 printf '  %badventure%b    %b—%b jogo de aventura em texto (bsdgames).\n' "${G}" "${R}" "${D}" "${R}"
 
 print_last_sessions_3x3
