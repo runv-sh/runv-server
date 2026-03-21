@@ -10,7 +10,7 @@ MOTD e runv-help referem apenas **chat** (sem expor outros nomes de comando ao u
 
 Executar como root no Debian. Ver scripts/docs/irc_patch.md.
 
-Versão 0.01 — runv.club
+Versão 0.02 — runv.club
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ from typing import Final
 #   /set irc.server.<name>.sasl_password "${sec.data.runv_irc_senha}"
 # Documentação: https://weechat.org/doc/
 
-VERSION: Final[str] = "0.01"
+VERSION: Final[str] = "0.02"
 
 DEFAULT_USERS_JSON: Final[Path] = Path("/var/lib/runv/users.json")
 DEFAULT_HOMES_ROOT: Final[Path] = Path("/home")
@@ -341,6 +341,11 @@ def build_apply_command_chain(
         parts.append(f'/set irc.server.{server}.autojoin "{autojoin}"')
     else:
         parts.append(f'/set irc.server.{server}.autojoin ""')
+    # Globais: ao entrar num canal, mudar para esse buffer; servidor IRC em buffer próprio;
+    # buflist só entradas do plugin IRC (menos ruído tipo core.weechat na árvore).
+    parts.append("/set irc.look.buffer_switch_join on")
+    parts.append("/set irc.look.server_buffer independent")
+    parts.append('/set buflist.look.display_conditions "${buffer.plugin} == irc"')
     parts.append("/save")
     parts.append("/quit")
     return " ; ".join(parts)
@@ -452,35 +457,38 @@ def patch_user(
         return False
 
     irc_conf = weechat_config_dir(home) / "irc.conf"
-    if (
-        not force
-        and config_matches(
-            irc_conf,
-            server=server,
-            host=host,
-            port=port,
-            tls=tls,
-            username=username,
-            autojoin=autojoin,
-            log=log,
-        )
-    ):
+    matched = config_matches(
+        irc_conf,
+        server=server,
+        host=host,
+        port=port,
+        tls=tls,
+        username=username,
+        autojoin=autojoin,
+        log=log,
+    )
+    if not force and matched:
         log.info("%s: servidor %s já coincide com o desejado — a saltar", username, server)
         return True
 
-    if not force and irc_conf.is_file() and parse_server_options(
-        irc_conf.read_text(encoding="utf-8", errors="replace"), server
-    ).get("addresses"):
-        log.warning(
-            "%s: servidor %s existe mas difere do alvo; use --force para reconfigurar",
-            username,
-            server,
-        )
-        return False
+    server_exists = False
+    if irc_conf.is_file():
+        try:
+            conf_text = irc_conf.read_text(encoding="utf-8", errors="replace")
+            server_exists = bool(parse_server_options(conf_text, server).get("addresses"))
+        except OSError as e:
+            log.debug("%s: ler %s: %s", username, irc_conf, e)
 
-    if force:
+    if server_exists and (force or not matched):
         del_chain = f"/server del {server} ; /quit"
-        log.info("%s: remover servidor %s existente (--force)", username, server)
+        if force:
+            log.info("%s: remover servidor %s existente (--force)", username, server)
+        else:
+            log.info(
+                "%s: realinhar servidor «%s» ao alvo (remove e volta a criar)",
+                username,
+                server,
+            )
         run_weechat_script(
             username=username,
             home=home,

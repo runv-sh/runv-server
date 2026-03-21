@@ -120,3 +120,4 @@ Novas contas criadas com `adduser` **depois** desta instalação recebem esses a
 - **apt-get update falha:** corrija espelhos/rede; o script registra erro e ainda pode copiar bin/MOTD/skel.
 - **Permissão negada:** execute com `sudo` / root.
 - **MOTD não aparece:** em alguns setups o display do MOTD depende de `pam_motd` e SSH; confira configuração do `sshd` e PAM no Debian.
+- **MOTD sem grelha `last`:** o fragmento `60-runv` usa `/usr/bin/last` quando o PATH mínimo não o expõe; confirme **util-linux** e permissões de leitura em `/var/log/wtmp`. A mensagem *sem registos recentes em wtmp* indica wtmp vazio, não falta do binário.

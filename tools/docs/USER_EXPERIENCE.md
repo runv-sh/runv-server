@@ -8,7 +8,7 @@ Visão para **quem entra no servidor** pela primeira vez (e para quem documenta 
    - logótipo **RUNV** (mesmo desenho UTF-8 da landing) **só nesse bloco** em verde;
    - tagline `.club — um computador para compartilhar` (sem estatísticas no MOTD; o comando **`runv-status`** existe mas **não** é listado aqui e só o utilizador **`pmurad-admin`** pode executá-lo);
    - **Comandos úteis** em lista, com nome a verde e descrição a cinza (ANSI), alinhada ao texto do `runv-help`;
-   - grelha **3×3** com os **primeiros campos** das **9** sessões mais recentes de **`last`** (wtmp; ignora linhas `reboot` / `wtmp`);
+   - grelha **3×3** com os **primeiros campos** das **9** sessões mais recentes de **`last`** (wtmp; ignora linhas `reboot` / `wtmp`). O script tenta **`/usr/bin/last`** se o PATH de `update-motd.d` não incluir `last` (pacote **util-linux**). Se aparecer *sem registos recentes em wtmp*, o ficheiro de logins ainda não tem entradas (ex.: sem logins SSH registados).
    - linha final: **digite `runv-help` para começar**.
 
 2. **Prompt da shell** — Depende do shell padrão (geralmente Bash no Debian). O que o usuário **herda** da home vem do **`/etc/skel`** no momento em que a conta foi criada.

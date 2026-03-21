@@ -15,7 +15,7 @@ Script em **`scripts/admin/setup_alt_protocols.py`**: instala e configura **goph
 ## Utilizadores antigos vs novos
 
 - **Novos:** recebem modelos via **`/etc/skel`** (após `tools/tools.py`) e via **`create_runv_user.py`** (sempre que o provisionador corre).
-- **Antigos:** correr **`setup_alt_protocols.py`** (backfill) ou criar pastas/ficheiros à mão.
+- **Antigos:** correr **`setup_alt_protocols.py`** (backfill completo) ou só pastas/symlinks com **`patches/yetgg.py`** (mesma lista de contas que `patch_irc.py`: união JSON + `/home`) se a infraestrutura de sistema já existir.
 
 ## Requisitos Gemini
 
