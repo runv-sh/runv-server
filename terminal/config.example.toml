@@ -1,0 +1,12 @@
+# Copie para config.toml ao instalar (ex.: /opt/runv/terminal/config.toml).
+# Valores por omissão da fila e log alinham com setup_entre.py.
+
+queue_dir = "/var/lib/runv/entre-queue"
+log_file = "/var/log/runv/entre.log"
+templates_dir = "/opt/runv/terminal/templates"
+
+# Email do administrador (opcional). Se vazio, só fila + log local.
+admin_email = ""
+# Remetente do aviso ao admin (From). Por omissão runv.club; se vazio no TOML, o código usa o mesmo.
+mail_from = "entre@runv.club"
+sendmail_path = "/usr/sbin/sendmail"

@@ -1,0 +1,10 @@
+runv.club — email de teste
+
+Este é um email automático de verificação do subsistema de envio.
+
+Administrador: {admin_email}
+Remetente configurado: {default_from}
+Host SMTP registado: {host}
+Timestamp UNIX: {timestamp}
+
+Se recebeu esta mensagem, msmtp/sendmail e a biblioteca estão operacionais.

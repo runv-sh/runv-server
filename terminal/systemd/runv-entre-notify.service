@@ -1,0 +1,15 @@
+# Serviço one-shot opcional — acoplado ao .path acima.
+# Personalize ExecStart para enviar email, Matrix, etc.
+
+[Unit]
+Description=Hook pós-novo pedido na fila entre (runv.club)
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+# Exemplo: só registo no syslog (sem shell -c no Python; aqui é unit systemd)
+ExecStart=/usr/bin/logger -t runv-entre-notify "fila /var/lib/runv/entre-queue modificada"
+
+[Install]
+WantedBy=multi-user.target

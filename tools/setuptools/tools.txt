@@ -1,0 +1,9 @@
+# create_runv_user.py (ordem): 1) criar usuário (adduser + /etc/skel) 2) chave SSH
+# 3) public_html 4) README runv após o skel 5) apply_runv_permissions
+#
+# Pacotes globais + MOTD + /usr/local/bin + /etc/skel: use o módulo tools/
+#   sudo python3 tools/tools.py
+# Lista oficial: tools/manifests/apt_packages.txt
+
+sudo apt update
+sudo apt install -y byobu tmux lynx weechat mutt bsdgames tree less curl wget git

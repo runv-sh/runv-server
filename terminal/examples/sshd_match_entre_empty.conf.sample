@@ -1,0 +1,32 @@
+# Exemplo — --auth-mode empty-password (omissão: keyboard-interactive + PAM)
+# Compatível com OpenSSH do Windows. Validar: sudo sshd -t && sudo systemctl reload ssh
+#
+# Shell em passwd: /bin/sh. Grupo suplementar típico: entre-open (+ PAM pam_succeed_if).
+
+Match User entre
+    AuthenticationMethods keyboard-interactive
+    PasswordAuthentication no
+    KbdInteractiveAuthentication yes
+    PubkeyAuthentication no
+    PermitEmptyPasswords no
+    ForceCommand /usr/bin/python3 /opt/runv/terminal/entre_app.py
+    PermitTTY yes
+    PermitUserRC no
+    X11Forwarding no
+    AllowAgentForwarding no
+    AllowTcpForwarding no
+    PermitTunnel no
+    DisableForwarding yes
+
+# Variante README tilde (password + senha vazia): correr setup com
+#   --empty-password-tilde-password-auth
+# ou substituir o bloco Match por:
+#
+# Match User entre
+#     AuthenticationMethods password
+#     PasswordAuthentication yes
+#     KbdInteractiveAuthentication no
+#     PubkeyAuthentication no
+#     PermitEmptyPasswords yes
+#     ForceCommand /usr/bin/python3 /opt/runv/terminal/entre_app.py
+#     ...

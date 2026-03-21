@@ -1,0 +1,9 @@
+runv.club — alerta de erro (admin)
+
+Ocorreu um erro que requer atenção administrativa.
+
+Resumo: {error_summary}
+Contexto: {context}
+Timestamp: {timestamp}
+
+Verifique logs do serviço e o estado do sistema.

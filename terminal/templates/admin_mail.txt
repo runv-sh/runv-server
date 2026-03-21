@@ -1,0 +1,16 @@
+Novo pedido de entrada (SSH entre)
+
+request_id : {request_id}
+username   : {username}
+email      : {email}
+fingerprint: {fingerprint}
+submitted_at: {submitted_at}
+remote_addr: {remote_addr}
+tty        : {tty}
+
+Chave pública (uma linha):
+{public_key}
+
+---
+Fila: /var/lib/runv/entre-queue/{request_id}.json
+Aprovar com create_runv_user.py (ver terminal/docs/ADMIN.md).

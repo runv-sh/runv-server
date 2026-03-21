@@ -1,0 +1,13 @@
+runv.club — pedido não aprovado
+
+Olá,
+
+O seu pedido de entrada (referência {request_id}) não foi aprovado.
+
+Motivo indicado pela administração (se aplicável):
+{reason}
+
+Para mais esclarecimentos, contacte a administração pelo canal habitual.
+
+Cumprimentos,
+Equipa runv.club

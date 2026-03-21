@@ -1,0 +1,10 @@
+runv.club — pedido aprovado
+
+Olá,
+
+O seu pedido de entrada (referência {request_id}) foi aprovado pela administração.
+
+Os próximos passos ser-lhe-ão comunicados por email ou pelo processo habitual do serviço.
+
+Cumprimentos,
+Equipa runv.club

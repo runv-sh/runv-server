@@ -1,0 +1,12 @@
+runv.club — a sua conta foi criada
+
+Olá {username},
+
+A sua conta no runv.club foi criada.
+
+Email associado (metadado administrativo): {email}
+
+Instruções de acesso (SSH, palavra-passe inicial, etc.) seguem a política do servidor — consulte a documentação ou a mensagem que lhe foi enviada separadamente.
+
+Cumprimentos,
+Equipa runv.club

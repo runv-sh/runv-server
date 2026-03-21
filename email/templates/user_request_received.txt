@@ -1,0 +1,13 @@
+runv.club — pedido recebido
+
+Olá,
+
+O seu pedido de entrada foi registado com sucesso.
+
+Referência: {request_id}
+Nome de utilizador pedido: {username}
+
+A equipa irá analisar o pedido. Não é necessário reenviar a mesma informação várias vezes.
+
+Cumprimentos,
+{default_from}

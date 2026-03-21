@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sua página no runv.club</title>
+  <style>
+    :root { color-scheme: dark light; }
+    body {
+      font-family: system-ui, "Segoe UI", Roboto, Ubuntu, sans-serif;
+      line-height: 1.55;
+      max-width: 40rem;
+      margin: 2rem auto;
+      padding: 0 1.25rem;
+      color: #1a1a1a;
+      background: #f4f2ee;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { color: #e8e4dc; background: #121018; }
+      a { color: #7fd4a0; }
+    }
+    h1 { font-size: 1.45rem; margin-bottom: 0.5rem; }
+    .path, .url { font-family: ui-monospace, monospace; font-size: 0.92rem; }
+    a { color: #0d6b3a; }
+  </style>
+</head>
+<body>
+  <h1>Bem-vindo(a) ao runv.club</h1>
+  <p>
+    Esta é a sua página pessoal estática. Você pode editá-la direto no servidor.
+  </p>
+  <p>
+    <strong>Arquivo para editar:</strong> <span class="path">~/public_html/index.html</span>
+  </p>
+  <p>
+    Depois que sua conta estiver publicada na web, a URL seguirá o padrão
+    <span class="url">https://runv.club/~seu_usuario/</span>
+    (troque <em>seu_usuario</em> pelo seu nome de login).
+  </p>
+  <p>
+    Use HTML estático; evite colocar segredos aqui — tudo em <span class="path">public_html</span>
+    pode ser acessível publicamente.
+  </p>
+  <p>
+    No shell, digite <span class="path">runv-help</span> para dicas e comandos úteis.
+  </p>
+</body>
+</html>

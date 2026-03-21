@@ -1,0 +1,19 @@
+# Exemplo — modo shared-password (omissão do setup_entre.py)
+# Validar: sudo sshd -t && sudo systemctl reload ssh
+#
+# Shell do utilizador «entre» em passwd: /bin/sh (não use nologin com ForceCommand).
+
+Match User entre
+    AuthenticationMethods password
+    PasswordAuthentication yes
+    KbdInteractiveAuthentication no
+    PubkeyAuthentication no
+    PermitEmptyPasswords no
+    ForceCommand /usr/bin/python3 /opt/runv/terminal/entre_app.py
+    PermitTTY yes
+    PermitUserRC no
+    X11Forwarding no
+    AllowAgentForwarding no
+    AllowTcpForwarding no
+    PermitTunnel no
+    DisableForwarding yes

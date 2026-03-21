@@ -1,0 +1,16 @@
+# systemd path unit — dispara o serviço quando a fila é alterada.
+# Instalação (exemplo):
+#   sudo cp terminal/systemd/runv-entre-notify.path /etc/systemd/system/
+#   sudo cp terminal/systemd/runv-entre-notify.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now runv-entre-notify.path
+
+[Unit]
+Description=Observar fila de pedidos runv (entre-queue)
+
+[Path]
+PathModified=/var/lib/runv/entre-queue
+Unit=runv-entre-notify.service
+
+[Install]
+WantedBy=multi-user.target

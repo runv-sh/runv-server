@@ -1,0 +1,7 @@
+# Aliases msmtp — formato: nome_local: endereco@destino
+# Isto NÃO é Sendmail: o comando newaliases não aplica aqui.
+# Edite /etc/msmtp_aliases no servidor e mantenha coerente com msmtprc (directiva aliases).
+
+root: admin@example.com
+cron: admin@example.com
+default: admin@example.com

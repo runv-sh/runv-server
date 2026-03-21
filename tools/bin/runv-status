@@ -1,0 +1,51 @@
+#!/bin/sh
+# runv.club — status rápido do servidor
+#
+# Usar printf %b para argumentos com sequências ANSI (\033).
+
+R='\033[0m'
+G='\033[0;32m'
+C='\033[0;36m'
+Y='\033[0;33m'
+B='\033[1m'
+
+printf '%b\n' "${G}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${R}"
+printf '%b  %brunv.club — status do servidor%b\n' "${B}" "${G}" "${R}"
+printf '%b\n' "${G}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${R}"
+printf '\n'
+
+if command -v hostname >/dev/null 2>&1; then
+  printf '%bHostname:%b %s\n' "${B}" "${R}" "$(hostname)"
+else
+  printf '%bHostname:%b (indisponível)\n' "${B}" "${R}"
+fi
+
+if command -v uptime >/dev/null 2>&1; then
+  printf '%bUptime / carga:%b %s\n' "${B}" "${R}" "$(uptime 2>/dev/null || true)"
+fi
+
+if command -v free >/dev/null 2>&1; then
+  printf '\n%bMemória:%b\n' "${B}" "${R}"
+  free -h 2>/dev/null || free 2>/dev/null || printf '  (indisponível)\n'
+fi
+
+if command -v df >/dev/null 2>&1; then
+  printf '\n%bDisco (raiz e /home se existir):%b\n' "${B}" "${R}"
+  df -h / 2>/dev/null || true
+  if [ -d /home ]; then
+    df -h /home 2>/dev/null || true
+  fi
+fi
+
+if command -v who >/dev/null 2>&1; then
+  printf '\n%bUsuários com sessão (who):%b\n' "${B}" "${R}"
+  wcnt=$(who 2>/dev/null | wc -l | tr -d ' ')
+  if [ "${wcnt:-0}" -gt 0 ] 2>/dev/null; then
+    who 2>/dev/null
+  else
+    printf '  (nenhuma sessão listada ou comando indisponível)\n'
+  fi
+fi
+
+printf '\n%bAtalhos:%b runv-help  ·  runv-links  ·  runv-status\n' "${Y}" "${R}"
+printf '%b\n' "${G}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${R}"

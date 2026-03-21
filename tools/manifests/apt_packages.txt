@@ -1,0 +1,15 @@
+# Pacotes globais (apt) — runv.club / tools
+# Um pacote por linha; linhas vazias e # são ignoradas.
+# Instalados para todo o sistema; não passam pelo /etc/skel.
+
+byobu
+tmux
+lynx
+weechat
+mutt
+bsdgames
+tree
+less
+curl
+wget
+git

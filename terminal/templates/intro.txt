@@ -1,0 +1,62 @@
+
+  runv.club — pedido de entrada
+  ─────────────────────────────
+
+  Você atravessou uma porta simples.
+
+  Nada de feed infinito. Nada de algoritmo puxando sua manga. Nada de vitrines
+  barulhentas disputando sua atenção.
+
+  Do outro lado, existe apenas uma máquina ligada, algumas pessoas curiosas e a
+  velha ideia de que a internet também pode ser um lugar de estudo, criação e
+  encontro.
+
+%%PAGE%%
+
+  A runv.club nasce desse espírito.
+
+  Ela é uma comunidade brasileira inspirada nos antigos ambientes Unix públicos
+  — os pubnixes, tilde servers e outros cantos da rede onde aprender, publicar
+  e conversar eram partes da mesma experiência.
+
+  Aqui, o terminal não é uma barreira. É só a porta de entrada.
+
+%%PAGE%%
+
+  A proposta é simples: oferecer um espaço para brasileiros que queiram explorar
+  Unix e Linux, criar sua própria página pessoal, estudar, trocar conhecimento,
+  conhecer gente interessante e redescobrir uma internet mais calma, mais humana
+  e mais autoral.
+
+  Talvez você já saiba exatamente o que procura. Talvez esteja só começando.
+  Talvez tenha chegado por curiosidade.
+
+  Tudo bem.
+
+  Você não precisa chegar pronto.
+
+%%PAGE%%
+
+  Nesta etapa, ainda não vamos criar sua conta imediatamente. Primeiro, vamos
+  registrar seu interesse e coletar algumas informações básicas para que a
+  entrada na comunidade aconteça com cuidado.
+
+  Daqui a pouco, vamos pedir apenas três coisas:
+
+    o nome de usuário que você gostaria de usar;
+    seu email para contato;
+    sua chave pública SSH.
+
+%%PAGE%%
+
+  Se tudo estiver certo, seu pedido será registrado e analisado pela
+  administração.
+
+  Respire fundo. Leia com calma. E, por favor, cole apenas sua chave pública
+  — nunca a privada.
+
+  Se você veio para aprender, explorar, construir e conviver, já chegou ao
+  lugar certo.
+
+  Bem-vindo à runv.club.
+

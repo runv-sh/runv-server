@@ -1,0 +1,12 @@
+runv.club — aviso de quota
+
+Olá {username},
+
+O seu uso de disco aproxima-se ou excedeu o limite configurado.
+
+Detalhes: {quota_info}
+
+Liberte espaço ou contacte a administração se precisar de assistência.
+
+Cumprimentos,
+Equipa runv.club

@@ -1,0 +1,26 @@
+#!/bin/sh
+# runv.club — links úteis
+#
+# Usar printf %b para argumentos com sequências ANSI (\033).
+
+R='\033[0m'
+G='\033[0;32m'
+C='\033[0;36m'
+B='\033[1m'
+
+printf '%b\n' "${G}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${R}"
+printf '%b  %bLinks úteis — runv.club%b\n' "${B}" "${G}" "${R}"
+printf '%b\n' "${G}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${R}"
+printf '\n'
+
+printf '%b  Comunidade e site%b\n' "${B}" "${R}"
+printf '    %b•%b https://runv.club\n' "${C}" "${R}"
+printf '\n'
+
+printf '%b  Instituição mantenedora%b\n' "${B}" "${R}"
+printf '    %b•%b https://portalidea.com.br\n' "${C}" "${R}"
+printf '\n'
+
+printf '%b  (Lista pode ser ampliada no futuro pelos administradores.)%b\n' "${G}" "${R}"
+printf '\n'
+printf '%b\n' "${G}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${R}"

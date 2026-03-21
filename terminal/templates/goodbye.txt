@@ -1,0 +1,20 @@
+
+  Pedido registrado
+  ─────────────────
+
+  Seu pedido foi recebido.
+
+  Agora ele seguirá para análise manual pela administração da runv.club.
+
+  Se tudo estiver certo, você receberá uma resposta por email com os próximos
+  passos.
+
+  Não é preciso reenviar o pedido várias vezes.
+
+  Referência interna do pedido: {request_id}
+
+  Obrigado por chegar até aqui — e por ajudar a manter vivo esse espírito de
+  estudo, curiosidade e comunidade.
+
+  Até breve.
+

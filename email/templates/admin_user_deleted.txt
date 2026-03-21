@@ -1,0 +1,7 @@
+runv.club — conta de utilizador removida
+
+Uma conta foi removida do sistema.
+
+Utilizador: {username}
+Operador/script: {operator_info}
+Timestamp: {timestamp}

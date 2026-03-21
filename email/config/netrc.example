@@ -1,0 +1,6 @@
+# Exemplo de /root/.netrc — permissões obrigatórias: chmod 600, dono root.
+# A linha "machine" deve coincidir com o hostname SMTP usado no msmtprc (campo host).
+
+machine smtp.example.com
+login usuario_smtp@example.com
+password COLOQUE_A_SENHA_AQUI

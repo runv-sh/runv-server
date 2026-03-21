@@ -1,0 +1,13 @@
+  Confirmar pedido
+  ────────────────
+
+  Revisa os dados antes de enviar.
+
+    Nome desejado     : {username}
+    Email             : {email}
+    Fingerprint SHA256: {fingerprint}
+    (relógio local do servidor ao confirmar): {submitted_preview}
+
+  Depois de confirmar, o pedido fica na fila para análise manual. Não há
+  criação imediata de conta.
+

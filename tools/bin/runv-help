@@ -1,0 +1,67 @@
+#!/bin/sh
+# runv.club — ajuda rápida para usuários do servidor
+#
+# Usar printf %b (não %s) para argumentos que contêm sequências ANSI (\033).
+
+R='\033[0m'
+G='\033[0;32m'
+C='\033[0;36m'
+Y='\033[0;33m'
+B='\033[1m'
+
+printf '%b\n' "${G}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${R}"
+printf '%b  %brunv.club%b — ajuda rápida\n' "${B}" "${G}" "${R}"
+printf '%b\n' "${G}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${R}"
+printf '\n'
+
+printf '%bO runv.club é um pubnix brasileiro:%b espaço shell Unix compartilhado,\n' "${C}" "${R}"
+printf '%bpágina pessoal em %b~/public_html/%b e comunidade em torno de Linux e software livre.\n\n' "${C}" "${G}" "${R}"
+
+printf '%b%bComandos runv.club%b\n' "${Y}" "${B}" "${R}"
+printf '  %brunv-help%b      Esta mensagem (ajuda e boas práticas).\n' "${G}" "${R}"
+printf '  %brunv-links%b     Links do projeto, site e parceiros.\n' "${G}" "${R}"
+printf '  %brunv-status%b    Hostname, uptime, memória, disco, quem está online.\n' "${G}" "${R}"
+printf '\n'
+
+printf '%b%bFerramentas instaladas no servidor%b (exemplos)\n' "${Y}" "${B}" "${R}"
+printf '  %blynx%b           Navegador web no terminal.\n' "${G}" "${R}"
+printf '  %bcurl%b / %bwget%b   Transferir ficheiros e páginas pela linha de comando.\n' "${G}" "${R}" "${G}" "${R}"
+printf '  %bgit%b            Controlo de versão.\n' "${G}" "${R}"
+printf '  %bless%b           Paginar ficheiros longos (ex.: less README.md).\n' "${G}" "${R}"
+printf '  %btmux%b / %bbyobu%b   Multiplexadores de terminal (várias sessões).\n' "${G}" "${R}" "${G}" "${R}"
+printf '  %bmutt%b           E-mail no terminal.\n' "${G}" "${R}"
+printf '  %bweechat%b        IRC no terminal.\n' "${G}" "${R}"
+printf '  %btree%b           Árvore de diretórios.\n' "${G}" "${R}"
+printf '  %badventure%b      Jogo de aventura (bsdgames).\n' "${G}" "${R}"
+printf '\n'
+
+printf '%b%bSite pessoal (%b~/public_html/%b)%b\n' "${Y}" "${B}" "${C}" "${G}" "${R}"
+printf '  • Coloque ficheiros %bHTML/CSS estáticos%b; o endereço público depende da configuração\n' "${C}" "${R}"
+printf '    do servidor (pergunte aos administradores se não souber o URL).\n'
+printf '  • %bchmod 755%b a sua home e %b~/public_html%b; %bchmod 644%b nos ficheiros do site.\n' "${C}" "${R}" "${C}" "${R}" "${C}" "${R}"
+printf '  • Tudo dentro de %bpublic_html%b é %bvisível na web%b — não coloque chaves nem dados privados.\n' "${G}" "${R}" "${B}" "${R}"
+printf '\n'
+
+printf '%b%bBoas práticas (máquina partilhada)%b\n' "${Y}" "${B}" "${R}"
+printf '  • Use CPU, RAM e disco com moderação; evite processos pesados em background contínuo.\n'
+printf '  • Não execute miners, scans agressivos nem actividades que prejudiquem outros utilizadores.\n'
+printf '  • %bQuota e políticas%b podem ser aplicadas pelos administradores.\n' "${C}" "${R}"
+printf '\n'
+
+printf '%b%bSegurança%b\n' "${Y}" "${B}" "${R}"
+printf '  • Leia %b~/README.md%b após o primeiro login.\n' "${C}" "${R}"
+printf '  • Chaves SSH: só a %bchave pública%b vai para pedidos de conta; nunca partilhe a privada.\n' "${C}" "${R}"
+printf '  • Não reutilize senhas importantes; nunca envie credenciais por IRC ou e-mail em claro.\n'
+printf '\n'
+
+printf '%b%bDicas para começar%b\n' "${Y}" "${B}" "${R}"
+printf '  • Edite o site em %b~/public_html/index.html%b para começar.\n' "${C}" "${R}"
+printf '\n'
+
+printf '%b%bAjuda e mais informações%b\n' "${Y}" "${B}" "${R}"
+printf '  • %brunv-links%b — URLs úteis.\n' "${G}" "${R}"
+printf '  • Site: %bhttps://runv.club%b\n' "${C}" "${R}"
+printf '  • Dúvidas ou problemas: contacte os %badministradores%b do runv.club (canal ou e-mail indicados no site).\n' "${C}" "${R}"
+printf '\n'
+
+printf '%b\n' "${G}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${R}"

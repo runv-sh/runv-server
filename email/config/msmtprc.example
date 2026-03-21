@@ -1,0 +1,20 @@
+# Exemplo de /etc/msmtprc (runv.club — msmtp, sem MTA local).
+# Gerado normalmente por email/configure_msmtp.py — não copie credenciais para exemplos.
+
+defaults
+auth           on
+tls            on
+tls_starttls   on
+tls_trust_file /etc/ssl/certs/ca-certificates.crt
+logfile        /var/log/msmtp.log
+
+account runv
+host SMTP_HOST
+port 587
+from DEFAULT_FROM_ADDRESS
+user SMTP_USER
+# Palavra-passe vem de /root/.netrc (máquina = mesmo valor que host)
+passwordeval /usr/local/lib/runv-email/netrc_password.py SMTP_HOST
+aliases /etc/msmtp_aliases
+
+account default : runv
