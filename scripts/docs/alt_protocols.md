@@ -8,16 +8,21 @@ Script em **`scripts/admin/setup_alt_protocols.py`**: instala e configura **goph
 |-----------|---------------|------------------|------------|
 | **HTTP** (já existente) | `~/public_html/` | `index.html` | `http://runv.club/~user/` |
 | **Gopher** | `~/public_gopher/` | `gophermap` | `gopher://runv.club/1/~user` |
-| **Gemini** | `~/public_gemini/` | `index.gmi` | `gemini://runv.club/~user/` |
+| **Gemini** | `~/public_gemini/` | `index.gmi` | `gemini://runv.club/~/user/` (canónico Molly); `gemini://runv.club/~user/` (redirect) |
 
 **Gemini (molly-brown):** `DocBase = /var/gemini`, `HomeDocBase = users`, symlinks **`/var/gemini/users/<user>` → `~/public_gemini`**.
 
+### Gopher vs Gemini: formato do endereço
+
+- **Gopher (gophernicus):** selectors **`~username/…`** (tilde **colado** ao nome), alinhado com URLs como **`gopher://runv.club/1/~user`**. Não há o mesmo «split» de path que no Molly.
+- **Gemini (Molly Brown):** o servidor resolve caps em **`/~/username/…`**. URLs estilo Apache **`/~username/…`** são aceites graças a **`[TempRedirects]`** no `.conf` gerado pelo script (**v0.09+**). Pode usar indistintamente **`gemini://runv.club/~/user/`** (canónico) ou **`gemini://runv.club/~user/`** (compatível).
+
 ## Travessia da home (`755` na política runv)
 
-Serviços que leem `~/public_html`, `~/public_gopher` e `~/public_gemini` (Apache, gophernicus, molly-brown) correndo como utilizador do sistema (ex. `www-data`) precisam de **execução para «others»** (`o+x`, mínimo) em **cada** componente do caminho até à pasta pública. Uma home em **`700`** impede essa travessia: o Gemini pode responder **«Not found»** mesmo com `index.gmi` presente.
+Apache (`mod_userdir`), **gophernicus** e **molly-brown** precisam de **execução para «others»** (`o+x`, mínimo) em **cada** componente do caminho até a pasta pública (`~/public_html`, `~/public_gopher`, `~/public_gemini`). O utilizador de runtime **não é o mesmo** em todos: no Debian o Molly costuma correr como **`www-data`**; o **gophernicus** usa o **`User=`** do unit (tipicamente `gophernicus`) — veja `/lib/systemd/system/gophernicus@.service`. Uma home em **`700`** impede a travessia: **HTTP, Gopher e Gemini** deixam de servir conteúdo (p.ex. Gemini **«Not found»** com `index.gmi` presente).
 
 - **Novas contas:** [`create_runv_user.py`](../admin/create_runv_user.py) aplica **`755`** na home em `apply_runv_permissions`.
-- **Backfill:** a partir do **v0.07**, [`setup_alt_protocols.py`](../admin/setup_alt_protocols.py) repõe a home do utilizador para **`755`** quando o modo actual é outro (com registo em log). O **v0.08** corrige a detecção de caminhos Let's Encrypt quando `live`/`archive` são **symlinks** (o bloco LE deixa de saltar incorrectamente).
+- **Backfill:** a partir do **v0.07**, [`setup_alt_protocols.py`](../admin/setup_alt_protocols.py) repõe a home do utilizador para **`755`** quando o modo actual é outro (com registo em log). O **v0.08** corrige a detecção de caminhos Let's Encrypt quando `live`/`archive` são **symlinks** (o bloco LE deixa de saltar incorrectamente). O **v0.09** adiciona redirects Molly `~user` → `~/user` e validação **`test -r`** do `gophermap` com o utilizador do serviço gophernicus.
 - **Conflito:** [`patches/patch_permissions.py`](../../patches/patch_permissions.py) pode aplicar **`chmod 700`** em cada `/home/<user>` por política de privacidade — isso **quebra** a hospedagem em `public_*` até voltar a alinhar permissões (provisionamento ou `chmod` manual).
 
 ## Let's Encrypt e chave TLS (v0.07+; symlinks v0.08+)
@@ -38,9 +43,14 @@ Se o grupo **`ssl-cert`** não existir no sistema, o script regista **WARNING** 
 
 **`certbot renew`** pode repor modos mais restritos nos directórios e chaves. Recomenda-se um script em **`/etc/letsencrypt/renewal-hooks/deploy/`** que volte a aplicar a mesma política, ou reexecutar `setup_alt_protocols.py` após renovações (com as flags que fizer sentido: p.ex. `--skip-install --skip-gopher --skip-backfill` se só quiser TLS + Gemini).
 
-## Validação final e `www-data` (v0.08+)
+## Validação final (v0.09+)
 
-No fim da execução, além de verificar ficheiros e symlink **como root**, o script tenta **`runuser -u www-data -- test -r`** no `index.gmi` do primeiro utilizador da lista **se** `molly-brown@` estiver `active`. Se falhar, regista **WARNING** (home `755`/`o+x`, `public_gemini` `755`, `index.gmi` `644`, symlink em `/var/gemini/users/<user>`). Em **`--dry-run`**, só regista o comando que seria executado. Sem o binário **`runuser`** (util-linux), este passo é omitido.
+No fim da execução, além de verificar ficheiros e symlink **como root**:
+
+- Se **`gophernicus.socket`** estiver **`active`**, o script tenta **`runuser -u <User=do_unit> -- test -r`** no **`gophermap`** da primeira conta da lista (o `User=` lê-se de `/lib/systemd/system/gophernicus@.service`; fallback **`gophernicus`**). Falha → **WARNING** (home `755`/`o+x`, `public_gopher` `755`, `gophermap` `644`).
+- Se **`molly-brown@`** estiver **`active`**, tenta **`runuser -u www-data -- test -r`** no **`index.gmi`** da amostra. Falha → **WARNING** (`public_gemini` `755`, `index.gmi` `644`, symlink `/var/gemini/users/<user>`).
+
+Em **`--dry-run`**, só regista os comandos. Sem **`runuser`** (util-linux), estes passos são omitidos.
 
 ## Utilizadores antigos vs novos
 
@@ -101,7 +111,7 @@ Raro se o `.conf` aponta para `/var/lib/molly-brown/` e não há override que de
 - **Estado e porta:** `sudo systemctl status molly-brown@runv.club.service --no-pager` e `sudo ss -tlnp | grep 1965` (deve haver um processo a escutar em **1965/tcp**).
 - **Permissões TLS (frequente):** o Molly corre como utilizador não-root; se `privkey.pem` for só `root:root` `0600`, o arranque falha. Verifique `sudo namei -l /etc/letsencrypt/live/runv.club/privkey.pem` e compare com o utilizador do unit (`systemctl cat molly-brown@runv.club.service`). Soluções típicas: grupo `ssl-cert`, ACL, ou certificados num path legível pelo utilizador do serviço (mantendo segurança).
 - **Teste local:** `openssl s_client -connect 127.0.0.1:1965 -servername runv.club </dev/null 2>/dev/null | head -20`
-- **Cliente (Lagrange, etc.):** teste `gemini://runv.club/~user/` **depois** de `systemctl is-active molly-brown@runv.club.service` devolver `active`.
+- **Cliente (Lagrange, etc.):** teste `gemini://runv.club/~/user/` ou `gemini://runv.club/~user/` **depois** de `systemctl is-active molly-brown@runv.club.service` devolver `active`.
 
 ## Execução (root)
 
@@ -119,7 +129,7 @@ sudo python3 scripts/admin/setup_alt_protocols.py --verbose
 |------|--------|
 | `--dry-run` | Simula; não grava (validação de root ignorada em alguns passos só se documentado). |
 | `--verbose` | Log detalhado. |
-| `--force` | Sobrescreve configs de sistema (com backup com timestamp) e ficheiros modelo no backfill (exceto **`~/public_gemini/index.gmi`** se já existir). Necessário para **regravar** `/etc/molly-brown/runv.club.conf` e remover o drop-in obsoleto **`50-runv-logs.conf`** (v0.05) ao migrar logs para `/var/lib/molly-brown/`. |
+| `--force` | Sobrescreve configs de sistema (com backup com timestamp) e ficheiros modelo no backfill (exceto **`~/public_gemini/index.gmi`** se já existir). Necessário para **regravar** `/etc/molly-brown/runv.club.conf` (incl. **`[TempRedirects]`** v0.09+) e remover o drop-in obsoleto **`50-runv-logs.conf`** (v0.05) ao migrar logs para `/var/lib/molly-brown/`. |
 | `--skip-install` | Não corre `apt-get`. |
 | `--skip-gopher` / `--skip-gemini` | Ignora pacote, config e serviço desse protocolo. |
 | `--skip-firewall` | Não altera UFW. |
@@ -156,6 +166,6 @@ Depois aplicam-se as mesmas exclusões que em **`patches/patch_irc.py`** (`IRC_P
 6. Verificar `/etc/skel/public_gopher` e `public_gemini` após `tools.py`
 7. Criar utilizador de teste com `create_runv_user.py`
 8. `ls -la /home/teste/public_gopher/gophermap /home/teste/public_gemini/index.gmi` e `ls -la /var/gemini/users/teste`
-9. Cliente Gopher/Gemini: `gopher://runv.club/1/~teste` e `gemini://runv.club/~teste/`
+9. Cliente Gopher/Gemini: `gopher://runv.club/1/~teste` e `gemini://runv.club/~/teste/` (ou `gemini://runv.club/~teste/` com redirect)
 
 Versão do script: ver `python3 scripts/admin/setup_alt_protocols.py --version`.

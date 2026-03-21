@@ -7,7 +7,7 @@ Infraestrutura Gopher (gophernicus) e Gemini (molly-brown) para runv.club.
 
 Idempotente, dry-run, subprocess sem shell. Executar como root no Debian.
 
-Versão 0.08 — runv.club
+Versão 0.09 — runv.club
 """
 
 from __future__ import annotations
@@ -20,7 +20,6 @@ import shutil
 import os
 import pwd
 import re
-import shutil
 import stat
 import subprocess
 import sys
@@ -33,7 +32,7 @@ from typing import Any, Final
 # Constantes
 # ---------------------------------------------------------------------------
 
-VERSION: Final[str] = "0.08"
+VERSION: Final[str] = "0.09"
 
 LETSENCRYPT_LIVE: Final[Path] = Path("/etc/letsencrypt/live")
 LETSENCRYPT_ARCHIVE: Final[Path] = Path("/etc/letsencrypt/archive")
@@ -74,7 +73,7 @@ iEdita este ficheiro em ~/public_gopher/gophermap.	fake	NULL	0
 
 DEFAULT_USER_INDEX_GMI: Final[str] = """# ~{username} — runv.club (Gemini)
 
-Bem-vindo ao teu capsule em `gemini://runv.club/~{username}/`.
+Bem-vindo ao teu capsule em `gemini://runv.club/~/{username}/` (URL canónica Molly). O endereço `gemini://runv.club/~{username}/` também funciona (redirect no servidor).
 
 Edita este ficheiro em `~/public_gemini/index.gmi`. Mantém pastas **755** e ficheiros **644** para o servidor ler o conteúdo.
 
@@ -150,6 +149,28 @@ def infer_gopher_env_key(service_path: Path) -> str:
 
 def default_gopher_options(hostname: str) -> str:
     return f'-h {hostname} -r {GOPHER_ROOT} -u public_gopher -o UTF-8'
+
+
+def infer_gophernicus_runtime_user(log: logging.Logger) -> str:
+    """Lê User= do unit gophernicus@.service; fallback ``gophernicus``."""
+    path = GOPHER_SYSTEMD_SERVICE
+    if not path.is_file():
+        log.debug("unit gophernicus inexistente (%s) — fallback User=gophernicus", path)
+        return "gophernicus"
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError as e:
+        log.debug("ler %s: %s — fallback User=gophernicus", path, e)
+        return "gophernicus"
+    m = re.search(r"^User=(\S+)", text, re.MULTILINE)
+    if not m:
+        log.debug("User= não encontrado em %s — fallback gophernicus", path)
+        return "gophernicus"
+    u = m.group(1)
+    if u.startswith("%") or "${" in u:
+        log.debug("User= dinâmico (%s) em %s — fallback gophernicus", u, path)
+        return "gophernicus"
+    return u
 
 
 def write_gophernicus_default(
@@ -271,6 +292,12 @@ AccessLog = "{access_log.as_posix()}"
 ErrorLog = "{error_log.as_posix()}"
 GeminiExt = "gmi"
 ReadMollyFiles = true
+
+# Molly Brown resolve espaços de utilizador em paths /~/user/… (HomeDocBase).
+# URLs estilo Apache /~user/… redireccionam sem tocar em ficheiros no disco.
+[TempRedirects]
+"^/~([^/]+)(/.+)$" = "/~/$1$2"
+"^/~([^/]+)/?$" = "/~/$1/"
 """
 
 
@@ -655,24 +682,35 @@ def ufw_maybe_allow(
         log.info("UFW: permitido %s/tcp (%s)", port, label)
 
 
-def _www_data_can_read(path: Path, *, dry_run: bool, log: logging.Logger) -> bool | None:
-    """None = skip (sem runuser), True/False = resultado de test -r como www-data."""
+def _runuser_can_read(
+    path: Path,
+    run_as: str,
+    *,
+    dry_run: bool,
+    log: logging.Logger,
+) -> bool | None:
+    """None = skip (sem runuser), True/False = resultado de ``test -r`` como *run_as*."""
     if dry_run:
         if shutil.which("runuser"):
-            log.info("[dry-run] runuser -u www-data -- test -r %s", path)
+            log.info("[dry-run] runuser -u %s -- test -r %s", run_as, path)
         else:
-            log.info("[dry-run] (runuser ausente) test -r como www-data em %s", path)
+            log.info("[dry-run] (runuser ausente) test -r como %s em %s", run_as, path)
         return None
     if not shutil.which("runuser"):
-        log.debug("validação www-data: runuser não encontrado — salto test -r")
+        log.debug("validação runuser: binário não encontrado — salto test -r")
         return None
     r = subprocess.run(
-        ["runuser", "-u", "www-data", "--", "test", "-r", str(path)],
+        ["runuser", "-u", run_as, "--", "test", "-r", str(path)],
         capture_output=True,
         text=True,
         timeout=30,
     )
     return r.returncode == 0
+
+
+def _www_data_can_read(path: Path, *, dry_run: bool, log: logging.Logger) -> bool | None:
+    """Compatível com Molly Brown (utilizador típico ``www-data`` no Debian)."""
+    return _runuser_can_read(path, "www-data", dry_run=dry_run, log=log)
 
 
 def validate_final(
@@ -692,7 +730,8 @@ def validate_final(
         text=True,
         timeout=30,
     )
-    log.info("gophernicus.socket: %s", (r.stdout or "").strip() or r.returncode)
+    gopher_state = (r.stdout or "").strip()
+    log.info("gophernicus.socket: %s", gopher_state or r.returncode)
 
     molly_unit = f"molly-brown@{MOLLY_INSTANCE}.service"
     r2 = subprocess.run(
@@ -726,6 +765,25 @@ def validate_final(
             sl = GEMINI_USERS / sample
             ok_sl = sl.is_symlink() and sl.resolve() == (home / "public_gemini").resolve()
             log.info("amostra symlink Gemini: %s", "OK" if ok_sl else "FALTA/INCORRETO")
+            gophermap = home / "public_gopher" / "gophermap"
+            if gopher_state == "active" and gophermap.is_file():
+                guser = infer_gophernicus_runtime_user(log)
+                gcan = _runuser_can_read(gophermap, guser, dry_run=dry_run, log=log)
+                if gcan is False:
+                    log.warning(
+                        "amostra %s: utilizador %s (gophernicus) não consegue ler %s "
+                        "(runuser … test -r falhou). Confirme home 755 (ou o+x), "
+                        "public_gopher 755, gophermap 644.",
+                        sample,
+                        guser,
+                        gophermap,
+                    )
+                elif gcan is True:
+                    log.info(
+                        "amostra %s: gophermap legível pelo utilizador do serviço (%s, test -r): OK",
+                        sample,
+                        guser,
+                    )
             index_gmi = home / "public_gemini" / "index.gmi"
             if molly_state == "active" and index_gmi.is_file():
                 can = _www_data_can_read(index_gmi, dry_run=dry_run, log=log)
