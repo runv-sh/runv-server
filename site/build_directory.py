@@ -112,7 +112,19 @@ def main() -> None:
         return
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(out_json, encoding="utf-8")
-    print(f"Escritos {len(members)} membros em {args.output}", file=sys.stderr)
+    out_abs = args.output.resolve()
+    print(f"Escritos {len(members)} membros em {out_abs}", file=sys.stderr)
+    # O browser faz fetch a data/members.json relativo ao index — tem de ser o mesmo ficheiro
+    # que o HTTP serve (DocumentRoot), não só a cópia em site/public do repositório.
+    norm = str(out_abs).replace("\\", "/")
+    if members and "/var/www/" not in norm:
+        print(
+            "Nota: com membros > 0, confirme que este path é o servido pelo HTTP "
+            "(<DocumentRoot>/data/members.json). Se a landing em produção não mostrar os pontos, "
+            "use -o ex.: /var/www/runv.club/html/data/members.json ou copie o ficheiro para lá "
+            "(ou genlanding.py). Ver site/build_directory.md.",
+            file=sys.stderr,
+        )
 
 
 if __name__ == "__main__":

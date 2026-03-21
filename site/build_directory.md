@@ -104,6 +104,7 @@ A lista aparece na landing; não haverá `homepage_mtime` (o JS deve tolerar cam
 | `Formato inválido: esperada lista JSON` | O ficheiro não é um array JSON no topo |
 | Permissão negada ao gravar `-o` | Corre com `sudo` ou escolhe um `-o` onde o teu utilizador possa escrever |
 | `homepage_mtime` nunca aparece | Falta `--homes-root` ou não existe `~/public_html/index.html` legível para esse user |
+| «Escritos N membros» mas a página não mostra pontos | Gravaste em `site/public/data/` no repo; o **site público** usa o **DocumentRoot** do Apache (ex. `/var/www/runv.club/html/`). Usa `-o /var/www/runv.club/html/data/members.json` ou `sudo cp …` para lá, ou volta a correr `genlanding.py` depois de actualizar `members.json` na árvore que ele copia. |
 
 ## Cron (exemplo)
 
