@@ -6,7 +6,7 @@ O seu uso de disco aproxima-se ou excedeu o limite configurado.
 
 Detalhes: {quota_info}
 
-Liberte espaço ou contacte a administração se precisar de assistência.
+Libere espaço ou entre em contato com a administração se precisar de ajuda.
 
 Cumprimentos,
-Equipa runv.club
+Equipe runv.club

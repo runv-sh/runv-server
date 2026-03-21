@@ -4,7 +4,7 @@ Olá,
 
 A conta associada ao utilizador {username} foi removida do runv.club.
 
-Se não esperava esta mensagem, contacte a administração.
+Se você não esperava esta mensagem, entre em contato com a administração.
 
 Cumprimentos,
-Equipa runv.club
+Equipe runv.club

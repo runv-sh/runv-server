@@ -310,6 +310,58 @@ def log_session(logger: logging.Logger, msg: str, *, level: int = logging.INFO) 
     logger.log(level, msg)
 
 
+RUNV_EMAIL_STATE_PATH: Final[Path] = Path("/etc/runv-email.json")
+
+
+def resolve_entre_notify_recipients(
+    cfg: dict[str, Any],
+    *,
+    logger: logging.Logger | None = None,
+) -> tuple[str, str]:
+    """
+    Destinatário e remetente para o email de novo pedido (fluxo entre).
+
+    Ordem: ``admin_email`` / ``mail_from`` no TOML; se ``admin_email`` vazio,
+    usa ``admin_email`` de :file:`/etc/runv-email.json`. Se o remetente efectivo
+    ainda for o default ``entre@runv.club`` e o JSON tiver ``default_from``,
+    alinha o *From* ao domínio Mailgun.
+    """
+    admin = str(cfg.get("admin_email", "")).strip()
+    mail_raw = str(cfg.get("mail_from", DEFAULT_MAIL_FROM)).strip()
+    mail_from = mail_raw or DEFAULT_MAIL_FROM
+
+    data: dict[str, Any] | None = None
+    if RUNV_EMAIL_STATE_PATH.is_file():
+        try:
+            raw = json.loads(RUNV_EMAIL_STATE_PATH.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                data = raw
+        except (OSError, json.JSONDecodeError):
+            data = None
+
+    if not admin and data is not None:
+        fe = str(data.get("admin_email", "")).strip()
+        if fe:
+            admin = fe
+            if logger is not None:
+                logger.info(
+                    "notificação: admin_email obtido de %s (config.toml vazio)",
+                    RUNV_EMAIL_STATE_PATH,
+                )
+
+    if data is not None:
+        df = str(data.get("default_from", "")).strip()
+        if df and mail_from == DEFAULT_MAIL_FROM:
+            mail_from = df
+            if logger is not None:
+                logger.info(
+                    "notificação: mail_from alinhado a default_from em %s",
+                    RUNV_EMAIL_STATE_PATH,
+                )
+
+    return admin, mail_from
+
+
 def _try_runv_mailgun_notify(
     *,
     admin_email: str,
@@ -322,11 +374,10 @@ def _try_runv_mailgun_notify(
     Se ``/etc/runv-email.json`` indicar Mailgun, envia via ``lib.mailer.send_mail``.
     Requer ``RUNV_EMAIL_ROOT`` ou ``email_package_root`` no JSON apontando à pasta ``email/``.
     """
-    state_path = Path("/etc/runv-email.json")
-    if not state_path.is_file():
+    if not RUNV_EMAIL_STATE_PATH.is_file():
         return False
     try:
-        data = json.loads(state_path.read_text(encoding="utf-8"))
+        data = json.loads(RUNV_EMAIL_STATE_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return False
     be = str(data.get("backend", "")).lower()
@@ -343,7 +394,7 @@ def _try_runv_mailgun_notify(
     if not root:
         logger.warning(
             "notificação Mailgun: defina email_package_root em %s ou a variável RUNV_EMAIL_ROOT.",
-            state_path,
+            RUNV_EMAIL_STATE_PATH,
         )
         return False
     email_root = str(Path(root).resolve())

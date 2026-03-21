@@ -50,7 +50,7 @@ Com **Mailgun**, `sendmail` é ignorado para o transporte (usa API). Com **legad
 | Pedido aprovado (manual) | `user_approved` | Processo admin (manual / futuro). |
 | Pedido rejeitado | `user_rejected` (+ `reason`) | Idem. |
 | Conta criada | `admin_user_created` → admin; `user_account_created` → utilizador | [`scripts/admin/create_runv_user.py`](../../scripts/admin/create_runv_user.py): `--no-welcome-email` / `--no-admin-create-email` para desactivar cada ramo. |
-| Conta removida | `admin_user_deleted`, `user_account_removed` | Templates em `email/templates/`; [`scripts/admin/del-user.py`](../../scripts/admin/del-user.py) **ainda não** envia estes emails (processo manual ou extensão futura). |
+| Conta removida / banimento | `user_account_community_deactivated` → utilizador | [`scripts/admin/del-user.py`](../../scripts/admin/del-user.py): envia por omissão se existir email em `users.json` e `/etc/runv-email.json` válido; `--no-ban-notify-email` desactiva. Templates `admin_user_deleted` / `user_account_removed` existem mas **não** estão ligados a este script. |
 | Erro operacional | `admin_error` | Scripts admin / cron. |
 | Quota | `user_quota_warning` | Monitorização / quotas. |
 | Teste | `system_test` | `configure_mailgun.py --test` (API) ou legado. |
@@ -79,6 +79,8 @@ O **`create_runv_user.py`** envia por omissão:
 Requer `/etc/runv-email.json` (com `default_from`, `admin_email` para o ramo admin), segredos Mailgun se aplicável, e pasta `email/` acessível (`email_package_root` ou `RUNV_EMAIL_ROOT`). Para o texto de boas-vindas, `--welcome-ssh-host` ou `RUNV_WELCOME_SSH_HOST` define o hostname SSH sugerido.
 
 Obtenha `admin_email` / `default_from` de `/etc/runv-email.json` — **não** hardcodar.
+
+O **`del-user.py`** envia **`user_account_community_deactivated`** ao endereço no campo `email` do registo em `/var/lib/runv/users.json` (lido **antes** de apagar o registo), com texto de desativação por descumprimento das normas da comunidade. Requer `default_from` e pasta `email/` acessível (`RUNV_EMAIL_ROOT` ou `email_package_root`). Com `--skip-metadata` ainda tenta ler o ficheiro de metadados para obter o email.
 
 ## Checklist de integração
 

@@ -68,8 +68,12 @@ Sugestão mínima: manter o ficheiro no sítio e só alterar `status` para audit
 ## Notificação ao administrador
 
 1. **Obrigatória:** novo ficheiro na fila.
-2. **Log:** `/var/log/runv/entre.log` (ou o caminho em `config.toml`).
-3. **Email:** se `admin_email` estiver definido e `sendmail` funcionar, o `entre_app.py` envia um resumo.
+2. **Log:** `/var/log/runv/entre.log` (ou o caminho em `config.toml`); também um resumo curto (`admin_console_notice`) na mesma sessão.
+3. **Email:** o `entre_app.py` envia o corpo definido em `templates/admin_mail.txt` quando há destinatário válido:
+   - **Prioridade:** `admin_email` em `config.toml`.
+   - **Fallback:** se `admin_email` no TOML estiver vazio, usa `admin_email` de `/etc/runv-email.json` (o mesmo ficheiro do Mailgun / `configure_mailgun.py`).
+   - **Transporte:** [`entre_core.sendmail_notify`](../entre_core.py) tenta **primeiro** a API **Mailgun** via `lib.mailer.send_mail` quando o JSON global indica Mailgun; caso contrário usa `sendmail_path` (por omissão `/usr/sbin/sendmail`). Requisitos Mailgun: `email_package_root` ou variável `RUNV_EMAIL_ROOT` a apontar para a pasta `email/` do repositório.
+   - **Remetente:** se `mail_from` no TOML for o default `entre@runv.club` e o JSON tiver `default_from`, o *From* alinha-se a `default_from` (útil com domínio verificado no Mailgun).
 
 ### Reenviar notificação
 
@@ -80,9 +84,9 @@ Não há botão. Opções:
 
 ### Depuração de email
 
-- Ver log: `grep -i sendmail /var/log/runv/entre.log` ou mensagens `notificação por email`.
-- Testar MTA: `echo test | mail -s test root` (conforme configuração do sistema).
-- Confirmar caminho: `ls -l /usr/sbin/sendmail`.
+- Ver log: `grep -E 'notificação|Mailgun|sendmail' /var/log/runv/entre.log`.
+- **Mailgun:** confirmar `/etc/runv-email.json` + chave em `/etc/runv-email.secrets.json`; IP allowlist no painel Mailgun; `email_package_root` ou `RUNV_EMAIL_ROOT`.
+- **Legado (MTA):** testar `echo test | mail -s test root` (conforme o servidor); `ls -l /usr/sbin/sendmail`.
 
 ## Pedidos inválidos ou spam
 

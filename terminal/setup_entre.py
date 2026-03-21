@@ -39,7 +39,10 @@ Use --skip-sshd / --no-reload / --dry-run conforme necessário.
 
 Executar como root no servidor Debian.
 
-Versão 0.10 — runv.club
+Reexecução: com instalação existente, em TTY pede confirmação antes de actualizar o módulo
+  e (em separado) antes de substituir config.toml; use --yes / --force-config para automatizar.
+
+Versão 0.11 — runv.club
 """
 
 from __future__ import annotations
@@ -56,7 +59,7 @@ import time
 from pathlib import Path
 from typing import Final
 
-VERSION: Final[str] = "0.10"
+VERSION: Final[str] = "0.11"
 ENTRE_USER: Final[str] = "entre"
 INSTALL_ROOT: Final[Path] = Path("/opt/runv/terminal")
 QUEUE_DIR: Final[Path] = Path("/var/lib/runv/entre-queue")
@@ -84,6 +87,20 @@ INSECURE_EMPTY_BANNER: Final[str] = """
 
 def eprint(msg: str) -> None:
     print(msg, file=sys.stderr)
+
+
+def prompt_yes(question: str, *, default: bool) -> bool:
+    """Confirmação em TTY; fora de TTY devolve ``default``."""
+    if not sys.stdin.isatty():
+        return default
+    suffix = "[S/n]" if default else "[s/N]"
+    try:
+        raw = input(f"{question}{suffix} ").strip().lower()
+    except EOFError:
+        return default
+    if not raw:
+        return default
+    return raw in ("s", "sim", "y", "yes")
 
 
 def require_root() -> None:
@@ -711,6 +728,12 @@ def main() -> int:
         description="Setup utilizador entre + /opt/runv/terminal + OpenSSH (automatizado).",
     )
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        help="não perguntar em reinstalação; combinar com --force-config para repor config.toml sem prompt",
+    )
     parser.add_argument("--force-config", action="store_true", help="sobrescrever config.toml com example")
     parser.add_argument("--home", type=Path, default=Path(f"/home/{ENTRE_USER}"))
     parser.add_argument(
@@ -797,6 +820,27 @@ def main() -> int:
         eprint("--empty-password-group não pode ser vazio.")
         return 2
 
+    existing_module = (ir / "entre_app.py").is_file()
+    if (
+        existing_module
+        and not args.skip_copy
+        and not args.dry_run
+        and not args.yes
+    ):
+        if sys.stdin.isatty():
+            if not prompt_yes(
+                f"Já existe instalação em {ir} (ficheiros do módulo serão actualizados; "
+                f"config.toml só se pedir abaixo ou usar --force-config). Continuar? ",
+                default=True,
+            ):
+                print("Operação cancelada.")
+                return 0
+        else:
+            print(
+                f"Aviso: instalação existente em {ir}; a actualizar sem prompt "
+                f"(TTY ausente). Use --dry-run para simular ou --yes para suprimir avisos."
+            )
+
     pam_done = False
     apply_pam_empty = (
         args.auth_mode == AUTH_EMPTY
@@ -805,7 +849,22 @@ def main() -> int:
 
     if not args.skip_copy:
         copy_module(ir, dry_run=args.dry_run)
-        install_config(ir, dry_run=args.dry_run, force=args.force_config)
+        force_cfg = bool(args.force_config)
+        cfg_path = ir / "config.toml"
+        if (
+            cfg_path.is_file()
+            and not force_cfg
+            and not args.dry_run
+            and not args.yes
+            and sys.stdin.isatty()
+        ):
+            if prompt_yes(
+                f"Manter {cfg_path} com as suas definições (recomendado) ou substituir "
+                f"por config.example.toml (perde admin_email e outros valores)? Substituir? ",
+                default=False,
+            ):
+                force_cfg = True
+        install_config(ir, dry_run=args.dry_run, force=force_cfg)
         if not args.dry_run:
             chmod_tree_templates(ir)
 

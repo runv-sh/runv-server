@@ -4,12 +4,12 @@ Olá {username},
 
 A sua conta no runv.club foi criada.
 
-O endereço {email} é o contacto que temos em registo (metadado administrativo).
+O endereço {email} é o contato que temos cadastrado (metadado administrativo).
 
 Acesso por SSH
 ----------------
-Para entrar no servidor, utilize a **chave privada OpenSSH** que corresponde à chave pública que registou.
-Nunca envie nem partilhe essa chave privada com terceiros.
+Para entrar no servidor, use a **chave privada OpenSSH** que corresponde à chave pública que você registrou.
+Nunca envie nem compartilhe essa chave privada com terceiros.
 
 Impressão digital da chave pública no nosso sistema: {fingerprint}
 
@@ -21,4 +21,4 @@ A sua página de membro deverá estar disponível em:
 {member_url}
 
 Cumprimentos,
-Equipa runv.club
+Equipe runv.club

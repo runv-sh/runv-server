@@ -31,7 +31,6 @@ INTRO_PAGE_BREAK: str = "%%PAGE%%"
 
 from entre_core import (
     APP_VERSION,
-    DEFAULT_MAIL_FROM,
     MAX_ONLINE_PRESENCE_LEN,
     ValidationError,
     build_request_payload,
@@ -41,6 +40,7 @@ from entre_core import (
     log_session,
     new_request_id,
     render_template,
+    resolve_entre_notify_recipients,
     resolve_paths,
     save_request_json,
     sendmail_notify,
@@ -466,9 +466,7 @@ def main() -> int:
         except OSError:
             pass
 
-        admin_email = str(cfg.get("admin_email", "")).strip()
-        mail_raw = str(cfg.get("mail_from", DEFAULT_MAIL_FROM)).strip()
-        mail_from = mail_raw or DEFAULT_MAIL_FROM
+        admin_email, mail_from = resolve_entre_notify_recipients(cfg, logger=logger)
         sendmail_path = str(cfg.get("sendmail_path", "/usr/sbin/sendmail")).strip()
         if admin_email:
             try:

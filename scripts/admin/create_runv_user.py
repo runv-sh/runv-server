@@ -15,8 +15,9 @@ Contrato de provisionamento (ordem garantida após validação):
    política. Opcionalmente ``--with-readme`` cria ``~/README.md`` (``--force-readme`` substitui se existir).
 6. **Aplicar permissões** — ``apply_runv_permissions``: home, ``.ssh``, sites públicos e, se existir,
    ``README.md``, antes da **jail** (grupo ``runv-jailed``, Jailkit, bind, fstab), quota e verificação final.
-7. **Jail SSH** — por omissão: ``usermod -aG runv-jailed``, ``/srv/jail/<user>``, ``jk_init``,
-   bind de ``/home/<user>`` em ``/srv/jail/<user>/home/<user>``, fstab. Exclui ``entre`` e
+7. **Jail SSH** — por omissão: ``usermod -aG runv-jailed``, ``/srv/jail/<user>``, ``jk_init``
+   com perfil ``extendedshell`` (se ``bin/`` ainda não existir), bind de ``/home/<user>`` em
+   ``/srv/jail/<user>/home/<user>``, fstab. Exclui ``entre`` e
    ``pmurad-admin``. ``--no-jail`` desliga.
 
 Quota ext4, metadados JSON e logging seguem após estes passos.
@@ -340,19 +341,65 @@ def install_authorized_keys(
 
 # public_html
 def default_index_html(username: str) -> str:
-    """HTML estático mínimo: sem JavaScript, sem CDN, sem conteúdo dinâmico."""
+    """HTML estático: boas-vindas inspiradoras, sem caminhos de sistema nem comandos (só marcação)."""
     return f"""<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>~{username} no runv.club</title>
+  <title>~{username} — runv.club</title>
+  <style>
+    :root {{
+      --bg: #0e0c12;
+      --fg: #e8e4f0;
+      --accent: #c4a1ff;
+      --muted: #9a90b0;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      font-family: Georgia, "Times New Roman", serif;
+      background: radial-gradient(ellipse 120% 80% at 50% 0%, #1a1428 0%, var(--bg) 55%);
+      color: var(--fg);
+      line-height: 1.65;
+    }}
+    main {{
+      max-width: 36rem;
+      text-align: center;
+    }}
+    h1 {{
+      font-weight: 400;
+      font-size: clamp(1.75rem, 4vw, 2.25rem);
+      letter-spacing: 0.02em;
+      margin-bottom: 1.25rem;
+      color: var(--accent);
+    }}
+    p {{
+      margin: 0 0 1.15rem;
+      font-size: 1.05rem;
+    }}
+    .lead {{
+      font-size: 1.15rem;
+      color: #f0ecf8;
+    }}
+    .soft {{
+      color: var(--muted);
+      font-size: 0.98rem;
+    }}
+  </style>
 </head>
 <body>
-  <h1>Olá, ~{username}</h1>
-  <p>Bem-vindo(a) ao runv.club — espaço pubnix com shell e site pessoal.</p>
-  <p>Edite este ficheiro em <code>~/public_html/index.html</code> (ficheiros estáticos apenas).</p>
-  <p>Na shell, use <code>runv-help</code> para instruções e boas práticas do runv.club.</p>
+  <main>
+    <h1>Bem-vindo ao runv.club</h1>
+    <p class="lead">Este é o espaço de <strong>~{username}</strong> na nossa pubnix — um canto da rede para publicar ideias, texto e silêncio com intenção.</p>
+    <p>A web ainda pode ser leve. Aqui vale experimentar, aprender em público e deixar a página crescer com o tempo, sem pressa de plataforma fechada.</p>
+    <p class="soft">Faça deste sítio o que quiser: um blog, um cartão de visitas, um arquivo. O runv.club é o que cada pessoa constrói em conjunto.</p>
+  </main>
 </body>
 </html>
 """
@@ -415,7 +462,7 @@ chmod 644 ~/public_html/index.html
 
 Documentação do projeto (admin): repositório **runv-server**, script `create_runv_user.py`.
 
-— Equipa runv.club
+— Equipe runv.club
 """
 
 
@@ -450,18 +497,20 @@ def prepare_public_html(
 
 
 def default_gophermap_text(username: str) -> str:
-    return f"""iBem-vindo ao teu espaço Gopher no runv.club.	fake	NULL	0
-iEdita este ficheiro em ~/public_gopher/gophermap para personalizares o menu.	fake	NULL	0
-iDocumentação: man gophermap (no pacote gophernicus).	fake	NULL	0
+    return f"""iBem-vindo ao runv.club — espaço Gopher de ~{username}.	fake	NULL	0
+iGopher é linha a linha, menu e curiosidade: um protocolo simples para quem gosta de ir devagar.	fake	NULL	0
+iExplore, publique texto e deixe este buraco crescer ao seu ritmo.	fake	NULL	0
 """
 
 
 def default_gemini_index_gmi(username: str) -> str:
     return f"""# ~{username} — runv.club
 
-Bem-vindo ao runv.club no **Gemini**. Este é o teu espaço — escreve em `.gmi`, cria subpáginas e liga-as como quiseres.
+Bem-vindo ao **Gemini**: um espaço em texto puro, sem rastreio nem barulho de anúncios.
 
-`gemini://{DEFAULT_GEMINI_HOST_PUBLIC}/~{username}/`
+Esta cápsula é sua. Pode contar histórias, listar leituras, partilhar notas — tudo em páginas leves que abrem com calma.
+
+O runv.club acredita em protocolos abertos e em quem ainda gosta de ler no próprio ritmo. Boa estadia.
 """
 
 

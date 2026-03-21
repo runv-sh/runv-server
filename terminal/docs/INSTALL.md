@@ -54,7 +54,9 @@ Opções úteis:
 - **`--skip-pam-empty-password-rule`** — não mexer no PAM (só para quem configura à mão; em geral **não** use em `empty-password` em Debian).
 - `--sshd-test-connection` — argumento `-C` para `sshd -T` (deve bater com o `Match`, ex.: `user=entre,host=runv.club,addr=127.0.0.1`).
 - `--dry-run` — apenas mensagens, sem alterações.
-- `--force-config` — repõe `config.toml` a partir do example.
+- **Reexecução:** se já existir **`/opt/runv/terminal/entre_app.py`**, em terminal interactivo o script pergunta se deseja continuar (actualiza `entre_app.py`, `entre_core.py`, `templates/`, etc.). Responder **não** cancela tudo. Em seguida, se **`config.toml`** já existir, pergunta se deve **substituí-lo** pelo example (omissão: **não**, para não perder `admin_email`).
+- `-y` / `--yes` — não mostrar esses prompts (útil em scripts); **`config.toml`** continua preservado salvo **`--force-config`**.
+- `--force-config` — repõe `config.toml` a partir do example (sem segundo prompt).
 - `--skip-copy` — só directórios/utilizador (sem copiar ficheiros).
 - `--skip-sshd` — não toca no SSH; imprime o bloco `Match User entre` para cópia manual.
 - `--no-reload` — grava o drop-in e corre `sshd -t` + validação `-T`, mas não recarrega o serviço (útil para rever antes).
@@ -63,9 +65,9 @@ Opções úteis:
 
 Edite **`/opt/runv/terminal/config.toml`**:
 
-- **`admin_email`** — endereço para notificações (pode ficar vazio: só fila + log).
-- **`mail_from`** — remetente do email (cabeçalho `From`); por omissão **`entre@runv.club`**. Se a chave existir mas estiver vazia, o programa usa o mesmo endereço.
-- **`sendmail_path`** — normalmente `/usr/sbin/sendmail`.
+- **`admin_email`** — endereço para notificações. Pode ficar vazio no TOML se **`admin_email`** estiver definido em **`/etc/runv-email.json`** (fallback usado pelo `entre_app.py`). Se ambos estiverem vazios, só fila + log.
+- **`mail_from`** — remetente do email (cabeçalho `From`); por omissão **`entre@runv.club`**. Se a chave existir mas estiver vazia, o programa usa o mesmo endereço. Com Mailgun, se o remetente continuar no default e o JSON tiver `default_from`, o código alinha o *From* a `default_from`.
+- **`sendmail_path`** — normalmente `/usr/sbin/sendmail` (ramo legado; com Mailgun configurado, o envio pode ser pela API sem precisar de MTA).
 
 ## 5. Autenticação SSH para o utilizador `entre`
 
@@ -188,17 +190,16 @@ sudo jq . /var/lib/runv/entre-queue/<request_id>.json
 
 ## 9. Teste de notificação por email
 
-1. Preencha **`admin_email`** no `config.toml`.
-2. Garanta que **`sendmail`** aceita mail local ou relay (configuração do MTA fora do âmbito deste módulo).
-3. Opcional: inspeccionar o formato com:
+1. Defina o destinatário: **`admin_email`** no `config.toml` **ou** (se o TOML estiver vazio) **`admin_email`** em **`/etc/runv-email.json`**.
+2. **Mailgun:** estado e segredos correctos; `email_package_root` ou `RUNV_EMAIL_ROOT`; teste com `email/configure_mailgun.py --test` no servidor.
+3. **Legado:** **`sendmail`** e MTA a aceitar relay ou mail local.
+4. Opcional: inspeccionar o formato com:
 
 ```bash
 sh scripts/test_mail.sh
 ```
 
-4. Para um teste real, pode redireccionar para sendmail conforme a política do servidor.
-
-Se o email falhar, o pedido **mantém-se** na fila e o log regista o aviso.
+Se o email falhar, o pedido **mantém-se** na fila e o log regista o aviso (`notificação Mailgun falhou`, `sendmail falhou`, etc.).
 
 ## 10. systemd.path (opcional)
 
@@ -226,5 +227,6 @@ A instalação automática faz **backup** do ficheiro anterior (`runv-entre.conf
 | Log vazio / permissão | Dono de `/var/log/runv/entre.log`. |
 | Chave rejeitada | `ssh-keygen` instalado; chave numa linha; tipo permitido. |
 | Sessão SSH fecha logo | Autenticação de `entre` falhou antes do ForceCommand. |
+| Email do novo pedido não chega | `admin_email` no TOML ou no `/etc/runv-email.json`; Mailgun: allowlist de IP, chave HTTP, `email_package_root` / `RUNV_EMAIL_ROOT`; legado: `sendmail_path` e MTA. Ver log `entre`. |
 
 Documentação de operação: **[ADMIN.md](ADMIN.md)**. Desenho: **[ARCHITECTURE.md](ARCHITECTURE.md)**.

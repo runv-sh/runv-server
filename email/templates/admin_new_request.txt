@@ -6,7 +6,7 @@ ID do pedido: {request_id}
 Data (UTC): {timestamp}
 
 Nome de utilizador desejado: {username}
-Email de contacto: {email}
+E-mail de contato: {email}
 Fingerprint SHA256 da chave: {fingerprint}
 
 ---

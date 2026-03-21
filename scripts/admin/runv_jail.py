@@ -4,6 +4,7 @@ import logging
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 RUNV_JAILED_GROUP = "runv-jailed"
@@ -77,10 +78,96 @@ def append_fstab_bind(real_home: Path, jail_mount_point: Path, log: logging.Logg
     log.info("jail: fstab atualizado (bind %s)", real_home.name)
 
 
-def ensure_jail_layout(username: str, home: Path, log: logging.Logger) -> Path:
-    """Cria /srv/jail/user, jk_init basicshell, mkdir home/user. Devolve caminho do mountpoint do bind."""
-    if shutil.which("jk_init") is None:
-        raise RuntimeError("jk_init não encontrado — instale jailkit e corra tools/tools.py")
+def remove_fstab_bind(real_home: Path, jail_mount_point: Path, log: logging.Logger) -> bool:
+    """Remove a linha de bind correspondente de ``/etc/fstab``. Devolve True se alterou o ficheiro."""
+    if not FSTAB_PATH.is_file():
+        return False
+    src = str(real_home.resolve())
+    dst = str(jail_mount_point.resolve())
+    text = FSTAB_PATH.read_text(encoding="utf-8", errors="replace")
+    lines = text.splitlines(keepends=True)
+    out: list[str] = []
+    removed = False
+    for line in lines:
+        s = line.strip()
+        if not s or s.startswith("#"):
+            out.append(line)
+            continue
+        parts = s.split()
+        if len(parts) >= 2 and parts[0] == src and parts[1] == dst:
+            removed = True
+            log.info("jail: removida linha fstab bind %s -> %s", src, dst)
+            continue
+        out.append(line)
+    if not removed:
+        return False
+    new_body = "".join(out)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix="fstab.",
+        suffix=".tmp",
+        dir=str(FSTAB_PATH.parent),
+    )
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(new_body)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, FSTAB_PATH)
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
+    return True
+
+
+def jail_bind_mountpoint(username: str) -> Path:
+    """Caminho dentro do chroot onde a home real é montada (bind)."""
+    return JAIL_ROOT / username / "home" / username
+
+
+def remove_user_from_jailed_group(username: str, log: logging.Logger) -> None:
+    """Remove o utilizador do grupo ``runv-jailed`` (idempotente)."""
+    r = _run(["getent", "group", RUNV_JAILED_GROUP], log=log)
+    if r.returncode != 0 or not (r.stdout or "").strip():
+        log.debug("jail: grupo %s inexistente — nada a remover", RUNV_JAILED_GROUP)
+        return
+    line = (r.stdout or "").strip()
+    members_field = line.split(":")[-1] if ":" in line else ""
+    members = {m.strip() for m in members_field.split(",") if m.strip()}
+    if username not in members:
+        log.debug("jail: %s já não está em %s", username, RUNV_JAILED_GROUP)
+        return
+    r2 = _run(["gpasswd", "-d", username, RUNV_JAILED_GROUP], log=log)
+    if r2.returncode != 0:
+        err = (r2.stderr or r2.stdout or "").strip()
+        raise RuntimeError(f"gpasswd -d {username} {RUNV_JAILED_GROUP}: {err}")
+    log.info("jail: %s removido do grupo %s", username, RUNV_JAILED_GROUP)
+
+
+def unbind_jail_home(jail_home: Path, log: logging.Logger) -> None:
+    """Desmonta o bind em ``jail_home`` se estiver montado."""
+    if not os.path.ismount(jail_home):
+        log.debug("jail: %s não está montado", jail_home)
+        return
+    r = _run(["umount", str(jail_home.resolve())], log=log)
+    if r.returncode != 0:
+        err = (r.stderr or r.stdout or "").strip()
+        raise RuntimeError(f"umount {jail_home}: {err}")
+    log.info("jail: desmontado bind em %s", jail_home)
+
+
+def ensure_jail_layout(
+    username: str,
+    home: Path,
+    log: logging.Logger,
+    *,
+    jk_profile: str = "extendedshell",
+    no_jk_init: bool = False,
+) -> Path:
+    """
+    Cria ``/srv/jail/user``, opcionalmente ``jk_init`` (perfil Jailkit), ``home/user``.
+    Devolve o caminho do mountpoint do bind.
+    """
     jail_root = JAIL_ROOT / username
     jail_root.mkdir(parents=True, exist_ok=True)
     os.chmod(jail_root, 0o755)
@@ -90,11 +177,19 @@ def ensure_jail_layout(username: str, home: Path, log: logging.Logger) -> Path:
         log.warning("jail: chown root em %s: %s", jail_root, e)
     marker = jail_root / "bin"
     if not marker.exists():
-        r = _run(["jk_init", "-j", str(jail_root), "basicshell"], log=log)
+        if no_jk_init:
+            raise RuntimeError(
+                f"jail: {jail_root} sem layout Jailkit (falta bin/) e --no-jk-init foi pedido — "
+                "crie o jail manualmente ou execute sem --no-jk-init."
+            )
+        if shutil.which("jk_init") is None:
+            raise RuntimeError("jk_init não encontrado — instale jailkit e corra tools/tools.py")
+        prof = (jk_profile or "extendedshell").strip()
+        r = _run(["jk_init", "-j", str(jail_root), prof], log=log)
         if r.returncode != 0:
             err = (r.stderr or r.stdout or "").strip()
-            raise RuntimeError(f"jk_init falhou: {err}")
-        log.info("jail: jk_init basicshell em %s", jail_root)
+            raise RuntimeError(f"jk_init {prof!r} falhou: {err}")
+        log.info("jail: jk_init %s em %s", prof, jail_root)
     else:
         log.debug("jail: %s já tem layout jk (bin presente)", jail_root)
     inner = jail_root / "home" / username
@@ -129,6 +224,8 @@ def ensure_runv_jail_for_user(
     *,
     no_jail: bool,
     log: logging.Logger,
+    jk_profile: str = "extendedshell",
+    no_jk_init: bool = False,
 ) -> None:
     if no_jail:
         log.info("jail: omitido (--no-jail)")
@@ -138,6 +235,12 @@ def ensure_runv_jail_for_user(
         return
     home = home.resolve()
     ensure_user_in_jailed_group(username, log)
-    jail_home = ensure_jail_layout(username, home, log)
+    jail_home = ensure_jail_layout(
+        username,
+        home,
+        log,
+        jk_profile=jk_profile,
+        no_jk_init=no_jk_init,
+    )
     ensure_bind_mount(home, jail_home, log)
     append_fstab_bind(home, jail_home, log)

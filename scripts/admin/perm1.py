@@ -51,6 +51,18 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="processar apenas este utilizador (ainda sujeito a exclusões)",
     )
+    p.add_argument(
+        "--jk-profile",
+        default="extendedshell",
+        metavar="P",
+        choices=("extendedshell", "basicshell"),
+        help="perfil Jailkit para jk_init quando o jail ainda não tem bin/ (default: extendedshell)",
+    )
+    p.add_argument(
+        "--no-jk-init",
+        action="store_true",
+        help="não executar jk_init; exige jail já com bin/ (só grupo + home no jail + bind + fstab)",
+    )
     args = p.parse_args(argv)
 
     log = setup_logging(args.verbose)
@@ -82,10 +94,23 @@ def main(argv: list[str] | None = None) -> int:
             if rj.jail_skip_username(pw.pw_name):
                 log.info("[dry-run] omitir (exclusão)")
             else:
-                log.info("[dry-run] usermod -aG runv-jailed + jail em /srv/jail/%s", pw.pw_name)
+                log.info(
+                    "[dry-run] usermod -aG runv-jailed + jail em /srv/jail/%s "
+                    "(jk_profile=%s, no_jk_init=%s)",
+                    pw.pw_name,
+                    args.jk_profile,
+                    args.no_jk_init,
+                )
             continue
         try:
-            rj.ensure_runv_jail_for_user(pw.pw_name, home, no_jail=False, log=log)
+            rj.ensure_runv_jail_for_user(
+                pw.pw_name,
+                home,
+                no_jail=False,
+                log=log,
+                jk_profile=args.jk_profile,
+                no_jk_init=args.no_jk_init,
+            )
         except Exception as e:
             log.error("falha para %s: %s", pw.pw_name, e)
             return 3

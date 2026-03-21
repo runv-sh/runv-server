@@ -2,7 +2,9 @@ RUNV.CLUB - CONTAS E ACESSO
 
 CADASTRO
 
-O pedido de conta segue o fluxo oficial do runv.club (por exemplo ligação SSH a entre@runv.club com a sua chave pública, conforme a página “Junte-se”); a equipa revê a fila e a conta Unix é criada pela administração — não há registo instantâneo automático na web.
+O pedido de conta segue o fluxo oficial do runv.club (por exemplo ligação SSH a entre@runv.club com a sua chave pública, conforme a página “Junte-se”); a equipe revê a fila e a conta Unix é criada pela administração — não há registo instantâneo automático na web.
+
+A análise é manual. Como somos uma equipe pequena, o prazo para aprovar um pedido pode ir até 21 dias corridos — obrigado pela paciência enquanto revisamos cada caso.
 
 O cadastro deve ser feito com informações verdadeiras e minimamente consistentes.
 Criar conta com identidade falsa para enganar terceiros, burlar punição, cometer fraude ou simular legitimidade é motivo para ação da moderação.
@@ -58,3 +60,5 @@ SUPORTE DE ACESSO
 
 Qualquer problema de login, recuperação, segurança ou suspeita de comprometimento deve ser comunicado para:
 admin@runv.club
+
+Comunidade e ajuda em tempo real: canal #runv em irc.portalidea.com.br ou irc.runv.club (o mesmo canal nos dois servidores). Pode ligar com TLS/SSL ou sem cifra, conforme o seu cliente IRC — ambos os modos são aceites. Use o IRC para dúvidas rápidas e conversa; para assuntos sensíveis à conta, prefira o e-mail acima.

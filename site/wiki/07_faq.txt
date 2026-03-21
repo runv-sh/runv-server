@@ -7,7 +7,7 @@ O runv.club é um sistema de acesso, organização, suporte e uso em ambiente di
 Não.
 
 3. Como entro no sistema?
-Na pubnix runv.club o acesso é por SSH com chave (não por senha SSH). O pedido de conta segue o fluxo oficial (ver página “Junte-se” no site: chave Ed25519 e ligação a entre@runv.club); a equipa cria a conta após revisão.
+Na pubnix runv.club o acesso é por SSH com chave (não por senha SSH). O pedido de conta segue o fluxo oficial (ver página “Junte-se” no site: chave Ed25519 e ligação a entre@runv.club); a equipe cria a conta após revisão manual. O prazo de aprovação pode ir até 21 dias corridos (somos uma equipe pequena).
 
 4. Perdi a minha chave SSH ou não consigo entrar. O que faço?
 Não há recuperação por senha no SSH. Guarde bem a chave privada. Se a perdeu ou precisa de trocar a chave pública no servidor, escreva para admin@runv.club explicando o caso.
@@ -37,10 +37,13 @@ Pode haver registro técnico e histórico operacional para fins de segurança, s
 Não. Exposição de dados pessoais, documentos, contatos, prints privados ou informações sensíveis sem autorização pode gerar punição grave.
 
 13. O que fazer se eu suspeitar que minha conta foi invadida?
-Se suspeitar que a chave privada foi copiada ou o seu PC comprometido: pare de usar essa chave, gere um par novo, não reutilize o material vazado e comunique de imediato admin@runv.club para a equipa avaliar substituição da chave pública no servidor e rever a conta.
+Se suspeitar que a chave privada foi copiada ou o seu PC comprometido: pare de usar essa chave, gere um par novo, não reutilize o material vazado e comunique de imediato admin@runv.club para a equipe avaliar substituição da chave pública no servidor e rever a conta.
 
 14. Como falar com a administração?
 Pelo e-mail oficial: admin@runv.club
 
 15. Onde vejo as regras do sistema?
 Na wiki oficial do runv.club, especialmente nos arquivos de regras da comunidade, moderação, privacidade e acesso.
+
+16. Onde peço ajuda no IRC?
+No canal #runv, disponível em irc.portalidea.com.br e em irc.runv.club (é o mesmo canal nos dois servidores). Pode usar ligação com TLS/SSL ou sem cifra, conforme o cliente — ambos são aceites. Para questões de conta ou dados sensíveis, use admin@runv.club.

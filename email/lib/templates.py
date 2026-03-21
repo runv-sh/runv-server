@@ -2,7 +2,8 @@
 Nomes canónicos dos templates de email (texto puro) em templates/.
 
 Placeholders comuns: {username}, {email}, {request_id}, {admin_email},
-{default_from}, {host}, {reason}, {quota_info}, {timestamp}, {error_summary}
+{default_from}, {host}, {reason}, {quota_info}, {timestamp}, {error_summary}.
+O template ``user_request_received`` usa só ``{request_id}`` e ``{username}`` (rodapé fixo ``Equipe runv.club``).
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ USER_REJECTED: Final[str] = "user_rejected"
 USER_ACCOUNT_CREATED: Final[str] = "user_account_created"
 USER_QUOTA_WARNING: Final[str] = "user_quota_warning"
 USER_ACCOUNT_REMOVED: Final[str] = "user_account_removed"
+USER_ACCOUNT_COMMUNITY_DEACTIVATED: Final[str] = "user_account_community_deactivated"
 
 # --- Sistema ---
 SYSTEM_TEST: Final[str] = "system_test"
@@ -37,5 +39,6 @@ ALL_TEMPLATES: Final[tuple[str, ...]] = (
     USER_ACCOUNT_CREATED,
     USER_QUOTA_WARNING,
     USER_ACCOUNT_REMOVED,
+    USER_ACCOUNT_COMMUNITY_DEACTIVATED,
     SYSTEM_TEST,
 )

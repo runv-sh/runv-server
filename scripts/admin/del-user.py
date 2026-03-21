@@ -7,7 +7,7 @@ Usa ``deluser`` com remoção da home. Opcionalmente remove o registro em
 
 Executar como root. Não altera Apache nem SSH diretamente.
 
-Versão 0.02 — runv.club
+Versão 0.03 — runv.club
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 # Com python3 -P ou PYTHONSAFEPATH=1 o diretório deste script não entra em sys.path.
 _SCRIPT_DIR = Path(__file__).resolve().parent
@@ -61,7 +61,9 @@ RESERVED_USERNAMES: Final[frozenset[str]] = frozenset(
 DEFAULT_METADATA_PATH: Final[Path] = Path("/var/lib/runv/users.json")
 DEFAULT_LOCK_PATH: Final[Path] = Path("/var/lib/runv/users.lock")
 
-VERSION: Final[str] = "0.02"
+VERSION: Final[str] = "0.03"
+
+_REPO_ROOT: Final[Path] = _SCRIPT_DIR.parent.parent
 
 EXIT_OK: Final[int] = 0
 EXIT_VALIDATION: Final[int] = 1
@@ -427,6 +429,125 @@ def remove_user_metadata(
         lock_f.close()
 
 
+def read_user_email_from_metadata(metadata_path: Path, username: str) -> str | None:
+    """Lê o email do registo com mesmo ``username`` em ``users.json`` (lista de dicts)."""
+    if not metadata_path.is_file():
+        return None
+    raw = metadata_path.read_text(encoding="utf-8").strip()
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, list):
+        return None
+    for x in data:
+        if isinstance(x, dict) and x.get("username") == username:
+            em = x.get("email")
+            if em is None:
+                return None
+            s = str(em).strip()
+            return s if s else None
+    return None
+
+
+def _resolve_email_package_root(state: dict[str, Any] | None) -> Path | None:
+    """Pasta ``email/`` do repositório para importar ``lib.mailer``."""
+    env = os.environ.get("RUNV_EMAIL_ROOT", "").strip()
+    if env:
+        p = Path(env)
+        return p if p.is_dir() else None
+    if state:
+        er = str(state.get("email_package_root", "")).strip()
+        if er:
+            p = Path(er)
+            if p.is_dir():
+                return p
+    cand = _REPO_ROOT / "email"
+    return cand if cand.is_dir() else None
+
+
+def try_send_community_ban_notice(
+    username: str,
+    user_email: str | None,
+    *,
+    no_ban_notify_email: bool,
+    dry_run: bool,
+    verbose: bool,
+) -> None:
+    """
+    Envia ``user_account_community_deactivated`` se existir ``/etc/runv-email.json`` e pasta ``email/``.
+    Falhas não abortam a remoção da conta.
+    """
+    if no_ban_notify_email:
+        if verbose:
+            print("  notificação ban: omitida (--no-ban-notify-email)")
+        return
+    if dry_run:
+        return
+    if not user_email:
+        if verbose:
+            print("  notificação ban: sem email nos metadados — não enviado")
+        return
+
+    state_file = Path("/etc/runv-email.json")
+    if not state_file.is_file():
+        if verbose:
+            print(
+                f"  notificação ban: {state_file} ausente — email não enviado",
+            )
+        return
+    try:
+        state = json.loads(state_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"Aviso: notificação ban: estado inválido ({state_file}): {e}", file=sys.stderr)
+        return
+
+    email_root = _resolve_email_package_root(state)
+    if email_root is None:
+        print(
+            "Aviso: notificação ban: pasta email/ não encontrada "
+            f"(RUNV_EMAIL_ROOT, email_package_root no JSON ou {_REPO_ROOT / 'email'})",
+            file=sys.stderr,
+        )
+        return
+
+    root_s = str(email_root.resolve())
+    if root_s not in sys.path:
+        sys.path.insert(0, root_s)
+
+    try:
+        from lib.mailer import send_user_notice
+        from lib.templates import USER_ACCOUNT_COMMUNITY_DEACTIVATED
+    except ImportError as e:
+        print(f"Aviso: notificação ban: import lib.mailer falhou: {e}", file=sys.stderr)
+        return
+
+    from_addr = str(state.get("default_from", "")).strip()
+    if not from_addr:
+        print(f"Aviso: notificação ban: default_from ausente em {state_file}", file=sys.stderr)
+        return
+
+    try:
+        send_user_notice(
+            USER_ACCOUNT_COMMUNITY_DEACTIVATED,
+            user_email,
+            subject="[runv.club] Conta desativada",
+            from_addr=from_addr,
+            _state=state,
+            username=username,
+            email=user_email,
+        )
+        print(f"  notificação ban:    email enviado para {user_email}")
+    except Exception as e:
+        print(f"Aviso: notificação ban falhou (conta já removida): {e}", file=sys.stderr)
+        if verbose:
+            import traceback
+
+            traceback.print_exc()
+
+
 # CLI
 def main() -> int:
     parser = argparse.ArgumentParser(
@@ -484,6 +605,11 @@ def main() -> int:
         help=f"ficheiro de lock flock (default: {DEFAULT_LOCK_PATH})",
     )
     parser.add_argument(
+        "--no-ban-notify-email",
+        action="store_true",
+        help="não envia email ao utilizador sobre desativação por normas da comunidade",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"%(prog)s {VERSION} — runv.club",
@@ -521,6 +647,16 @@ def main() -> int:
                 dry_run=True,
                 verbose=args.verbose,
             )
+        ban_email = read_user_email_from_metadata(args.metadata_file, username)
+        if args.no_ban_notify_email:
+            print("  notificação ban: omitida (--no-ban-notify-email)")
+        elif not ban_email:
+            print("  notificação ban: sem email nos metadados — nada a enviar")
+        else:
+            print(
+                f"  notificação ban: enviaria para {ban_email!r} "
+                "(template user_account_community_deactivated)",
+            )
         print("\nNada foi alterado. Execute sem --dry-run como root para aplicar.")
         return EXIT_OK
 
@@ -530,6 +666,8 @@ def main() -> int:
             return EXIT_VALIDATION
 
     validate_privileges()
+
+    ban_email = read_user_email_from_metadata(args.metadata_file, username)
 
     print(f"\ndel-user.py — removendo {username!r} (UID {uid})\n")
 
@@ -558,6 +696,14 @@ def main() -> int:
             dry_run=False,
             verbose=args.verbose,
         )
+
+    try_send_community_ban_notice(
+        username,
+        ban_email,
+        no_ban_notify_email=args.no_ban_notify_email,
+        dry_run=False,
+        verbose=args.verbose,
+    )
 
     print("\n--- Resumo ---")
     print(f"  Conta removida: {username!r}")
