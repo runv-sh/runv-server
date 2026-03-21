@@ -7,7 +7,7 @@ Infraestrutura Gopher (gophernicus) e Gemini (molly-brown) para runv.club.
 
 Idempotente, dry-run, subprocess sem shell. Executar como root no Debian.
 
-Versão 0.03 — runv.club
+Versão 0.04 — runv.club
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ from typing import Any, Final
 # Constantes
 # ---------------------------------------------------------------------------
 
-VERSION: Final[str] = "0.03"
+VERSION: Final[str] = "0.04"
 
 DEFAULT_USERS_JSON: Final[Path] = Path("/var/lib/runv/users.json")
 DEFAULT_HOMES_ROOT: Final[Path] = Path("/home")
@@ -328,6 +328,7 @@ def wait_for_unit_active(
         attempts,
         unit,
     )
+    log_systemd_unit_failed_hint(unit, log)
     return False
 
 
@@ -456,6 +457,33 @@ def apt_install(
     return True
 
 
+def log_ufw_suggested_commands(log: logging.Logger) -> None:
+    """Comandos para copiar quando o script não aplicou regras UFW automaticamente."""
+    log.info(
+        "Se usar UFW, depois de «sudo ufw enable» (se ainda não estiver activo), execute:\n"
+        "  sudo ufw allow 70/tcp comment 'gopher'\n"
+        "  sudo ufw allow 1965/tcp comment 'gemini'\n"
+        "  sudo ufw reload"
+    )
+
+
+def log_systemd_unit_failed_hint(unit: str, log: logging.Logger) -> None:
+    """Se o unit estiver em estado failed, regista ERROR com ponteiro para journalctl."""
+    r = subprocess.run(
+        ["systemctl", "is-failed", unit],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if r.returncode != 0:
+        return
+    log.error(
+        "%s está em estado «failed» — diagnóstico: sudo journalctl -u %s -b --no-pager -n 80",
+        unit,
+        unit,
+    )
+
+
 def dpkg_installed(package: str) -> bool:
     r = subprocess.run(
         ["dpkg", "-s", package],
@@ -475,6 +503,7 @@ def ufw_maybe_allow(
 ) -> None:
     if skip_firewall:
         log.info("firewall ignorado (--skip-firewall)")
+        log_ufw_suggested_commands(log)
         return
     r = subprocess.run(
         ["ufw", "status"],
@@ -488,6 +517,7 @@ def ufw_maybe_allow(
             "UFW não está ativo (ou comando falhou). Não abro portas automaticamente. "
             "Abra 70/tcp (Gopher) e 1965/tcp (Gemini) se usar firewall."
         )
+        log_ufw_suggested_commands(log)
         return
     for port, label in ports:
         cmd = ["ufw", "allow", f"{port}/tcp"]
@@ -512,13 +542,24 @@ def validate_final(
     )
     log.info("gophernicus.socket: %s", (r.stdout or "").strip() or r.returncode)
 
+    molly_unit = f"molly-brown@{MOLLY_INSTANCE}.service"
     r2 = subprocess.run(
-        ["systemctl", "is-active", f"molly-brown@{MOLLY_INSTANCE}.service"],
+        ["systemctl", "is-active", molly_unit],
         capture_output=True,
         text=True,
         timeout=30,
     )
-    log.info("molly-brown@%s: %s", MOLLY_INSTANCE, (r2.stdout or "").strip() or r2.returncode)
+    molly_state = (r2.stdout or "").strip() or str(r2.returncode)
+    log.info("molly-brown@%s: %s", MOLLY_INSTANCE, molly_state)
+    if molly_state != "active":
+        log.warning(
+            "molly-brown não está «active» (estado reportado: %s). "
+            "«activating» durante o script não significa sucesso — confirme com "
+            "«systemctl is-active %s» e «sudo ss -tlnp | grep 1965».",
+            molly_state,
+            molly_unit,
+        )
+        log_systemd_unit_failed_hint(molly_unit, log)
 
     if usernames:
         sample = usernames[0]

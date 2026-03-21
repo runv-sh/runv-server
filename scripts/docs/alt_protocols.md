@@ -31,6 +31,18 @@ O **molly-brown** trata `AccessLog` e `ErrorLog` como **caminhos de ficheiro**. 
   `sudo python3 scripts/admin/setup_alt_protocols.py --verbose --force`
 - **Correcção manual rápida:** `sudo mkdir -p /var/log/molly-brown`; criar os dois `.log`; `sudo chown` para o utilizador do serviço (`systemctl show -p User --value molly-brown@runv.club.service`); editar o `.conf` e substituir `AccessLog` / `ErrorLog` pelos caminhos absolutos; depois `sudo systemctl reset-failed molly-brown@runv.club.service` e `sudo systemctl start molly-brown@runv.club.service`.
 
+## Checklist rápido (conf antiga, UFW, «activating»)
+
+1. **Ainda vê `open /-` no journal?** O `/etc/molly-brown/runv.club.conf` no servidor pode continuar com `ErrorLog = "-"` até correr o script com **`--force`** (ou editar à mão). Confirme: `grep -E 'AccessLog|ErrorLog' /etc/molly-brown/runv.club.conf`.
+2. **UFW:** o script só executa `ufw allow` automaticamente quando **`ufw status`** mostra o firewall **activo** na altura da execução. Se activou o UFW **depois**, ou usa outro firewall, abra **70/tcp** (Gopher) e **1965/tcp** (Gemini) manualmente:
+   ```bash
+   sudo ufw allow 70/tcp comment 'gopher'
+   sudo ufw allow 1965/tcp comment 'gemini'
+   sudo ufw reload
+   ```
+   Com `--skip-firewall` ou UFW inactivo, o script regista no log os mesmos comandos sugeridos para copiar.
+3. **`molly-brown@runv.club: activating` no fim do script:** **não** indica sucesso — só que o unit ainda não estava `active` nesse instante (p.ex. crash loop). Use `systemctl is-active molly-brown@runv.club.service`, `systemctl is-failed …` e `sudo ss -tlnp | grep 1965`. Se `is-failed` for positivo, veja `journalctl` como abaixo.
+
 ## Molly não sobe ou fica em «activating»
 
 - **`journalctl` sem mensagens:** os logs do serviço do sistema exigem **root** — use `sudo journalctl -u molly-brown@runv.club.service -b --no-pager -n 80`.
