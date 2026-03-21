@@ -22,6 +22,14 @@ Quota ext4, metadados JSON e logging seguem após estes passos.
 É a **fonte principal** da política de provisionamento — sem depender de ``adduser.local``,
 ``QUOTAUSER`` ou regras espalhadas em ``/etc/adduser.conf``.
 
+Garante na criação as permissões para **todos** os serviços runv expostos ao utilizador:
+**HTTP** (``public_html``), **Gopher** (``public_gopher``) e **Gemini** (``public_gemini``) —
+home ``755`` (atravessável por Apache, gophernicus e molly-brown), pastas públicas ``755``,
+ficheiros servidos ``644``, mais ``.ssh``/``authorized_keys`` e symlink Gemini quando aplicável.
+Contas criadas **só** com ``adduser`` (sem este script) devem passar pelo backfill
+``scripts/admin/setup_alt_protocols.py`` ou por nova execução deste script com as flags de reparo
+adequadas (``--force-*``).
+
 Não é signup público: executar manualmente como root/sudo no servidor.
 Requer Linux (Debian). Quota: ext4 com ``usrquota``/``usrjquota`` via ``setquota`` (não altera fstab).
 
@@ -1220,6 +1228,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description=(
             "Provisiona conta Unix interna (runv.club). Executar como root no servidor. "
+            "Aplica permissões completas para HTTP, Gopher e Gemini (home e public_*); "
+            "contas só adduser precisam de setup_alt_protocols ou reparo aqui. "
             f"Versão {VERSION} — {AUTHOR} {COPYRIGHT_YEAR}."
         ),
     )

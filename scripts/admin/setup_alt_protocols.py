@@ -7,7 +7,7 @@ Infraestrutura Gopher (gophernicus) e Gemini (molly-brown) para runv.club.
 
 Idempotente, dry-run, subprocess sem shell. Executar como root no Debian.
 
-Versão 0.07 — runv.club
+Versão 0.08 — runv.club
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ import argparse
 import grp
 import importlib.util
 import logging
+import shutil
 import os
 import pwd
 import re
@@ -32,7 +33,7 @@ from typing import Any, Final
 # Constantes
 # ---------------------------------------------------------------------------
 
-VERSION: Final[str] = "0.07"
+VERSION: Final[str] = "0.08"
 
 LETSENCRYPT_LIVE: Final[Path] = Path("/etc/letsencrypt/live")
 LETSENCRYPT_ARCHIVE: Final[Path] = Path("/etc/letsencrypt/archive")
@@ -87,6 +88,14 @@ Edita este ficheiro em `~/public_gemini/index.gmi`. Mantém pastas **755** e fic
 # ---------------------------------------------------------------------------
 # Utilitários
 # ---------------------------------------------------------------------------
+
+
+def _path_resolved(p: Path) -> Path:
+    """Resolve o caminho; com symlinks (ex. Let's Encrypt) alinha com o canónico."""
+    try:
+        return p.resolve(strict=False)
+    except TypeError:
+        return p.resolve()
 
 
 def setup_logging(verbose: bool) -> logging.Logger:
@@ -340,28 +349,39 @@ def ensure_le_tls_readable_for_molly(
     Ajusta /etc/letsencrypt/live e archive (e o directório do certificado) para 755, e
     archive/<domínio>/privkey*.pem para grupo ssl-cert + 640, para o molly-brown ler a chave.
     Só actua se cert_path estiver sob .../live/<domínio>/ (Let's Encrypt típico).
+    Usa raízes resolvidas para não saltar quando /etc/letsencrypt/live é symlink.
     """
     try:
-        cert_resolved = cert_path.resolve()
+        cert_resolved = _path_resolved(cert_path)
     except OSError as e:
         log.debug("LE TLS: resolve %s: %s — salto", cert_path, e)
         return
-    try:
-        cert_resolved.relative_to(LETSENCRYPT_LIVE)
-    except ValueError:
-        log.debug("LE TLS: cert não está sob %s — salto", LETSENCRYPT_LIVE)
-        return
 
-    live_domain_dir = cert_resolved.parent
-    if live_domain_dir.parent != LETSENCRYPT_LIVE:
+    live_root = _path_resolved(LETSENCRYPT_LIVE)
+    archive_root = _path_resolved(LETSENCRYPT_ARCHIVE)
+
+    try:
+        cert_resolved.relative_to(live_root)
+    except ValueError:
         log.debug(
-            "LE TLS: esperado .../live/<domínio>/fullchain.pem — salto (%s)",
+            "LE TLS: cert não está sob a árvore LE resolvida (%s) — salto (%s)",
+            live_root,
             cert_resolved,
         )
         return
 
+    live_domain_dir = cert_resolved.parent
+    parent_resolved = _path_resolved(live_domain_dir.parent)
+    if parent_resolved != live_root:
+        log.debug(
+            "LE TLS: esperado .../live/<domínio>/fullchain.pem — salto (pai=%s live_root=%s)",
+            parent_resolved,
+            live_root,
+        )
+        return
+
     domain = live_domain_dir.name
-    archive_domain_dir = LETSENCRYPT_ARCHIVE / domain
+    archive_domain_dir = archive_root / domain
 
     try:
         ssl_gid = grp.getgrnam(SSL_CERT_GROUP).gr_gid
@@ -373,8 +393,8 @@ def ensure_le_tls_readable_for_molly(
         ssl_gid = None
 
     dirs_755: list[Path] = [
-        LETSENCRYPT_LIVE,
-        LETSENCRYPT_ARCHIVE,
+        live_root,
+        archive_root,
         live_domain_dir,
     ]
     if archive_domain_dir.is_dir():
@@ -636,9 +656,31 @@ def ufw_maybe_allow(
         log.info("UFW: permitido %s/tcp (%s)", port, label)
 
 
+def _www_data_can_read(path: Path, *, dry_run: bool, log: logging.Logger) -> bool | None:
+    """None = skip (sem runuser), True/False = resultado de test -r como www-data."""
+    if dry_run:
+        if shutil.which("runuser"):
+            log.info("[dry-run] runuser -u www-data -- test -r %s", path)
+        else:
+            log.info("[dry-run] (runuser ausente) test -r como www-data em %s", path)
+        return None
+    if not shutil.which("runuser"):
+        log.debug("validação www-data: runuser não encontrado — salto test -r")
+        return None
+    r = subprocess.run(
+        ["runuser", "-u", "www-data", "--", "test", "-r", str(path)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    return r.returncode == 0
+
+
 def validate_final(
     usernames: list[str],
     log: logging.Logger,
+    *,
+    dry_run: bool = False,
 ) -> None:
     log.info("--- validação final ---")
     for pkg, label in (("gophernicus", "Gopher"), ("molly-brown", "Gemini")):
@@ -685,6 +727,19 @@ def validate_final(
             sl = GEMINI_USERS / sample
             ok_sl = sl.is_symlink() and sl.resolve() == (home / "public_gemini").resolve()
             log.info("amostra symlink Gemini: %s", "OK" if ok_sl else "FALTA/INCORRETO")
+            index_gmi = home / "public_gemini" / "index.gmi"
+            if molly_state == "active" and index_gmi.is_file():
+                can = _www_data_can_read(index_gmi, dry_run=dry_run, log=log)
+                if can is False:
+                    log.warning(
+                        "amostra %s: www-data não consegue ler %s (runuser … test -r falhou). "
+                        "Confirme home 755 (ou o+x), public_gemini 755, index.gmi 644 e symlink %s.",
+                        sample,
+                        index_gmi,
+                        sl,
+                    )
+                elif can is True:
+                    log.info("amostra %s: index.gmi legível por www-data (test -r): OK", sample)
         except KeyError:
             log.info("amostra %s: utilizador não existe neste sistema", sample)
 
@@ -867,7 +922,7 @@ def main(argv: list[str] | None = None) -> int:
                 delay_s=1.0,
             )
 
-    validate_final(users, log)
+    validate_final(users, log, dry_run=args.dry_run)
     log.info("Concluído.")
     return 0
 
