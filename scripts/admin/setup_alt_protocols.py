@@ -7,13 +7,13 @@ Infraestrutura Gopher (gophernicus) e Gemini (molly-brown) para runv.club.
 
 Idempotente, dry-run, subprocess sem shell. Executar como root no Debian.
 
-Versão 0.01 — runv.club
+Versão 0.02 — runv.club
 """
 
 from __future__ import annotations
 
 import argparse
-import json
+import importlib.util
 import logging
 import os
 import pwd
@@ -21,15 +21,16 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 # ---------------------------------------------------------------------------
 # Constantes
 # ---------------------------------------------------------------------------
 
-VERSION: Final[str] = "0.01"
+VERSION: Final[str] = "0.02"
 
 DEFAULT_USERS_JSON: Final[Path] = Path("/var/lib/runv/users.json")
 DEFAULT_HOMES_ROOT: Final[Path] = Path("/home")
@@ -48,35 +49,6 @@ MOLLY_INSTANCE: Final[str] = "runv.club"  # molly-brown@runv.club.service
 
 PACKAGES_GOPHER: Final[tuple[str, ...]] = ("gophernicus",)
 PACKAGES_GEMINI: Final[tuple[str, ...]] = ("molly-brown",)
-
-MIN_UID_USER: Final[int] = 1000
-
-ALT_PROTOCOL_SKIP_USERS: Final[frozenset[str]] = frozenset(
-    {
-        "root",
-        "daemon",
-        "bin",
-        "sys",
-        "sync",
-        "games",
-        "man",
-        "lp",
-        "mail",
-        "news",
-        "uucp",
-        "proxy",
-        "www-data",
-        "backup",
-        "list",
-        "irc",
-        "_apt",
-        "nobody",
-        "pmurad-admin",
-        "entre",
-        "admin",
-        "postmaster",
-    }
-)
 
 DEFAULT_ROOT_GOPHERMAP: Final[str] = """iBem-vindo ao Gopher em runv.club — pubnix.	fake	NULL	0
 iCada utilizador com ~/public_gopher aparece como ~user no menu do servidor.	fake	NULL	0
@@ -216,63 +188,68 @@ ReadMollyFiles = true
 """
 
 
-def load_usernames_from_json(path: Path, log: logging.Logger) -> list[str] | None:
+def repo_root() -> Path:
+    """Raiz do repositório runv-server (scripts/admin/ → …/runv-server)."""
+    return Path(__file__).resolve().parent.parent.parent
+
+
+def load_patch_irc_module(log: logging.Logger) -> Any:
+    path = repo_root() / "patches" / "patch_irc.py"
     if not path.is_file():
-        return None
-    try:
-        raw = path.read_text(encoding="utf-8").strip()
-        if not raw:
-            return []
-        data = json.loads(raw)
-        if not isinstance(data, list):
-            log.warning("%s: JSON não é lista; ignoro.", path)
-            return None
-        names: list[str] = []
-        for item in data:
-            if isinstance(item, dict):
-                u = item.get("username")
-                if isinstance(u, str) and u:
-                    names.append(u)
-        return sorted(set(names))
-    except (json.JSONDecodeError, OSError) as e:
-        log.warning("falha ao ler %s: %s — uso fallback /home", path, e)
-        return None
+        log.error(
+            "Ficheiro em falta: %s — clone completo do repo ou copie patches/patch_irc.py.",
+            path,
+        )
+        raise FileNotFoundError(str(path))
+    spec = importlib.util.spec_from_file_location("patch_irc_setup_alt", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"não foi possível carregar {path}")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
-def usernames_from_homes(homes_root: Path, log: logging.Logger) -> list[str]:
-    names: list[str] = []
-    if not homes_root.is_dir():
-        log.warning("homes_root inexistente: %s", homes_root)
-        return []
-    for entry in sorted(homes_root.iterdir()):
-        if not entry.is_dir() or entry.name.startswith("."):
-            continue
-        try:
-            pw = pwd.getpwnam(entry.name)
-        except KeyError:
-            continue
-        if pw.pw_uid < MIN_UID_USER:
-            continue
-        if entry.name in ALT_PROTOCOL_SKIP_USERS:
-            continue
-        names.append(entry.name)
-    return sorted(set(names))
-
-
-def resolve_user_list(
+def resolve_backfill_users(
     users_json: Path,
     homes_root: Path,
     log: logging.Logger,
 ) -> list[str]:
-    from_json = load_usernames_from_json(users_json, log)
-    if from_json is not None and from_json:
-        log.info("utilizadores a partir de %s (%d)", users_json, len(from_json))
-        return [u for u in from_json if u not in ALT_PROTOCOL_SKIP_USERS]
-    if from_json is not None and from_json == []:
-        log.info("%s vazio — fallback /home", users_json)
-    users = usernames_from_homes(homes_root, log)
-    log.info("utilizadores a partir de %s (%d)", homes_root, len(users))
-    return users
+    """União users.json + /home, mesma política que patches/patch_irc.py."""
+    patch_irc = load_patch_irc_module(log)
+    return patch_irc.resolve_all_users(users_json, homes_root, log)
+
+
+def wait_for_unit_active(
+    unit: str,
+    *,
+    log: logging.Logger,
+    dry_run: bool,
+    attempts: int = 5,
+    delay_s: float = 1.0,
+) -> bool:
+    if dry_run:
+        return True
+    for i in range(attempts):
+        r = subprocess.run(
+            ["systemctl", "is-active", unit],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        state = (r.stdout or "").strip()
+        if state == "active":
+            log.info("%s: active", unit)
+            return True
+        log.debug("%s: %s (tentativa %d/%d)", unit, state or r.returncode, i + 1, attempts)
+        if i + 1 < attempts:
+            time.sleep(delay_s)
+    log.warning(
+        "%s não ficou «active» após %d tentativas — veja: sudo journalctl -u %s -b --no-pager",
+        unit,
+        attempts,
+        unit,
+    )
+    return False
 
 
 def ensure_user_public_dirs(
@@ -594,7 +571,11 @@ def main(argv: list[str] | None = None) -> int:
         skip_firewall=args.skip_firewall,
     )
 
-    users = resolve_user_list(args.users_json, args.homes_root, log)
+    try:
+        users = resolve_backfill_users(args.users_json, args.homes_root, log)
+    except (FileNotFoundError, ImportError) as e:
+        log.error("%s", e)
+        return 1
     if not args.skip_backfill:
         for u in users:
             ensure_user_public_dirs(
@@ -622,16 +603,13 @@ def main(argv: list[str] | None = None) -> int:
                 log=log,
             )
         if not args.skip_gemini and cert.is_file() and key.is_file():
+            molly_unit = f"molly-brown@{MOLLY_INSTANCE}.service"
             run_cmd(
-                [
-                    "systemctl",
-                    "enable",
-                    "--now",
-                    f"molly-brown@{MOLLY_INSTANCE}.service",
-                ],
+                ["systemctl", "enable", "--now", molly_unit],
                 dry_run=args.dry_run,
                 log=log,
             )
+            wait_for_unit_active(molly_unit, log=log, dry_run=args.dry_run)
 
     validate_final(users, log)
     log.info("Concluído.")

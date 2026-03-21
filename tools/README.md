@@ -3,7 +3,7 @@
 Módulo para **automatizar** no servidor Debian 13 (ou compatível):
 
 1. **Pacotes globais** via `apt` (lista em `manifests/apt_packages.txt`) — para todos os usuários, **sem** passar pelo `/etc/skel`.
-2. **Comandos locais** em `/usr/local/bin`: `runv-help`, `runv-links`, `runv-status`, **`chat`** (IRC; rede da casa provisionada com **`scripts/admin/patch_irc.py`** — utilizadores usam só `chat`).
+2. **Comandos locais** em `/usr/local/bin`: `runv-help`, `runv-links`, `runv-status`, **`chat`** (IRC; rede da casa provisionada com **`patches/patch_irc.py`** — utilizadores usam só `chat`).
 3. **MOTD dinâmico** em `/etc/update-motd.d/60-runv` (arte ASCII verde, texto em português).
 4. **Arquivos padrão** copiados para `/etc/skel/` (README, `.bash_aliases`, `public_html/index.html`, `public_gopher/gophermap`, `public_gemini/index.gmi`) — **somente modelos de home**, nunca instaladores de sistema.
 

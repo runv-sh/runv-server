@@ -22,7 +22,17 @@ Script em **`scripts/admin/setup_alt_protocols.py`**: instala e configura **goph
 - **TLS obrigatório** (certificado + chave PEM). Por defeito o script tenta Let's Encrypt em `/etc/letsencrypt/live/runv.club/`; use **`--gemini-cert`** e **`--gemini-key`** se forem noutro sítio.
 - Sem certificados válidos, o script **não** ativa o serviço `molly-brown@`, mas pode criar `/var/gemini` e symlinks.
 
+## Molly não sobe ou fica em «activating»
+
+- **`journalctl` sem mensagens:** os logs do serviço do sistema exigem **root** — use `sudo journalctl -u molly-brown@runv.club.service -b --no-pager -n 80`.
+- **Estado e porta:** `sudo systemctl status molly-brown@runv.club.service --no-pager` e `sudo ss -tlnp | grep 1965` (deve haver um processo a escutar em **1965/tcp**).
+- **Permissões TLS (frequente):** o Molly corre como utilizador não-root; se `privkey.pem` for só `root:root` `0600`, o arranque falha. Verifique `sudo namei -l /etc/letsencrypt/live/runv.club/privkey.pem` e compare com o utilizador do unit (`systemctl cat molly-brown@runv.club.service`). Soluções típicas: grupo `ssl-cert`, ACL, ou certificados num path legível pelo utilizador do serviço (mantendo segurança).
+- **Teste local:** `openssl s_client -connect 127.0.0.1:1965 -servername runv.club </dev/null 2>/dev/null | head -20`
+- **Cliente (Lagrange, etc.):** teste `gemini://runv.club/~user/` **depois** de `systemctl is-active molly-brown@runv.club.service` devolver `active`.
+
 ## Execução (root)
+
+Use a **raiz do repositório** clonada; o script carrega `patches/patch_irc.py` para a lista de utilizadores (união JSON + `/home`). Sem esse ficheiro, o comando falha com mensagem explícita.
 
 ```bash
 cd /caminho/para/runv-server
@@ -43,15 +53,19 @@ sudo python3 scripts/admin/setup_alt_protocols.py --verbose
 | `--skip-backfill` | Não cria pastas/symlinks por utilizador. |
 | `--skip-services` | Não `systemctl enable --now`. |
 | `--skip-system-config` | Não escreve `/etc/default/gophernicus`, nem `molly-brown`, nem gophermap raiz. |
-| `--users-json PATH` | Fonte de usernames (lista JSON com `username`). Predefinido: `/var/lib/runv/users.json`. |
-| `--homes-root PATH` | Fallback se JSON vazio/inexistente (varre UIDs ≥ 1000). |
+| `--users-json PATH` | Parte da fonte de usernames (lista JSON com `username`). Predefinido: `/var/lib/runv/users.json`. |
+| `--homes-root PATH` | Parte da fonte de usernames (directórios em `/home` com UID ≥ 1000). O backfill usa a **união** JSON + homes (igual a `patches/patch_irc.py`). |
 | `--gemini-hostname HOST` | Predefinido: `runv.club`. |
 | `--gemini-cert` / `--gemini-key` | Caminhos PEM para molly-brown. |
 
 ## Descoberta de utilizadores (backfill)
 
-1. Se **`users.json`** existir e for uma lista JSON válida com objetos que tenham **`username`**, usa essa lista.
-2. Caso contrário, varre **`--homes-root`** (predefinido `/home`), UIDs ≥ 1000, excluindo contas reservadas (`root`, `entre`, `pmurad-admin`, contas de sistema, etc.).
+A lista de contas para criar `~/public_gopher`, `~/public_gemini` e symlinks em `/var/gemini/users/` é a **união** de:
+
+1. Usernames em **`users.json`** (lista de objetos com campo `username`), quando o ficheiro existe e o JSON é válido; e
+2. Nomes em **`--homes-root`** com UID ≥ 1000 e entrada em `passwd`.
+
+Depois aplicam-se as mesmas exclusões que em **`patches/patch_irc.py`** (`IRC_PATCH_SKIP_USERS` — contas de sistema, `entre`, etc.; **não** exclui `pmurad-admin` por defeito). Para só pastas/symlinks sem reinstalar serviços, pode usar **`patches/yetgg.py`**.
 
 ## Relação com outros scripts
 

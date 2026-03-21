@@ -35,7 +35,7 @@ Quando um administrador cria a conta com **`adduser`**, o Debian copia **`/etc/s
 
 ## Programas globais (apt)
 
-Pacotes listados em **`manifests/apt_packages.txt`** (incluindo ferramentas de terminal e IRC) ficam **instalados no sistema**. O comando global **`chat`** em `/usr/local/bin` é o único nome que o utilizador precisa para IRC na rede da casa; a config é aplicada pelo admin com **`scripts/admin/patch_irc.py`**. O usuário **não** precisa de nada no skel para **executá-los**: após o admin rodar `tools.py`, eles passam a existir no `PATH`. Ou seja:
+Pacotes listados em **`manifests/apt_packages.txt`** (incluindo ferramentas de terminal e IRC) ficam **instalados no sistema**. O comando global **`chat`** em `/usr/local/bin` é o único nome que o utilizador precisa para IRC na rede da casa; a config é aplicada pelo admin com **`patches/patch_irc.py`**. O usuário **não** precisa de nada no skel para **executá-los**: após o admin rodar `tools.py`, eles passam a existir no `PATH`. Ou seja:
 
 - **Skel** ≠ instalar programas.
 - **Skel** = arquivos iniciais na home.

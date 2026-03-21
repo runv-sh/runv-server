@@ -110,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
         log.info("dry-run: não grava alterações.")
 
     root = repo_root()
-    patch_irc_path = root / "scripts" / "admin" / "patch_irc.py"
+    patch_irc_path = root / "patches" / "patch_irc.py"
     alt_path = root / "scripts" / "admin" / "setup_alt_protocols.py"
     if not patch_irc_path.is_file():
         log.error("ficheiro em falta: %s", patch_irc_path)

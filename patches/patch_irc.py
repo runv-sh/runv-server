@@ -10,7 +10,7 @@ MOTD e runv-help referem apenas **chat** (sem expor outros nomes de comando ao u
 
 Executar como root no Debian. Ver scripts/docs/irc_patch.md.
 
-Versão 0.02 — runv.club
+Versão 0.03 — runv.club
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ from typing import Final
 #   /set irc.server.<name>.sasl_password "${sec.data.runv_irc_senha}"
 # Documentação: https://weechat.org/doc/
 
-VERSION: Final[str] = "0.02"
+VERSION: Final[str] = "0.03"
 
 DEFAULT_USERS_JSON: Final[Path] = Path("/var/lib/runv/users.json")
 DEFAULT_HOMES_ROOT: Final[Path] = Path("/home")
@@ -111,7 +111,7 @@ def run_cmd(
 
 
 def repo_root() -> Path:
-    return Path(__file__).resolve().parent.parent.parent
+    return Path(__file__).resolve().parent.parent
 
 
 def launcher_source_path() -> Path:
@@ -342,10 +342,12 @@ def build_apply_command_chain(
     else:
         parts.append(f'/set irc.server.{server}.autojoin ""')
     # Globais: ao entrar num canal, mudar para esse buffer; servidor IRC em buffer próprio;
-    # buflist só entradas do plugin IRC (menos ruído tipo core.weechat na árvore).
+    # buflist só canais IRC (#runv, …) — esconde buffer do servidor «runv» e core.weechat na lista.
     parts.append("/set irc.look.buffer_switch_join on")
     parts.append("/set irc.look.server_buffer independent")
-    parts.append('/set buflist.look.display_conditions "${buffer.plugin} == irc"')
+    parts.append(
+        '/set buflist.look.display_conditions "${buffer.plugin} == irc && ${type} == channel"'
+    )
     parts.append("/save")
     parts.append("/quit")
     return " ; ".join(parts)

@@ -1,5 +1,5 @@
 #!/bin/sh
-# runv.club — cliente IRC interactivo; config em ~/.config/weechat (servidor «runv» após patch_irc.py).
+# runv.club — cliente IRC interactivo; config em ~/.config/weechat (servidor «runv» após patches/patch_irc.py).
 # Utilizadores: use só o comando «chat»; não é preciso memorizar outros nomes de binário.
 
 IRC_UI=""
@@ -19,10 +19,10 @@ CONFIG_DIR="${WEECHAT_HOME:-$HOME/.config/weechat}"
 
 if [ ! -f "$CONFIG_DIR/irc.conf" ]; then
   echo "runv: aviso — $CONFIG_DIR/irc.conf ainda não existe; será criada ao ligar." >&2
-  echo "runv: peça ao admin para correr scripts/admin/patch_irc.py (rede IRC da casa)." >&2
+  echo "runv: peça ao admin para correr patches/patch_irc.py (rede IRC da casa)." >&2
 elif ! grep -q '^runv\.' "$CONFIG_DIR/irc.conf" 2>/dev/null; then
   echo "runv: aviso — servidor «runv» não está definido em $CONFIG_DIR/irc.conf." >&2
-  echo "runv: o admin pode aplicar scripts/admin/patch_irc.py (ex.: irc.portalidea.com.br)." >&2
+  echo "runv: o admin pode aplicar patches/patch_irc.py (ex.: irc.portalidea.com.br)." >&2
 fi
 
 exec "$IRC_UI" -d "$CONFIG_DIR" "$@"

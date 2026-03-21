@@ -121,3 +121,4 @@ Novas contas criadas com `adduser` **depois** desta instalação recebem esses a
 - **Permissão negada:** execute com `sudo` / root.
 - **MOTD não aparece:** em alguns setups o display do MOTD depende de `pam_motd` e SSH; confira configuração do `sshd` e PAM no Debian.
 - **MOTD sem grelha `last`:** o fragmento `60-runv` usa `/usr/bin/last` quando o PATH mínimo não o expõe; confirme **util-linux** e permissões de leitura em `/var/log/wtmp`. A mensagem *sem registos recentes em wtmp* indica wtmp vazio, não falta do binário.
+- **Gemini (`molly-brown`) inactivo ou «activating»:** guia de diagnóstico (journalctl com `sudo`, porta 1965, permissões da chave TLS) em **`scripts/docs/alt_protocols.md`** — secção *Molly não sobe ou fica em «activating»*.
