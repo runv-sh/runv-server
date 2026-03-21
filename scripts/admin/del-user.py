@@ -22,6 +22,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Final
 
@@ -152,30 +153,102 @@ def confirm_interactive(username: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Gemini (symlink em /var/gemini/users)
+# Gemini (bind mount / symlink legado em /var/gemini/users)
 # ---------------------------------------------------------------------------
 
 GEMINI_USERS_DIR: Final[Path] = Path("/var/gemini/users")
+FSTAB_PATH: Final[Path] = Path("/etc/fstab")
+_GEMINI_BIND_FSTAB_RE: Final[re.Pattern[str]] = re.compile(
+    r"^(.+)\s+(/var/gemini/users/\S+)\s+none\s+bind\s+0\s+0\s*\Z"
+)
+
+
+def _unescape_fstab_path(s: str) -> str:
+    return s.replace("\\040", " ")
 
 
 def remove_gemini_user_symlink(username: str, *, dry_run: bool, verbose: bool) -> None:
-    """Remove apenas o symlink /var/gemini/users/<user> se existir e for symlink."""
-    link = GEMINI_USERS_DIR / username
-    if not link.is_symlink():
-        if link.exists() and verbose:
+    """
+    Desmonta bind mount em /var/gemini/users/<user>, remove linha fstab correspondente,
+    remove symlink legado ou directório vazio.
+    """
+    mp = GEMINI_USERS_DIR / username
+
+    if dry_run:
+        print(f"  [dry-run] Gemini: umount/fstab/symlink se aplicável em {mp}")
+        return
+
+    r_mp = subprocess.run(
+        ["mountpoint", "-q", str(mp)],
+        capture_output=True,
+        timeout=60,
+    )
+    if r_mp.returncode == 0:
+        u = subprocess.run(
+            ["umount", str(mp)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if u.returncode != 0:
             print(
-                f"  [aviso] {link} existe mas não é symlink; não removo automaticamente.",
+                f"  [aviso] umount {mp}: {(u.stderr or u.stdout or '').strip()}",
                 file=sys.stderr,
             )
+        elif verbose:
+            print(f"  [ok] umount Gemini: {mp}")
+
+    if FSTAB_PATH.is_file():
+        try:
+            text = FSTAB_PATH.read_text(encoding="utf-8", errors="replace")
+        except OSError as e:
+            if verbose:
+                print(f"  [aviso] ler fstab: {e}", file=sys.stderr)
+        else:
+            new_lines: list[str] = []
+            removed_line = False
+            for line in text.splitlines(keepends=True):
+                st = line.strip()
+                if not st or st.startswith("#"):
+                    new_lines.append(line)
+                    continue
+                m = _GEMINI_BIND_FSTAB_RE.match(st)
+                if m and Path(_unescape_fstab_path(m.group(2))) == mp:
+                    removed_line = True
+                    continue
+                new_lines.append(line)
+            if removed_line:
+                new_content = "".join(new_lines)
+                if new_content != text:
+                    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+                    bak = FSTAB_PATH.with_suffix(f".bak.{ts}")
+                    shutil.copy2(FSTAB_PATH, bak)
+                    FSTAB_PATH.write_text(new_content, encoding="utf-8")
+                    if verbose:
+                        print(f"  [ok] fstab: removida linha bind para {mp} (backup {bak})")
+
+    if mp.is_symlink():
+        try:
+            mp.unlink()
+            print(f"  [ok] symlink Gemini removido: {mp}")
+        except OSError as e:
+            print(f"  [aviso] não foi possível remover {mp}: {e}", file=sys.stderr)
         return
-    if dry_run:
-        print(f"  [dry-run] removeria symlink Gemini {link}")
-        return
-    try:
-        link.unlink()
-        print(f"  [ok] symlink Gemini removido: {link}")
-    except OSError as e:
-        print(f"  [aviso] não foi possível remover {link}: {e}", file=sys.stderr)
+
+    if mp.is_dir():
+        try:
+            if not any(mp.iterdir()):
+                mp.rmdir()
+                if verbose:
+                    print(f"  [ok] directório Gemini vazio removido: {mp}")
+        except OSError as e:
+            if verbose:
+                print(f"  [aviso] {mp}: {e}", file=sys.stderr)
+    elif mp.exists() and verbose:
+        print(
+            f"  [aviso] {mp} ainda existe (não é symlink/dir vazio); verificar manualmente.",
+            file=sys.stderr,
+        )
 
 
 # ---------------------------------------------------------------------------

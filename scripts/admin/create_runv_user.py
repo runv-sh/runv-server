@@ -9,8 +9,8 @@ Contrato de provisionamento (ordem garantida após validação):
 3. **Preparar public_html** — diretório ``755``, ``index.html`` estático ``644``.
 4. **Preparar public_gopher / public_gemini** — ``gophermap`` modelo (não sobrescreve sem
    ``--force-gopher``); ``index.gmi`` só é criado se ainda não existir (nunca substituído);
-   symlink em ``/var/gemini/users/<user>`` quando o diretório existir (``--force-gemini`` só
-   força reparação do symlink / conflitos).
+   bind mount ``/var/gemini/users/<user>`` <- ``~/public_gemini`` quando o directório global existir
+   (``--force-gemini`` força migração de symlink / remount).
 5. **Copiar o skel** — o Debian copia ``/etc/skel`` para a home **durante** o passo 1; depois,
    após os diretórios públicos, o script acrescenta ``README.md`` runv (português), sem apagar o que
    veio do skel (use ``--force-readme`` para substituir). Prepare ``/etc/skel`` com ``tools.py``
@@ -26,7 +26,7 @@ Quota ext4, metadados JSON e logging seguem após estes passos.
 Garante na criação as permissões para **todos** os serviços runv expostos ao utilizador:
 **HTTP** (``public_html``), **Gopher** (``public_gopher``) e **Gemini** (``public_gemini``) —
 home ``755`` (atravessável por Apache, gophernicus e molly-brown), pastas públicas ``755``,
-ficheiros servidos ``644``, mais ``.ssh``/``authorized_keys`` e symlink Gemini quando aplicável.
+ficheiros servidos ``644``, mais ``.ssh``/``authorized_keys`` e bind mount Gemini quando aplicável.
 Contas criadas **só** com ``adduser`` (sem este script) devem passar pelo backfill
 ``scripts/admin/setup_alt_protocols.py`` ou por nova execução deste script com as flags de reparo
 adequadas (``--force-*``).
@@ -551,42 +551,26 @@ def ensure_gemini_user_symlink(
     *,
     force: bool,
 ) -> None:
-    """Cria /var/gemini/users/<user> -> <home>/public_gemini se o diretório global existir."""
-    target = (home / "public_gemini").resolve()
+    """
+    Garante bind mount /var/gemini/users/<user> <- <home>/public_gemini (Molly Debian;
+    symlinks fora do DocBase são rejeitados). Delega em setup_alt_protocols.
+    """
+    import setup_alt_protocols as alt
+
     if not GEMINI_USERS_DIR.is_dir():
         log.warning(
-            "diretório %s inexistente — symlink Gemini não criado. "
+            "diretório %s inexistente — bind Gemini não aplicado. "
             "Execute scripts/admin/setup_alt_protocols.py no servidor.",
             GEMINI_USERS_DIR,
         )
         return
-    link = GEMINI_USERS_DIR / username
-    if link.is_symlink():
-        if link.resolve() == target:
-            log.info("symlink Gemini já correto: %s", link)
-            return
-        if force:
-            link.unlink()
-            log.info("symlink Gemini antigo removido: %s", link)
-        else:
-            log.warning(
-                "symlink %s aponta para %s (esperado %s); não altero sem --force-gemini",
-                link,
-                link.resolve(),
-                target,
-            )
-            return
-    elif link.exists():
-        if not force:
-            log.warning("%s existe e não é symlink; não sobrescrevo sem --force-gemini", link)
-            return
-        if link.is_dir():
-            shutil.rmtree(link)
-        else:
-            link.unlink()
-        log.info("removido destino em conflito para symlink Gemini: %s", link)
-    link.symlink_to(target, target_is_directory=True)
-    log.info("symlink Gemini: %s -> %s", link, target)
+    alt.ensure_gemini_bind_mount(
+        username,
+        home.parent,
+        force=force,
+        dry_run=False,
+        log=log,
+    )
 
 
 def prepare_user_readme(
@@ -1170,7 +1154,7 @@ def interactive_fill(args: argparse.Namespace) -> None:
             default_no=True,
         )
         args.force_gemini = prompt_yes_no(
-            "Forçar correção do symlink Gemini (/var/gemini/users) se estiver errado ou em conflito (--force-gemini)?",
+            "Forçar correção do bind mount Gemini (/var/gemini/users) se estiver errado ou em conflito (--force-gemini)?",
             default_no=True,
         )
         args.force_readme = prompt_yes_no(
@@ -1268,7 +1252,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument(
         "--force-gemini",
         action="store_true",
-        help="corrigir symlink em /var/gemini/users (e destinos em conflito); não sobrescreve index.gmi existente",
+        help="corrigir bind mount em /var/gemini/users (migra symlink; remount se necessário); não sobrescreve index.gmi existente",
     )
     p.add_argument(
         "--metadata-file",
@@ -1435,7 +1419,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  fingerprint:  {fingerprint}")
         print(
             "  ações: (1) adduser + /etc/skel  (2) authorized_keys  (3) public_html  "
-            "(4) public_gopher + public_gemini + symlink Gemini  (5) README.md  "
+            "(4) public_gopher + public_gemini + bind Gemini  (5) README.md  "
             "(6) permissões consolidadas  + quota (se ativa) + metadados JSON"
         )
         if args.no_quota:
@@ -1554,7 +1538,7 @@ def main(argv: list[str] | None = None) -> int:
         print("  public_html:       pronto (index.html estático)")
         print("  public_gopher:     pronto (gophermap)")
         print("  public_gemini:     pronto (index.gmi)")
-        print("  symlink Gemini:    /var/gemini/users/<user> (se o diretório existir)")
+        print("  bind Gemini:       /var/gemini/users/<user> <- ~/public_gemini (se o diretório existir)")
         print("  README.md:         criado em ~/README.md (pt-BR)")
         print(f"  URL prevista:      {args.base_url.rstrip('/')}/~{user}/")
         print(f"  fingerprint:       {fingerprint}")

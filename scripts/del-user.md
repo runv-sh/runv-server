@@ -6,7 +6,7 @@ Ferramenta para **administradores** removerem **permanentemente** um utilizador 
 
 - **Não** remove nem altera configuração do Apache ou SSH globalmente.
 - Opcionalmente remove a entrada correspondente em `/var/lib/runv/users.json` (mesmo formato que `create_runv_user.py`).
-- Remove o symlink **`/var/gemini/users/<user>`** se existir e for symlink (Gemini / molly-brown).
+- **Gemini:** **umount** do bind em **`/var/gemini/users/<user>`** se estiver montado, remove a linha correspondente em **`/etc/fstab`**, remove symlink legado ou directório vazio.
 - Se a home estiver num **ext4** com **usrquota** ativo, tenta **`setquota`** para repor limites a zero **antes** de `deluser` (mount detetado automaticamente, mesma lógica que `create_runv_user.py` / `runv_mount.py`). Se `setquota` falhar, a remoção da conta continua com aviso em stderr.
 
 **Ambiente:** servidor **Linux** (Debian). Executar como **root** ou `sudo`. No Windows use só para revisão do código.

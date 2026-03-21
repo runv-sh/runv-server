@@ -3,11 +3,12 @@
 Infraestrutura Gopher (gophernicus) e Gemini (molly-brown) para runv.club.
 
 - Gopher: raiz em /var/gopher, espaços de utilizador em ~/public_gopher (gophermap).
-- Gemini: DocBase /var/gemini, symlinks /var/gemini/users/<user> -> ~/public_gemini.
+- Gemini: DocBase /var/gemini; **bind mount** ``/var/gemini/users/<user>`` <- ``~/public_gemini``
+  (o Molly Debian recusa symlinks cujo destino fica fora do DocBase).
 
 Idempotente, dry-run, subprocess sem shell. Executar como root no Debian.
 
-Versão 0.12 — runv.club
+Versão 0.13 — runv.club
 """
 
 from __future__ import annotations
@@ -32,7 +33,7 @@ from typing import Any, Final
 # Constantes
 # ---------------------------------------------------------------------------
 
-VERSION: Final[str] = "0.12"
+VERSION: Final[str] = "0.13"
 
 LETSENCRYPT_LIVE: Final[Path] = Path("/etc/letsencrypt/live")
 LETSENCRYPT_ARCHIVE: Final[Path] = Path("/etc/letsencrypt/archive")
@@ -47,6 +48,12 @@ DEFAULT_LE_KEY: Final[Path] = Path("/etc/letsencrypt/live/runv.club/privkey.pem"
 GOPHER_ROOT: Final[Path] = Path("/var/gopher")
 GEMINI_ROOT: Final[Path] = Path("/var/gemini")
 GEMINI_USERS: Final[Path] = GEMINI_ROOT / "users"
+FSTAB_PATH: Final[Path] = Path("/etc/fstab")
+
+# Linha fstab: <source> <mountpoint> none bind 0 0 (paths sem espaços no 2.º campo)
+_GEMINI_BIND_FSTAB_RE: Final[re.Pattern[str]] = re.compile(
+    r"^(.+)\s+(/var/gemini/users/\S+)\s+none\s+bind\s+0\s+0\s*\Z"
+)
 
 GOPHER_DEFAULT_PATH: Final[Path] = Path("/etc/default/gophernicus")
 GOPHER_SYSTEMD_SERVICE: Final[Path] = Path("/lib/systemd/system/gophernicus@.service")
@@ -296,6 +303,9 @@ ReadMollyFiles = true
 # Molly Brown (Go): resolvePath usa o *primeiro* segmento após / como ~NOME — ou seja
 # path canónico /~username/… (tilde colado ao utilizador). O formato /~/username/
 # deixa o nome vazio e devolve 51; redireccionamos /~/… -> /~… antes do Stat.
+#
+# Conteúdo por utilizador: bind mount (não symlink) de DocBase/users/<user> para
+# ~/public_gemini — o pacote Debian recusa symlinks fora do DocBase.
 [TempRedirects]
 "^/~/([^/]+)(/.*)?$" = "/~$1$2"
 """
@@ -544,7 +554,105 @@ def ensure_user_public_dirs(
                 log.info("home %s: modo %04o -> 0755 (atravessável por serviços)", home, cur)
 
 
-def ensure_gemini_symlink(
+def _escape_fstab_path(s: str) -> str:
+    return s.replace(" ", "\\040")
+
+
+def _unescape_fstab_path(s: str) -> str:
+    return s.replace("\\040", " ")
+
+
+def _is_dir_mountpoint(path: Path) -> bool:
+    r = subprocess.run(
+        ["mountpoint", "-q", str(path)],
+        capture_output=True,
+        timeout=30,
+    )
+    return r.returncode == 0
+
+
+def _bind_mount_source_resolved(mountpoint: Path) -> Path | None:
+    r = subprocess.run(
+        ["findmnt", "-n", "-o", "SOURCE", "--target", str(mountpoint)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if r.returncode != 0:
+        return None
+    raw = (r.stdout or "").strip()
+    if not raw:
+        return None
+    src = raw.split()[0]
+    if src.startswith("[") and "]" in src:
+        src = src[1 : src.index("]")]
+    try:
+        return Path(src).resolve(strict=False)
+    except OSError:
+        return Path(src)
+
+
+def _ensure_gemini_fstab_line(
+    source: Path,
+    mountpoint: Path,
+    *,
+    dry_run: bool,
+    log: logging.Logger,
+) -> None:
+    src_s = str(_path_resolved(source))
+    mp_s = str(_path_resolved(mountpoint))
+    desired_line = f"{_escape_fstab_path(src_s)} {_escape_fstab_path(mp_s)} none bind 0 0\n"
+    if dry_run:
+        log.info("[dry-run] fstab (se necessário): %s", desired_line.rstrip())
+        return
+    if not FSTAB_PATH.is_file():
+        log.warning("%s inexistente — bind não persistido após reboot", FSTAB_PATH)
+        return
+    try:
+        text = FSTAB_PATH.read_text(encoding="utf-8", errors="replace")
+    except OSError as e:
+        log.warning("ler fstab: %s", e)
+        return
+    mp_path = mountpoint
+    src_res = Path(src_s).resolve()
+    kept: list[str] = []
+    found_exact = False
+    for line in text.splitlines(keepends=True):
+        stripped = line.strip()
+        if stripped.startswith("#") or not stripped:
+            kept.append(line)
+            continue
+        m = _GEMINI_BIND_FSTAB_RE.match(stripped)
+        if not m:
+            kept.append(line)
+            continue
+        f2 = Path(_unescape_fstab_path(m.group(2)))
+        if f2 != mp_path:
+            kept.append(line)
+            continue
+        f1 = Path(_unescape_fstab_path(m.group(1))).resolve()
+        if f1 == src_res:
+            if not found_exact:
+                found_exact = True
+                kept.append(line)
+            else:
+                log.debug("fstab: duplicado ignorado para %s", mountpoint)
+        else:
+            log.debug("fstab: removida linha antiga para %s (origem diferente)", mountpoint)
+    if not found_exact:
+        if kept and not kept[-1].endswith("\n"):
+            kept[-1] += "\n"
+        kept.append(desired_line)
+    new_content = "".join(kept)
+    if new_content == text:
+        log.debug("fstab inalterado para %s", mountpoint)
+        return
+    backup_if_exists(FSTAB_PATH, log, dry_run=False)
+    FSTAB_PATH.write_text(new_content, encoding="utf-8")
+    log.info("fstab: bind persistido %s -> %s", src_s, mp_s)
+
+
+def ensure_gemini_bind_mount(
     username: str,
     homes_root: Path,
     *,
@@ -552,45 +660,110 @@ def ensure_gemini_symlink(
     dry_run: bool,
     log: logging.Logger,
 ) -> None:
+    """
+    Expõe ~/public_gemini em /var/gemini/users/<user> com mount --bind + fstab.
+    O Molly Debian recusa symlinks cujo destino fica fora de DocBase (/var/gemini).
+    """
+    _ = homes_root  # API compatível com o backfill (getpwnam fornece a home)
     try:
         pw = pwd.getpwnam(username)
     except KeyError:
         return
     home = Path(pw.pw_dir)
-    target = (home / "public_gemini").resolve()
-    link = GEMINI_USERS / username
+    target = home / "public_gemini"
+    if not target.is_dir():
+        log.debug("public_gemini inexistente para %s — bind não aplicado", username)
+        return
+    target_resolved = _path_resolved(target)
+    mountpoint = GEMINI_USERS / username
 
     if not GEMINI_USERS.is_dir():
-        log.warning("GEMINI_USERS inexistente: %s — symlink não criado", GEMINI_USERS)
+        log.warning("GEMINI_USERS inexistente: %s — bind não aplicado", GEMINI_USERS)
         return
 
     if dry_run:
-        log.info("[dry-run] symlink %s -> %s", link, target)
+        log.info("[dry-run] mount --bind %s %s + fstab", target_resolved, mountpoint)
+        _ensure_gemini_fstab_line(target_resolved, mountpoint, dry_run=True, log=log)
         return
 
-    if link.is_symlink():
-        cur = link.resolve()
-        if cur == target:
-            log.debug("symlink OK: %s", link)
+    if mountpoint.is_symlink():
+        if not force:
+            log.warning(
+                "symlink %s -> %s: Molly Debian recusa symlinks fora do DocBase; "
+                "corra com --force para substituir por bind mount",
+                mountpoint,
+                mountpoint.resolve(),
+            )
             return
-        if force:
-            link.unlink()
-            log.info("symlink antigo removido: %s", link)
-        else:
-            log.warning("symlink %s aponta para %s (esperado %s); use --force", link, cur, target)
+        mountpoint.unlink()
+        log.info("symlink removido (migração bind): %s", mountpoint)
+
+    if mountpoint.exists() and mountpoint.is_file():
+        log.warning("%s é ficheiro; não aplico bind", mountpoint)
+        return
+
+    if _is_dir_mountpoint(mountpoint):
+        src_now = _bind_mount_source_resolved(mountpoint)
+        if src_now == target_resolved:
+            log.debug("bind mount OK: %s <- %s", mountpoint, target_resolved)
+            _ensure_gemini_fstab_line(target_resolved, mountpoint, dry_run=False, log=log)
             return
-    elif link.exists():
-        log.warning("%s existe e não é symlink; não sobrescrevo sem --force", link)
-        if force:
-            if link.is_dir():
-                shutil.rmtree(link)
-            else:
-                link.unlink()
-        else:
+        if not force:
+            log.warning(
+                "mountpoint %s montado de %s; esperado %s — use --force",
+                mountpoint,
+                src_now,
+                target_resolved,
+            )
+            return
+        ru = run_cmd(["umount", str(mountpoint)], dry_run=False, log=log)
+        if ru is not None and ru.returncode != 0:
+            log.error(
+                "umount %s falhou: %s",
+                mountpoint,
+                (ru.stderr or ru.stdout or "").strip(),
+            )
+            return
+        log.info("umount antes de remount: %s", mountpoint)
+
+    if mountpoint.exists() and mountpoint.is_dir():
+        try:
+            if any(mountpoint.iterdir()):
+                log.warning(
+                    "%s é directório com conteúdo (não é mountpoint); não aplico bind",
+                    mountpoint,
+                )
+                return
+        except OSError as e:
+            log.warning("listar %s: %s", mountpoint, e)
             return
 
-    link.symlink_to(target, target_is_directory=True)
-    log.info("symlink: %s -> %s", link, target)
+    mountpoint.mkdir(parents=True, exist_ok=True)
+    os.chmod(mountpoint, 0o755)
+    try:
+        os.chown(mountpoint, 0, 0)
+    except OSError as e:
+        log.warning("chown %s: %s", mountpoint, e)
+
+    rm = run_cmd(
+        ["mount", "--bind", str(target_resolved), str(mountpoint)],
+        dry_run=False,
+        log=log,
+    )
+    if rm is None or rm.returncode != 0:
+        log.error(
+            "mount --bind falhou: %s -> %s (%s)",
+            target_resolved,
+            mountpoint,
+            (rm.stderr or rm.stdout or "").strip() if rm else "",
+        )
+        return
+    log.info("bind mount: %s -> %s", target_resolved, mountpoint)
+    _ensure_gemini_fstab_line(target_resolved, mountpoint, dry_run=False, log=log)
+
+
+# Alias legado (patches/yetgg.py e referências antigas)
+ensure_gemini_symlink = ensure_gemini_bind_mount
 
 
 def apt_install(
@@ -762,9 +935,20 @@ def validate_final(
                 (home / "public_gemini" / "index.gmi", "index.gmi"),
             ):
                 log.info("amostra %s %s: %s", sample, label, "OK" if p.is_file() else "FALTA")
-            sl = GEMINI_USERS / sample
-            ok_sl = sl.is_symlink() and sl.resolve() == (home / "public_gemini").resolve()
-            log.info("amostra symlink Gemini: %s", "OK" if ok_sl else "FALTA/INCORRETO")
+            mp = GEMINI_USERS / sample
+            pg = (home / "public_gemini").resolve()
+            ok_mount = False
+            if _is_dir_mountpoint(mp):
+                src = _bind_mount_source_resolved(mp)
+                ok_mount = src is not None and src == pg
+            elif mp.is_symlink():
+                log.warning(
+                    "amostra %s: %s ainda é symlink (Molly Debian rejeita); "
+                    "corra setup_alt_protocols com --force para bind mount",
+                    sample,
+                    mp,
+                )
+            log.info("amostra mount Gemini: %s", "OK" if ok_mount else "FALTA/INCORRETO")
             gophermap = home / "public_gopher" / "gophermap"
             if gopher_state == "active" and gophermap.is_file():
                 guser = infer_gophernicus_runtime_user(log)
@@ -790,11 +974,11 @@ def validate_final(
                 if can is False:
                     log.warning(
                         "amostra %s: www-data não consegue ler %s (runuser … test -r falhou). "
-                        "Confirme home 755 (ou o+x), public_gemini 755, index.gmi 644, symlink %s; "
+                        "Confirme home 755 (ou o+x), public_gemini 755, index.gmi 644, bind %s; "
                         "se `ls -l` mostrar +, veja getfacl no path (ACL).",
                         sample,
                         index_gmi,
-                        sl,
+                        mp,
                     )
                 elif can is True:
                     log.info("amostra %s: index.gmi legível por www-data (test -r): OK", sample)
@@ -952,7 +1136,7 @@ def main(argv: list[str] | None = None) -> int:
                 dry_run=args.dry_run,
                 log=log,
             )
-            ensure_gemini_symlink(
+            ensure_gemini_bind_mount(
                 u,
                 args.homes_root,
                 force=args.force,

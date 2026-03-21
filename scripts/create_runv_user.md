@@ -13,7 +13,7 @@ Ferramenta de linha de comando para **administradores** criarem contas Unix no s
 1. **Criar o usuário** — `adduser --disabled-password` (conta Unix).
 2. **Instalar a chave** — `~/.ssh/authorized_keys` com chave validada e modos `700` / `600`.
 3. **Preparar `public_html`** — diretório `755` e `~/public_html/index.html` estático (sem JavaScript, sem CDN); não sobrescreve sem `--force-index`.
-4. **Preparar Gopher e Gemini** — `~/public_gopher/` com `gophermap` e `~/public_gemini/` com `index.gmi` (modelos em português); não sobrescreve sem **`--force-gopher`** / **`--force-gemini`**. Se existir **`/var/gemini/users`**, cria o symlink **`/var/gemini/users/<user>` → `~/public_gemini`** (ajustável com `--force-gemini` se o symlink estiver errado). Se essa pasta global não existir, regista **aviso** no log — corra **[`setup_alt_protocols.py`](docs/alt_protocols.md)** no servidor.
+4. **Preparar Gopher e Gemini** — `~/public_gopher/` com `gophermap` e `~/public_gemini/` com `index.gmi` (modelos em português); não sobrescreve sem **`--force-gopher`** / **`--force-gemini`**. Se existir **`/var/gemini/users`**, aplica **bind mount** **`/var/gemini/users/<user>`** ← **`~/public_gemini`** (via `setup_alt_protocols`; **`--force-gemini`** migra symlink legado). Se essa pasta global não existir, regista **aviso** no log — corra **[`setup_alt_protocols.py`](docs/alt_protocols.md)** no servidor.
 5. **Copiar o skel** — o Debian **copia `/etc/skel` para a home no passo 1**. Depois, o script acrescenta `~/README.md` runv em português (runv.club, URL `~/username/`, permissões, comandos, aviso sobre arquivos públicos, Gopher/Gemini); não sobrescreve sem **`--force-readme`**. Se o skel do sistema já tiver um `README.md`, ele permanece até usar `--force-readme`. Para padronizar o skel do servidor, use **`tools/tools.py`** (ou `admin/skel.py`, conforme a política do servidor) antes de criar contas.
 6. **Aplicar permissões** — `apply_runv_permissions` reforça home `755`, `.ssh` / `authorized_keys`, `public_html`, `public_gopher`, `public_gemini` e `README.md` com modos e donos corretos; em seguida quota (se ativa), verificação final e metadados.
 
@@ -201,7 +201,7 @@ Metadados: `/var/lib/runv/users.json`
 - `--verbose` — mais detalhes no stderr
 - `--force-index` — sobrescreve `~/public_html/index.html` se já existir
 - `--force-gopher` — sobrescreve `~/public_gopher/gophermap` se já existir
-- `--force-gemini` — sobrescreve `~/public_gemini/index.gmi` se já existir e corrige o symlink em `/var/gemini/users/<user>` se estiver errado
+- `--force-gemini` — sobrescreve `~/public_gemini/index.gmi` se já existir e corrige o **bind mount** em `/var/gemini/users/<user>` (migra symlink legado) se necessário
 - `--force-readme` — sobrescreve `~/README.md` se já existir (útil se o skel do sistema já criou um README)
 - `--no-quota` — não aplica `setquota`
 - `--require-quota` — falha antes de `adduser` se quota não estiver disponível

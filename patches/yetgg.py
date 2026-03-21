@@ -2,7 +2,7 @@
 """
 runv.club — backfill Gopher/Gemini para utilizadores já registados.
 
-Cria ``~/public_gopher``, ``~/public_gemini`` (modelos) e symlinks em
+Cria ``~/public_gopher``, ``~/public_gemini`` (modelos) e bind mounts em
 ``/var/gemini/users/<user>``, usando a **mesma lista de contas** que o IRC
 (união ``users.json`` + ``/home``, filtro ``IRC_PATCH_SKIP_USERS``).
 
@@ -61,7 +61,7 @@ def require_root(log: logging.Logger) -> None:
 def ensure_gemini_users_tree(*, dry_run: bool, log: logging.Logger) -> None:
     if GEMINI_USERS.is_dir():
         return
-    log.warning("%s inexistente — criar antes dos symlinks Gemini", GEMINI_USERS)
+    log.warning("%s inexistente — criar antes dos bind mounts Gemini", GEMINI_USERS)
     if dry_run:
         log.info("[dry-run] mkdir -p %s %s (755 root:root)", GEMINI_ROOT, GEMINI_USERS)
         return
@@ -86,7 +86,7 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument(
         "--force",
         action="store_true",
-        help="sobrescrever gophermap / symlinks (como setup_alt_protocols); index.gmi existente mantém-se",
+        help="sobrescrever gophermap / bind Gemini (como setup_alt_protocols); index.gmi existente mantém-se",
     )
     p.add_argument(
         "--users-json",
@@ -128,7 +128,7 @@ def main(argv: list[str] | None = None) -> int:
 
     resolve_all_users = patch_irc.resolve_all_users
     ensure_user_public_dirs = setup_alt.ensure_user_public_dirs
-    ensure_gemini_symlink = setup_alt.ensure_gemini_symlink
+    ensure_gemini_bind_mount = setup_alt.ensure_gemini_bind_mount
 
     users = resolve_all_users(args.users_json, args.homes_root, log)
     ensure_gemini_users_tree(dry_run=args.dry_run, log=log)
@@ -143,7 +143,7 @@ def main(argv: list[str] | None = None) -> int:
                 dry_run=args.dry_run,
                 log=log,
             )
-            ensure_gemini_symlink(
+            ensure_gemini_bind_mount(
                 username,
                 args.homes_root,
                 force=args.force,
