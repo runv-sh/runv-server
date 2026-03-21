@@ -70,6 +70,8 @@ body {
   z-index: 0;
   pointer-events: none;
   overflow: visible;
+  transform: none;
+  isolation: isolate;
 }
 
 /* Membros como pontos: só em ecrãs largos (em mobile o texto ocupa o viewport). */
@@ -79,33 +81,34 @@ body {
   }
 }
 
+/* Sem transform nas bolinhas: fixed + transform falha em alguns WebKit ao rolar. */
 .star-member {
   --star-scale: 1;
-  position: fixed;
+  position: absolute;
   z-index: 0;
-  width: 10px;
-  height: 10px;
-  margin: -5px 0 0 -5px;
+  width: calc(10px * var(--star-scale));
+  height: calc(10px * var(--star-scale));
+  margin: calc(-5px * var(--star-scale)) 0 0 calc(-5px * var(--star-scale));
   padding: 0;
   border: none;
   border-radius: 50%;
   pointer-events: auto;
   cursor: pointer;
-  transform: scale(var(--star-scale));
-  transform-origin: center;
   text-indent: -9999px;
   overflow: hidden;
   white-space: nowrap;
   background: var(--accent);
   opacity: 0.72;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition: opacity 0.15s ease, width 0.15s ease, height 0.15s ease, margin 0.15s ease;
 }
 
 .star-member:hover,
 .star-member:focus-visible {
   opacity: 1;
   outline: none;
-  transform: scale(calc(var(--star-scale) * 1.1));
+  width: calc(11px * var(--star-scale));
+  height: calc(11px * var(--star-scale));
+  margin: calc(-5.5px * var(--star-scale)) 0 0 calc(-5.5px * var(--star-scale));
 }
 
 .star-member:focus-visible {
