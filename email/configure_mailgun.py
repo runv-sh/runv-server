@@ -80,12 +80,25 @@ def prompt_api_key_twice() -> str:
         return key
 
 
+def print_mailgun_operator_hints() -> None:
+    print()
+    print("Requisitos Mailgun (evita 401 «Invalid private key» / Forbidden):")
+    print("  • API HTTP: Basic user ``api``, password = **Private API key** ou **domain sending key**")
+    print("    (não use a password SMTP do painel).")
+    print("  • **IP allowlist:** se estiver activa no painel Mailgun (API), inclua o **IP público")
+    print("    deste servidor** (o mesmo que faz os pedidos HTTPS à Mailgun).")
+    print("  • Envio: ``POST /v3/<domínio>/messages`` — o domínio na URL deve coincidir com o")
+    print("    domínio verificado no painel (ex.: runv.club).")
+    print()
+
+
 def interactive_config(*, email_package_root: str) -> tuple[dict[str, Any], dict[str, str]]:
     print()
     print("=== Configurador de email para Mailgun API ===")
     print()
     print("Aviso: este script foi feito para Mailgun. Não pré-configura nenhuma credencial.")
     print()
+    print_mailgun_operator_hints()
 
     print("Tipo de chave Mailgun (recomendado: domain sending key — menor privilégio):")
     print("  1) Domain sending key (recomendado)")
@@ -148,6 +161,17 @@ def write_json_atomic(path: Path, data: dict[str, Any], *, mode: int, dry_run: b
         pass
     tmp.replace(path)
     log().info("Escrito %s (%o)", path, mode)
+
+
+def _print_test_failure_hint(exc: BaseException) -> None:
+    msg = str(exc).lower()
+    if "401" not in msg and "403" not in msg and "forbidden" not in msg:
+        return
+    print(
+        "\nDica: com chave e domínio correctos, 401/403 na API Mailgun costuma ser **IP allowlist** "
+        "no painel — adicione o IP público de **esta máquina** (curl ifconfig.me no servidor).",
+        file=sys.stderr,
+    )
 
 
 def run_test_send(*, dry_run: bool) -> None:
@@ -239,6 +263,7 @@ def main() -> int:
                 run_test_send(dry_run=args.dry_run)
             except Exception as e:
                 log().error("%s", e)
+                _print_test_failure_hint(e)
                 return 1
             print("Teste concluído.")
             return 0
@@ -271,6 +296,7 @@ def main() -> int:
                 log().info("Teste enviado.")
             except Exception as e:
                 log().warning("Teste falhou: %s", e)
+                _print_test_failure_hint(e)
 
         print_summary(public, dry_run=args.dry_run)
         print("Teste posterior: sudo python3 email/configure_mailgun.py --test")

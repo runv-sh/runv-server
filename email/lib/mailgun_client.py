@@ -277,7 +277,11 @@ def format_mailgun_failure(status: int, body_snippet: str) -> str:
     """Mensagem legível para operadores (sem expor segredos)."""
     base = f"HTTP {status}"
     if status in (401, 403):
-        return f"{base}: API key inválida ou sem permissão para este domínio/região."
+        return (
+            f"{base}: API key inválida, domínio/região incorrectos, ou **IP allowlist** no "
+            f"painel Mailgun a bloquear este servidor. Confirme chave HTTP (não password SMTP), "
+            f"domínio na URL, e em Security/API a lista de IPs permitidos."
+        )
     if status == 400:
         return f"{base}: pedido inválido — verifique domínio, From autorizado e campos obrigatórios. Resposta: {body_snippet[:200]}"
     if status == 404:

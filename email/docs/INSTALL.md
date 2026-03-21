@@ -20,10 +20,16 @@ Em tempo de execução, **`RUNV_MAILGUN_API_KEY`** (se definida) **tem prioridad
 - **US:** `https://api.mailgun.net/v3/<domínio>/messages` (o configurador usa sempre este endpoint; é o mesmo eixo que o SMTP **`smtp.mailgun.org`** nas credenciais SMTP do painel.)
 - **EU:** `https://api.eu.mailgun.net/v3/<domínio>/messages` — só para contas/domínios alojados na região UE; nesse caso **edite** `mailgun_region` (`eu`) e `api_base_url` em `/etc/runv-email.json` após correr o script, ou a API devolverá erros de autenticação/domínio.
 
+### IP allowlist (API)
+
+Se no painel Mailgun estiver activa a **restrição por IP** para a API, qualquer servidor que chame `api.mailgun.net` tem de ter o **seu IP público** na lista. Sem isso, a API pode responder **401** / «Invalid private key» / **Forbidden** mesmo com chave e domínio correctos. Inclua o IP da VPS (ou desactive a allowlist para testes).
+
 ### Obter uma API key
 
 1. Painel Mailgun → domínio → **Domain settings** / **Sending API keys**.
 2. Preferir **domain sending key** (menor privilégio) se só precisar de enviar desse domínio; **primary API key** também funciona se tiver permissão de envio.
+
+Para validar a **primary** no painel ou com `curl`, a listagem de domínios usa **`GET /v4/domains`** (US ou EU). A **domain sending key** não serve para esse endpoint; o envio do runv usa **`POST /v3/<domínio>/messages`** (já implementado em `lib/mailgun_client.py`).
 
 ## Executar o configurador (predefinido)
 
@@ -70,7 +76,7 @@ sudo python3 configure_mailgun.py --test
 
 Em caso de falha, mensagens típicas:
 
-- **401 / 403** — API key errada, **domain sending key** de outro domínio, ou **conta/região UE** a usar o endpoint US (`api.mailgun.net`); confira no painel Mailgun se o domínio é US ou EU e se a chave corresponde a esse domínio.
+- **401 / 403** — Chave incorrecta (não é API HTTP / não é do domínio), região errada (US vs EU), ou **IP allowlist** no painel a bloquear o servidor; confira também se o domínio na URL coincide com o domínio verificado.
 - **400** — payload inválido; From não autorizado no domínio; campos em falta.
 - **404** — domínio errado ou URL/região incorreta (US vs EU).
 - **Timeout / erro de rede** — DNS, firewall ou TLS.
