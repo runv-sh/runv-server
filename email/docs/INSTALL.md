@@ -6,7 +6,7 @@ Debian 13 (ou próximo). **Apenas envio** — caminho predefinido **Mailgun HTTP
 
 ## O que o predefinido faz (Mailgun)
 
-- Grava metadados em **`/etc/runv-email.json`** (0600, root): domínio Mailgun, região `us` ou `eu`, URL base da API, remetente padrão, email do admin, tipo de chave, caminho da pasta `email/` do repositório (`email_package_root`), etc. **Sem API key neste ficheiro.**
+- Grava metadados em **`/etc/runv-email.json`** (0600, root): domínio Mailgun, região da API (o configurador fixa **`us`** e `https://api.mailgun.net/`), remetente padrão, email do admin, tipo de chave, caminho da pasta `email/` do repositório (`email_package_root`), etc. **Sem API key neste ficheiro.**
 - Grava segredos em **`/etc/runv-email.secrets.json`** (0600, root): apenas `mailgun_api_key`. **Não partilhar nem fazer backup deste ficheiro para repositórios públicos.**
 
 ### API key em variável de ambiente (opcional)
@@ -17,10 +17,8 @@ Em tempo de execução, **`RUNV_MAILGUN_API_KEY`** (se definida) **tem prioridad
 
 - **Credenciais SMTP** do painel Mailgun são para clientes SMTP (ex.: msmtp); **não** são o mesmo fluxo que a API HTTP.
 - A **HTTP API** usa autenticação **HTTP Basic**: username fixo **`api`**, password = **API key** (primary ou domain sending key).
-- **US:** `https://api.mailgun.net/v3/<domínio>/messages`
-- **EU:** `https://api.eu.mailgun.net/v3/<domínio>/messages`
-
-Escolha a região no painel Mailgun (conta EU vs US); o script **pergunta explicitamente** `us` ou `eu` — não adivinha em silêncio.
+- **US:** `https://api.mailgun.net/v3/<domínio>/messages` (o configurador usa sempre este endpoint; é o mesmo eixo que o SMTP **`smtp.mailgun.org`** nas credenciais SMTP do painel.)
+- **EU:** `https://api.eu.mailgun.net/v3/<domínio>/messages` — só para contas/domínios alojados na região UE; nesse caso **edite** `mailgun_region` (`eu`) e `api_base_url` em `/etc/runv-email.json` após correr o script, ou a API devolverá erros de autenticação/domínio.
 
 ### Obter uma API key
 
@@ -40,11 +38,12 @@ O script pergunta:
 
 - tipo de chave (domain sending vs primary);
 - domínio de envio Mailgun (ex.: `mg.exemplo.com`);
-- região da API: **`us`** ou **`eu`**;
-- API key (**não ecoa**);
+- API key (**ecoada** ao digitar; deve ser introduzida **duas vezes iguais** para continuar — útil para validar cópia/colar; evite terminais partilhados);
 - remetente padrão (From);
 - email do administrador (notificações / teste);
 - caminho da pasta **`email/`** do repositório (para importações, ex. fluxo `entre` — por omissão é a pasta onde está o script).
+
+A região da API HTTP **não é perguntada**: fica **`us`** (`api.mailgun.net`). Conta só UE: ajuste manualmente o JSON (ver secção «SMTP vs HTTP API» acima).
 
 ## Ficheiros criados (Mailgun)
 
@@ -71,7 +70,7 @@ sudo python3 configure_mailgun.py --test
 
 Em caso de falha, mensagens típicas:
 
-- **401 / 403** — API key inválida ou sem permissão para o domínio/região.
+- **401 / 403** — API key errada, **domain sending key** de outro domínio, ou **conta/região UE** a usar o endpoint US (`api.mailgun.net`); confira no painel Mailgun se o domínio é US ou EU e se a chave corresponde a esse domínio.
 - **400** — payload inválido; From não autorizado no domínio; campos em falta.
 - **404** — domínio errado ou URL/região incorreta (US vs EU).
 - **Timeout / erro de rede** — DNS, firewall ou TLS.

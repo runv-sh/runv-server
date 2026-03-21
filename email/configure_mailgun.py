@@ -15,7 +15,6 @@ import logging
 import os
 import sys
 import time
-from getpass import getpass
 from pathlib import Path
 from typing import Any
 
@@ -23,9 +22,10 @@ MODULE_ROOT = Path(__file__).resolve().parent
 STATE_PATH = Path("/etc/runv-email.json")
 SECRETS_PATH = Path("/etc/runv-email.secrets.json")
 
+MAILGUN_API_REGION = "us"
+
 sys.path.insert(0, str(MODULE_ROOT))
 from lib.mailgun_client import (  # noqa: E402
-    MailgunHTTPError,
     build_mailgun_messages_url,
     mailgun_base_url,
     mask_secret,
@@ -62,6 +62,24 @@ def prompt_yes_no(msg: str, default_no: bool = True) -> bool:
     return r in ("s", "sim", "y", "yes")
 
 
+def prompt_api_key_twice() -> str:
+    print()
+    print(
+        "Aviso: a API key será mostrada ao digitar (para confirmar cópia/colar). "
+        "Evite ecrãs partilhados ou sessões gravadas.",
+    )
+    while True:
+        key = input("Mailgun API key: ").strip()
+        key2 = input("Repita a mesma API key: ").strip()
+        if not key:
+            print("Chave vazia — tente de novo.")
+            continue
+        if key != key2:
+            print("As duas entradas não coincidem — tente de novo.")
+            continue
+        return key
+
+
 def interactive_config(*, email_package_root: str) -> tuple[dict[str, Any], dict[str, str]]:
     print()
     print("=== Configurador de email para Mailgun API ===")
@@ -76,14 +94,16 @@ def interactive_config(*, email_package_root: str) -> tuple[dict[str, Any], dict
     api_key_kind = "domain_sending" if choice != "2" else "primary"
 
     domain = prompt_line("Domínio de envio Mailgun (ex.: mg.exemplo.com ou exemplo.com)")
-    region = prompt_line("Região da API (us ou eu)", "us").strip().lower()
-    if region not in ("us", "eu"):
-        raise ValueError("Região deve ser 'us' ou 'eu'.")
+    region = MAILGUN_API_REGION
+    print()
+    print(
+        "Região API HTTP: US — https://api.mailgun.net/ "
+        "(alinhado ao SMTP smtp.mailgun.org indicado nas credenciais SMTP do painel).",
+    )
+    print("Contas Mailgun só na UE: edite depois mailgun_region e api_base_url em /etc/runv-email.json.")
+    print()
 
-    key = getpass("Mailgun API key (não ecoa): ").strip()
-    key2 = getpass("Repita a API key: ").strip()
-    if key != key2:
-        raise ValueError("As chaves não coincidem.")
+    key = prompt_api_key_twice()
     default_from = prompt_line("Remetente padrão (From)")
     admin_email = prompt_line("Email do administrador (notificações / teste)")
 
@@ -153,8 +173,6 @@ def run_test_send(*, dry_run: bool) -> None:
         return
     try:
         send_mail(admin, subj, body, from_addr=from_addr, _state=pub)
-    except MailgunHTTPError:
-        raise
     except Exception as e:
         log().debug("detalhe (sem segredos): %s", type(e).__name__)
         raise
