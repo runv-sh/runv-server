@@ -195,6 +195,14 @@ sudo mkdir -p /var/lib/runv
 Log padrão: `/var/log/runv-user-provision.log`  
 Metadados: `/var/lib/runv/users.json`
 
+### Landing (`members.json`)
+
+Após gravar metadados, o script executa por omissão [`site/build_directory.py`](../site/build_directory.md) (via `python3` no repositório ao lado de `site/`) para actualizar **`data/members.json`** no DocumentRoot da landing (padrão **`/var/www/runv.club/html`**), desde que essa pasta exista. Assim a constelação na página reflecte a nova conta **sem cron**.
+
+- **`--no-refresh-landing-members`** — não chama `build_directory`.
+- **`--landing-document-root PATH`** — outro DocumentRoot (default: `/var/www/runv.club/html`).
+- **`--members-homes-root PATH`** — passa `--homes-root` ao `build_directory` (ex. `/home` para `homepage_mtime`).
+
 ## Opções úteis (CLI)
 
 - `--dry-run` — valida tudo e mostra o plano sem criar usuário
@@ -208,6 +216,7 @@ Metadados: `/var/lib/runv/users.json`
 - `--quota-soft-mb`, `--quota-hard-mb`, `--quota-inode-soft`, `--quota-inode-hard` — limites (MiB para blocos)
 - `--metadata-file`, `--lock-file`, `--log-file` — caminhos alternativos (ex.: testes em VM)
 - `--base-url` — URL base no resumo (padrão `http://runv.club`)
+- `--landing-document-root`, `--no-refresh-landing-members`, `--members-homes-root` — ver secção *Landing* acima
 
 ## Metadados JSON (campos de quota)
 

@@ -3,7 +3,7 @@
 O script [`build_directory.py`](build_directory.py) lê o ficheiro interno **`users.json`** (criado pelo [`create_runv_user.py`](../scripts/create_runv_user.md)) e gera um JSON **público** consumido pelo JavaScript da landing (`public/assets/app.js`): posiciona os **pontos** (links para `/~utilizador/`) com base em `username`, `since` e `path`.
 
 - **Python 3**, só biblioteca padrão (sem PyPI).
-- **Não** é um servidor web: corre na linha de comando ou via **cron**.
+- **Não** é um servidor web: corre na linha de comando. Em produção é invocado automaticamente por [`create_runv_user.py`](../scripts/create_runv_user.md) (após criar conta) e por [`genlanding.py`](genlanding.md) (após copiar `public/` para o DocumentRoot), salvo flags para desactivar.
 
 Visão geral do `site/`: [README.md](README.md).
 
@@ -104,24 +104,23 @@ A lista aparece na landing; não haverá `homepage_mtime` (o JS deve tolerar cam
 | `Formato inválido: esperada lista JSON` | O ficheiro não é um array JSON no topo |
 | Permissão negada ao gravar `-o` | Corre com `sudo` ou escolhe um `-o` onde o teu utilizador possa escrever |
 | `homepage_mtime` nunca aparece | Falta `--homes-root` ou não existe `~/public_html/index.html` legível para esse user |
-| «Escritos N membros» mas a página não mostra pontos | Gravaste em `site/public/data/` no repo; o **site público** usa o **DocumentRoot** do Apache (ex. `/var/www/runv.club/html/`). Usa `-o /var/www/runv.club/html/data/members.json` ou `sudo cp …` para lá, ou volta a correr `genlanding.py` depois de actualizar `members.json` na árvore que ele copia. |
+| «Escritos N membros» mas a página não mostra pontos | Gravaste em `site/public/data/` no repo; o **site público** usa o **DocumentRoot** do Apache (ex. `/var/www/runv.club/html/`). Usa `-o` para esse path, ou corre `genlanding.py` (regenera `members.json` por omissão após a cópia). |
 
-## Cron (exemplo)
+## Fluxo em produção (sem cron)
 
-Regenerar a cada 15 minutos no servidor (caminhos de exemplo):
+Não é necessário agendar `build_directory.py` no cron. A lista pública actualiza-se quando:
 
-```cron
-*/15 * * * * root python3 /opt/runv-server/site/build_directory.py --users-json /var/lib/runv/users.json --homes-root /home -o /var/www/runv.club/html/data/members.json
-```
+1. **`create_runv_user.py`** cria uma conta — por omissão chama `build_directory.py` com `-o <DocumentRoot>/data/members.json` se `--landing-document-root` existir no disco (padrão `/var/www/runv.club/html`). Use `--no-refresh-landing-members` para omitir.
+2. **`genlanding.py`** copia a landing — por omissão volta a executar `build_directory.py` no mesmo DocumentRoot. Use `--no-refresh-members` para omitir.
 
-Garante que o path do `python3`, do script e do `-o` coincidem com a tua instalação.
+Podes continuar a correr o script **manualmente** com os exemplos desta página (útil para reparos ou ambientes sem esses passos).
 
 ## Relação com outros ficheiros
 
 | Ferramenta | Papel |
 |------------|--------|
-| [`create_runv_user.py`](../scripts/create_runv_user.md) | Mantém `/var/lib/runv/users.json` |
-| [`genlanding.py`](genlanding.md) | Copia `public/` para o Apache; o **cron** do `build_directory.py` deve escrever `members.json` **dentro** desse DocumentRoot |
+| [`create_runv_user.py`](../scripts/create_runv_user.md) | Mantém `/var/lib/runv/users.json`; opcionalmente regenera `members.json` na landing |
+| [`genlanding.py`](genlanding.md) | Copia `public/` para o Apache; por omissão regenera `data/members.json` a partir de `users.json` |
 | `public/assets/app.js` | Faz `fetch` a `data/members.json` (caminho relativo à página) |
 
 Depois de alterar `members.json` no servidor, não é obrigatório recarregar o Apache — é ficheiro estático servido como qualquer outro.

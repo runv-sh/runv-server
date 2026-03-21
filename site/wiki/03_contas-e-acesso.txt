@@ -1,0 +1,58 @@
+RUNV.CLUB - CONTAS E ACESSO
+
+CADASTRO
+
+O cadastro deve ser feito com informações verdadeiras e minimamente consistentes.
+Criar conta com identidade falsa para enganar terceiros, burlar punição, cometer fraude ou simular legitimidade é motivo para ação da moderação.
+
+LOGIN
+
+O acesso ao sistema é individual. Cada usuário é responsável por proteger seu e-mail, senha e meios de autenticação vinculados à conta.
+
+RECUPERAÇÃO DE SENHA
+
+Se o usuário perder acesso à conta, deve usar os meios oficiais de recuperação disponíveis no sistema.
+Se ainda assim não resolver, deve contatar:
+admin@runv.club
+
+COMPARTILHAMENTO DE CONTA
+
+É proibido compartilhar conta quando isso:
+- comprometer a segurança;
+- dificultar auditoria de ações;
+- permitir fraude, abuso ou evasão de punição;
+- gerar uso indevido de permissões.
+
+A administração pode limitar, suspender ou encerrar contas usadas por múltiplas pessoas de forma irregular.
+
+RESPONSABILIDADE PELA CONTA
+
+Tudo o que for feito pela conta poderá ser atribuído ao titular até que exista evidência concreta de comprometimento, invasão ou uso indevido por terceiros.
+
+BOAS PRÁTICAS DE SEGURANÇA
+
+- usar senha forte;
+- não reutilizar senha vazada em outros serviços;
+- não enviar senha por mensagem;
+- não clicar em links suspeitos;
+- sair da conta em dispositivos públicos;
+- reportar acesso estranho imediatamente.
+
+ACESSO SUSPENSO OU BLOQUEADO
+
+A conta poderá ser temporariamente limitada ou suspensa quando houver:
+- indício de invasão;
+- atividade automatizada suspeita;
+- tentativa de fraude;
+- reincidência em infrações;
+- risco à integridade do sistema.
+
+ERRO COMUM DO USUÁRIO
+
+Muita gente trata a própria conta como se fosse descartável. Isso é estupidez operacional.
+Se a conta concentra histórico, permissões e suporte, então ela precisa ser tratada como ativo. Quem ignora isso aumenta o próprio risco.
+
+SUPORTE DE ACESSO
+
+Qualquer problema de login, recuperação, segurança ou suspeita de comprometimento deve ser comunicado para:
+admin@runv.club

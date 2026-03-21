@@ -60,6 +60,7 @@ from typing import Any, Final, NoReturn
 # Com python3 -P ou PYTHONSAFEPATH=1 o diretório deste script não entra em sys.path;
 # necessário para «from runv_mount» dentro das funções de quota/mount.
 _SCRIPT_DIR = Path(__file__).resolve().parent
+_REPO_ROOT = _SCRIPT_DIR.parent.parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
@@ -558,6 +559,9 @@ def ensure_gemini_user_symlink(
             "Execute scripts/admin/setup_alt_protocols.py no servidor.",
             GEMINI_USERS_DIR,
         )
+        return
+    if username in alt.irc_patch_skip_users(log):
+        log.info("bind Gemini omitido (IRC_PATCH_SKIP_USERS): %s", username)
         return
     alt.ensure_gemini_bind_mount(
         username,
@@ -1076,6 +1080,54 @@ def try_apply_quota(
 # ---------------------------------------------------------------------------
 
 
+def try_refresh_landing_members_json(
+    *,
+    document_root: Path,
+    users_json: Path,
+    homes_root: Path | None,
+    log: logging.Logger,
+) -> bool:
+    """
+    Regenera public/data/members.json no DocumentRoot da landing (build_directory.py).
+    Falhas são apenas registadas — não aborta o provisionamento.
+    """
+    script = _REPO_ROOT / "site" / "build_directory.py"
+    if not script.is_file():
+        log.warning(
+            "build_directory.py não encontrado em %s; members.json da landing não atualizado",
+            script,
+        )
+        return False
+    out = document_root / "data" / "members.json"
+    cmd = [
+        sys.executable,
+        str(script),
+        "--users-json",
+        str(users_json),
+        "-o",
+        str(out),
+    ]
+    if homes_root is not None:
+        cmd.extend(["--homes-root", str(homes_root)])
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        err_tail = (r.stderr or r.stdout or "").strip()
+        if r.returncode != 0:
+            log.warning(
+                "build_directory terminou com código %s: %s",
+                r.returncode,
+                err_tail[:2000] if err_tail else "(sem saída)",
+            )
+            return False
+        log.info("members.json da landing actualizado em %s", out)
+        if r.stderr and r.stderr.strip():
+            log.debug("build_directory stderr: %s", r.stderr.strip()[:1500])
+        return True
+    except (OSError, subprocess.TimeoutExpired) as e:
+        log.warning("falha ao executar build_directory: %s", e)
+        return False
+
+
 def print_banner() -> None:
     print()
     print("  create_runv_user — provisionamento runv.club")
@@ -1271,6 +1323,26 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--base-url",
         default=DEFAULT_BASE_URL,
         help=f"URL base para o resumo (padrão: {DEFAULT_BASE_URL})",
+    )
+    p.add_argument(
+        "--landing-document-root",
+        type=Path,
+        default=Path("/var/www/runv.club/html"),
+        help=(
+            "DocumentRoot da landing Apache; após criar o utilizador, executa site/build_directory.py "
+            "para gravar data/members.json (bolinhas no site). Se a pasta não existir, o passo é ignorado."
+        ),
+    )
+    p.add_argument(
+        "--no-refresh-landing-members",
+        action="store_true",
+        help="não regenerar data/members.json na landing após gravar metadados",
+    )
+    p.add_argument(
+        "--members-homes-root",
+        type=Path,
+        default=None,
+        help="se definido (ex. /home), passa --homes-root a build_directory.py (homepage_mtime)",
     )
     p.add_argument(
         "--no-quota",
@@ -1522,6 +1594,25 @@ def main(argv: list[str] | None = None) -> int:
         log.info("=== fase: gravação de metadados JSON (%s)", args.metadata_file)
         append_user_metadata(args.metadata_file, args.lock_file, record, log)
 
+        members_refreshed = False
+        if not args.no_refresh_landing_members and args.landing_document_root:
+            root = args.landing_document_root.resolve()
+            if root.is_dir():
+                log.info("=== fase: actualizar members.json da landing (%s)", root)
+                members_refreshed = try_refresh_landing_members_json(
+                    document_root=root,
+                    users_json=args.metadata_file,
+                    homes_root=args.members_homes_root.resolve()
+                    if args.members_homes_root
+                    else None,
+                    log=log,
+                )
+            else:
+                log.info(
+                    "landing document root inexistente (%s); omitindo build_directory.py",
+                    root,
+                )
+
         log.info(
             "=== resultado final: status=%s quota_status=%s (operação concluída)",
             overall_status,
@@ -1538,6 +1629,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  URL prevista:      {args.base_url.rstrip('/')}/~{user}/")
         print(f"  fingerprint:       {fingerprint}")
         print(f"  metadados:         {args.metadata_file}")
+        if members_refreshed:
+            print(
+                f"  landing members:   {args.landing_document_root.resolve() / 'data' / 'members.json'}",
+            )
+        elif not args.no_refresh_landing_members and args.landing_document_root:
+            dr = args.landing_document_root.resolve()
+            if dr.is_dir():
+                print(
+                    "  landing members:   (falha ao regenerar; ver log — corra build_directory.py manualmente)",
+                    file=sys.stderr,
+                )
         if args.no_quota:
             print("  quota:             omitida (--no-quota)")
         else:

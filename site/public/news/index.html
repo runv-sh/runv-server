@@ -4,7 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Notícias — runv.club</title>
-  <meta name="description" content="Notícias e atualizações da comunidade runv.club.">
+  <meta name="description" content="Comunicados oficiais, mudanças no servidor e novidades da comunidade runv.club — pubnix brasileira Unix/Linux.">
+  <link rel="canonical" href="https://runv.club/news/">
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#0c0b0f">
+  <link rel="alternate" type="application/rss+xml" title="Notícias runv.club" href="https://runv.club/news/feed.rss">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://runv.club/news/">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="runv.club">
+  <meta property="og:title" content="Notícias — runv.club">
+  <meta property="og:description" content="Comunicados e atualizações da comunidade runv.club.">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Notícias — runv.club">
+  <meta name="twitter:description" content="Comunicados e atualizações da comunidade runv.club.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
@@ -24,18 +37,24 @@
         <a href="/junte-se/">Junte-se</a>
       </nav>
       <h1 class="hero-title subpage-title">Notícias</h1>
-      <p class="subpage-intro">Comunicados oficiais, mudanças no servidor e novidades da comunidade.</p>
+      <p class="subpage-intro">Comunicados oficiais, mudanças no servidor e novidades da comunidade. <a class="news-rss-link" href="feed.rss" type="application/rss+xml">Feed RSS</a></p>
     </header>
 
-    <main class="section prose-block subpage-main">
-      <p class="placeholder-block">
-        Ainda não há entradas publicadas. Esta página será preenchida quando houver notícias — por exemplo via build estático, feed ou outro fluxo que definirem mais tarde.
+    <main class="section subpage-main news-main">
+      <div id="news-feed" class="news-feed" aria-live="polite"></div>
+      <p id="news-empty" class="placeholder-block">
+        A carregar notícias…
       </p>
+      <noscript>
+        <p class="placeholder-block">Active JavaScript para ver a lista de notícias ou subscreva o <a href="feed.rss">feed RSS</a>.</p>
+      </noscript>
     </main>
 
     <footer class="site-footer">
-      <p>Administração: <a href="mailto:admin@runv.club">admin@runv.club</a></p>
+      <p>Administração: <a href="mailto:admin@runv.club">admin@runv.club</a><span class="footer-sep" aria-hidden="true"> · </span><a href="/faq/" class="footer-link-discrete">FAQ</a></p>
     </footer>
   </div>
+
+  <script src="../assets/news-page.js" defer></script>
 </body>
 </html>

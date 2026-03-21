@@ -1,6 +1,7 @@
 /**
  * Landing runv.club — carrega members.json (só dados públicos) e coloca
  * pontos clicáveis (links) fora da coluna de texto; brilho ligado à data since.
+ * Posições fixas no viewport (não recalculam ao scroll); zona central alinhada à .wrap.
  * Array vazio: sem estrelas até build_directory.py gerar o JSON a partir de users.json.
  */
 
@@ -50,7 +51,27 @@ function pointInRect(x, y, rect) {
 }
 
 /**
- * Posição para um ponto: fora da coluna `.wrap` (texto), com fallback para
+ * Rect da coluna de conteúdo fixo no viewport (mesma ideia que .wrap: 46rem + padding).
+ * Independente do scroll — evita que as bolinhas «saltem» ao rolar a página.
+ */
+function viewportFixedContentExcludeRect() {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const rootFs = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const maxBlock = 46 * rootFs;
+  const pad = Math.min(Math.max(rootFs, vw * 0.04), 1.35 * rootFs);
+  const contentW = Math.min(maxBlock, Math.max(0, vw - 2 * pad));
+  const left = Math.max(0, (vw - contentW) / 2);
+  return {
+    left,
+    top: 0,
+    right: left + contentW,
+    bottom: vh,
+  };
+}
+
+/**
+ * Posição para um ponto: fora da coluna central (viewport), com fallback para
  * faixas laterais ou cantos quando o ecrã é estreito.
  */
 function findStarPosition(w, h, seed, exclude) {
@@ -104,19 +125,26 @@ function validMembers(members) {
   );
 }
 
-function renderStarLinks(container, wrapEl, members) {
+/** Viewport estreito: sem «bolinhas» de membros (tocar era difícil e sobrepõe o texto). */
+function isStarfieldMobileViewport() {
+  return window.matchMedia("(max-width: 768px)").matches;
+}
+
+function renderStarLinks(container, members) {
   if (!container) return;
 
   container.replaceChildren();
+
+  if (isStarfieldMobileViewport()) {
+    return;
+  }
 
   const w = window.innerWidth;
   const h = window.innerHeight;
   if (w < 32 || h < 32) return;
 
   const pad = 36;
-  const exclude = wrapEl
-    ? inflateRect(wrapEl.getBoundingClientRect(), pad)
-    : { left: 0, top: 0, right: w, bottom: h };
+  const exclude = inflateRect(viewportFixedContentExcludeRect(), pad);
 
   for (const m of validMembers(members)) {
     const seed = hashUsername(m.username);
@@ -140,7 +168,6 @@ function renderStarLinks(container, wrapEl, members) {
 
 async function main() {
   const starRoot = document.getElementById("starfield");
-  const wrapEl = document.querySelector(".wrap");
 
   let members = [];
 
@@ -158,18 +185,13 @@ async function main() {
     if (!starRoot) return;
     cancelAnimationFrame(starRaf);
     starRaf = requestAnimationFrame(() => {
-      renderStarLinks(starRoot, wrapEl, members);
+      renderStarLinks(starRoot, members);
     });
   };
 
   scheduleStars();
 
   window.addEventListener("resize", scheduleStars, { passive: true });
-  window.addEventListener("scroll", scheduleStars, { passive: true, capture: true });
-  if (typeof ResizeObserver !== "undefined" && wrapEl) {
-    const ro = new ResizeObserver(scheduleStars);
-    ro.observe(wrapEl);
-  }
 }
 
 document.addEventListener("DOMContentLoaded", main);

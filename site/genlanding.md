@@ -8,6 +8,14 @@ Script em [`genlanding.py`](genlanding.py) (Python 3, stdlib) que configura o **
 
 Não substitui o manual de [`scripts/docs/2 - server setup.md`](../scripts/docs/2%20-%20server%20setup.md) para aprender permissões e diagnóstico; automatiza o caminho habitual após DNS e pacotes base.
 
+**SEO:** canonical, Open Graph, Twitter Card, JSON-LD, `robots.txt` e `sitemap.xml` vivem em [`public/`](public/) (sobretudo [`public/index.html`](public/index.html)); o `genlanding.py` apenas copia essa árvore para o `DocumentRoot`.
+
+**Notícias:** após correr [`news/publish_news.py`](news/publish_news.py) (gera `public/news/data/news.json` e `feed.rss`), execute de novo o `genlanding.py` (ou copie `public/`) para o servidor servir os ficheiros actualizados.
+
+**FAQ:** conteúdo em [`public/faq/index.html`](public/faq/index.html); o deploy copia `public/` inteiro, logo o FAQ segue automaticamente. Link discreto no rodapé das páginas.
+
+**Wiki:** ficheiros-fonte em [`wiki/*.txt`](wiki/) (`NN_slug.txt`). Em **local**, antes do deploy, gere o HTML em [`public/wiki/`](public/wiki/) com `python3 site/wiki/build_wiki.py` (actualiza também as entradas da wiki em [`public/sitemap.xml`](public/sitemap.xml) entre os comentários `<!-- wiki:gerado -->`). O `genlanding.py` **só copia** `site/public/` — **não** executa este gerador no servidor; ficheiros em `site/wiki/` (excepto o que estiver dentro de `public/`) **não** entram no `DocumentRoot`.
+
 ## Pré-requisitos
 
 - **Debian** com `apache2` instalado (recomendado: [`scripts/admin/starthere.py`](../scripts/admin/starthere.py) antes).
@@ -40,6 +48,9 @@ python3 site/genlanding.py --dry-run
 | `--keep-default-site` | Mantém `000-default.conf` activo (**produção** e **`--dev`**). Com `000-default` activo, pedidos por **IP** não casam com `ServerName` e continuam a mostrar a página Debian; ver secção abaixo. |
 | `--certbot` | Depois de configurar HTTP, executa `certbot --apache -d <domínio> -d www.<domínio>`. **Incompatível com `--dev`.** |
 | `--dry-run` | Mostra o VirtualHost e comandos; não exige root. |
+| `--no-refresh-members` | Não executar `build_directory.py` após copiar `public/` (omitir `data/members.json`). |
+| `--members-users-json PATH` | Fonte para `build_directory` (default: `/var/lib/runv/users.json`). |
+| `--members-homes-root PATH` | Opcional: `--homes-root` para `build_directory` (ex. `/home`). |
 
 ## Pedidos por IP vs `ServerName`
 
@@ -72,19 +83,18 @@ Se `curl http://runv.local/` não devolver nada na VM, confirma que **`runv.loca
 1. `starthere.py` — pacotes, Apache a correr, quotas, etc.
 2. `genlanding.py` — VirtualHost + cópia da landing.
 3. Opcional: `genlanding.py --certbot` **numa segunda execução** (ou a primeira já com `--certbot` se tudo estiver pronto), **depois** de confirmar HTTP no domínio.
-4. **Cron** para [`build_directory.py`](build_directory.py) gerar `members.json` no `DocumentRoot` (ver [README.md](README.md)).
+4. Lista de membros: após o passo 2, o script **já** corre [`build_directory.py`](build_directory.py) por omissão (salvo `--no-refresh-members`). Novas contas também disparam o mesmo via [`create_runv_user.py`](../scripts/create_runv_user.md).
 
 ## Relação com `build_directory.py`
 
-- `genlanding.py` **copia** o conteúdo actual de `public/` (incluindo `data/members.json` se existir).
-- A lista de membros actualizada vem do **cron** que corre `build_directory.py` com `-o` apontando para  
-  `.../html/data/members.json` (o mesmo `DocumentRoot` que usaste no genlanding).
+- `genlanding.py` **copia** o conteúdo actual de `public/` e, por omissão, executa `site/build_directory.py` com `-o` em `<DocumentRoot>/data/members.json` e `--users-json` em `/var/lib/runv/users.json`, para a constelação reflectir contas reais **sem** depender de cron.
+- **`--no-refresh-members`** omite esse passo (útil se `users.json` ainda não existir e quiseres evitar o aviso, ou fluxos especiais).
 
 ### Lista pública (só utilizadores reais)
 
 - **`public/data/members.json`** no repositório deve ser **`[]`** (placeholder). **Não** versionar nomes fictícios como membros da comunidade; a única fonte de verdade para quem aparece no site é **`/var/lib/runv/users.json`**, filtrada por `build_directory.py`.
 - **`site/example-users.json`** existe só para desenvolvimento / testes locais com `build_directory.py --users-json`, não para ship em produção como se fossem contas reais.
-- **Atenção:** cada execução de `genlanding.py` **substitui** o `DocumentRoot` pela cópia de `public/`; isso repõe `members.json` para o que está no repo (tipicamente `[]`). Depois de um deploy com `genlanding.py`, volta a correr **`build_directory.py`** (ou espera o cron) para repor a lista gerada a partir de `users.json`.
+- **Deploy:** cada `genlanding.py` substitui o `DocumentRoot`; o passo integrado de `build_directory` **repõe** `members.json` a partir de `users.json`, evitando ficar preso ao `[]` do repo.
 
 ## O que o script não faz
 

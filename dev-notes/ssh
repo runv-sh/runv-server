@@ -1,0 +1,2 @@
+mkdir $HOME\.ssh -Force
+ssh-keygen -t ed25519 -a 100 -f "$HOME\.ssh\yourkey"

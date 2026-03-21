@@ -1,0 +1,46 @@
+RUNV.CLUB - FAQ
+
+1. O que é o runv.club?
+O runv.club é um sistema de acesso, organização, suporte e uso em ambiente digital. Ele centraliza informações, regras, canais de contato e recursos operacionais.
+
+2. O sistema é só para alunos do Portal IDEA?
+Não.
+
+3. Como entro no sistema?
+O acesso depende do fluxo disponível no ambiente: cadastro, login e, quando aplicável, recuperação de senha ou outro método oficial de autenticação.
+
+4. Esqueci minha senha. O que faço?
+Use a opção oficial de recuperação de senha. Se o problema continuar, entre em contato por admin@runv.club.
+
+5. Posso compartilhar minha conta com outra pessoa?
+Não é recomendado e pode ser proibido, especialmente quando isso compromete segurança, auditoria, responsabilidade da conta ou regras do sistema.
+
+6. Minha conta pode ser suspensa?
+Sim. Contas podem ser advertidas, limitadas ou suspensas quando houver infração de regras, abuso, fraude, evasão de punição, spam, assédio ou risco à operação.
+
+7. O que pode causar banimento?
+Fraude, golpe, phishing, invasão, exploração maliciosa, conteúdo ilegal grave, ameaça real, assédio grave, evasão de punição e reincidência séria.
+
+8. Toda punição começa com aviso?
+Não. Infrações leves podem começar com orientação ou advertência. Infrações graves podem gerar suspensão imediata ou banimento direto.
+
+9. Como denuncio abuso ou comportamento suspeito?
+Envie relato objetivo com evidências, se houver, para admin@runv.club.
+
+10. Como recorrer de uma punição?
+Entre em contato por admin@runv.club, identifique a conta, explique o caso de forma objetiva e envie qualquer prova relevante.
+
+11. O sistema guarda informações de uso?
+Pode haver registro técnico e histórico operacional para fins de segurança, suporte, moderação e integridade da plataforma.
+
+12. Posso publicar dados de outras pessoas?
+Não. Exposição de dados pessoais, documentos, contatos, prints privados ou informações sensíveis sem autorização pode gerar punição grave.
+
+13. O que fazer se eu suspeitar que minha conta foi invadida?
+Troque a senha imediatamente, encerre sessões suspeitas se isso existir no sistema e comunique o caso para admin@runv.club.
+
+14. Como falar com a administração?
+Pelo e-mail oficial: admin@runv.club
+
+15. Onde vejo as regras do sistema?
+Na wiki oficial do runv.club, especialmente nos arquivos de regras da comunidade, moderação, privacidade e acesso.

@@ -57,6 +57,13 @@ body {
   overflow: hidden;
 }
 
+/* Membros como pontos: só em ecrãs largos (em mobile o texto ocupa o viewport). */
+@media (max-width: 768px) {
+  .starfield-root {
+    display: none;
+  }
+}
+
 .star-member {
   --star-scale: 1;
   position: fixed;
@@ -566,5 +573,192 @@ h2 {
 .site-footer a:hover,
 .site-footer a:focus-visible {
   text-decoration: underline;
+}
+
+.footer-sep {
+  color: var(--muted);
+  user-select: none;
+}
+
+.footer-link-discrete {
+  color: var(--muted);
+  font-size: 0.88em;
+  font-weight: 400;
+  text-decoration: none;
+}
+
+.footer-link-discrete:hover,
+.footer-link-discrete:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* FAQ */
+.faq-main .faq-item {
+  margin-bottom: 1.75rem;
+  padding-bottom: 1.35rem;
+  border-bottom: 1px solid var(--stroke);
+}
+
+.faq-main .faq-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.faq-q {
+  margin: 0 0 0.5rem;
+  font-family: "Syne", sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  color: var(--accent2);
+}
+
+.faq-main .faq-item p {
+  margin: 0;
+  color: var(--fg);
+  max-width: 40rem;
+}
+
+/* Junte-se (versão curta) */
+.join-summary {
+  margin-bottom: 1.5rem;
+}
+
+.join-note {
+  font-size: 0.95rem;
+  color: var(--muted);
+  margin-top: 0.35rem;
+}
+
+/* Página de notícias (data/news.json + news-page.js) */
+.news-main {
+  margin-top: 1.25rem;
+}
+
+.news-rss-link {
+  color: var(--accent2);
+  text-decoration: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.news-rss-link:hover,
+.news-rss-link:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.news-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+  max-width: 42rem;
+}
+
+.news-card {
+  margin: 0;
+  padding: 1.35rem 1.4rem 1.45rem;
+  border-radius: calc(var(--radius) + 4px);
+  border: 1px solid var(--stroke);
+  background: linear-gradient(
+    145deg,
+    rgba(232, 228, 220, 0.05) 0%,
+    rgba(12, 11, 15, 0.65) 100%
+  );
+  box-shadow:
+    0 1px 0 rgba(232, 228, 220, 0.06) inset,
+    0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.news-card__head {
+  margin: 0 0 0.85rem;
+  padding: 0;
+  border: none;
+}
+
+.news-card__date {
+  display: block;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.45rem;
+}
+
+.news-card__title {
+  margin: 0;
+  font-family: "Syne", sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.25rem, 3.5vw, 1.45rem);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+}
+
+.news-card__body {
+  margin: 0;
+  font-size: 1.02rem;
+  line-height: 1.65;
+  color: var(--fg);
+}
+
+.news-card__body p {
+  margin: 0 0 0.75rem;
+}
+
+.news-card__body p:last-child {
+  margin-bottom: 0;
+}
+
+.prose-news strong {
+  color: var(--fg);
+  font-weight: 700;
+}
+
+.prose-news em {
+  font-style: italic;
+  color: var(--fg);
+}
+
+.prose-news u {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--accent2);
+}
+
+.wiki-hero-nav {
+  font-size: 0.88rem;
+}
+
+.wiki-toc {
+  margin: 0 0 2rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  background: rgba(232, 228, 220, 0.03);
+}
+
+.wiki-toc-title {
+  margin: 0 0 0.75rem;
+  font-family: "Syne", sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.wiki-toc ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.wiki-main .wiki-page-title {
+  margin-top: 0;
 }
 

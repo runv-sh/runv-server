@@ -1,0 +1,48 @@
+RUNV.CLUB - WIKI BASE (TXT)
+
+Esta pasta reúne uma base inicial de wiki para o sistema runv.club.
+O objetivo é organizar, de forma simples e reutilizável, as informações principais de operação, acesso, regras de convivência, moderação, privacidade e FAQ.
+
+ARQUIVOS DESTA WIKI
+
+1. 01_index.txt
+   Visão geral da wiki e mapa dos arquivos.
+
+2. 02_visao-geral.txt
+   Explica o que é o runv.club, para quem serve e quais são seus objetivos.
+
+3. 03_contas-e-acesso.txt
+   Cadastro, login, recuperação de senha, acesso por terceiros e boas práticas de conta.
+
+4. 04_regras-da-comunidade.txt
+   Regras de convivência, conduta aceitável e conduta proibida.
+
+5. 05_punicoes-e-moderacao.txt
+   Causas para advertência, suspensão, banimento e processo de análise.
+
+6. 06_privacidade-e-seguranca.txt
+   Diretrizes gerais de privacidade, segurança e responsabilidade do usuário.
+
+7. 07_faq.txt
+   Perguntas frequentes do sistema, incluindo dúvidas de acesso, uso e suporte.
+
+CONTATO OFICIAL
+
+E-mail de contato: admin@runv.club
+
+NOTA IMPORTANTE
+
+Esta base foi escrita como um pacote inicial de wiki para o runv.club.
+Ela pode ser usada como documentação pública, central de ajuda, base interna de suporte ou material para página de regras.
+
+RECOMENDAÇÃO PRÁTICA
+
+Se você publicar esta wiki, mantenha a mesma lógica:
+- página inicial curta;
+- regras objetivas;
+- punições previsíveis;
+- FAQ sem enrolação;
+- contato visível;
+- política de segurança clara.
+
+O erro comum de sistemas pequenos é ser vago nas regras e arbitrário na punição. Isso destrói confiança. Esta wiki foi montada para evitar esse problema.

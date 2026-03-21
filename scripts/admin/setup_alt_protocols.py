@@ -8,7 +8,7 @@ Infraestrutura Gopher (gophernicus) e Gemini (molly-brown) para runv.club.
 
 Idempotente, dry-run, subprocess sem shell. Executar como root no Debian.
 
-Versão 0.13 — runv.club
+Versão 0.14 — runv.club
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ from typing import Any, Final
 # Constantes
 # ---------------------------------------------------------------------------
 
-VERSION: Final[str] = "0.13"
+VERSION: Final[str] = "0.14"
 
 LETSENCRYPT_LIVE: Final[Path] = Path("/etc/letsencrypt/live")
 LETSENCRYPT_ARCHIVE: Final[Path] = Path("/etc/letsencrypt/archive")
@@ -69,10 +69,6 @@ MOLLY_LOGS_DROPIN_PATH: Final[Path] = Path(
 
 PACKAGES_GOPHER: Final[tuple[str, ...]] = ("gophernicus",)
 PACKAGES_GEMINI: Final[tuple[str, ...]] = ("molly-brown",)
-
-DEFAULT_ROOT_GOPHERMAP: Final[str] = """iBem-vindo ao Gopher em runv.club — pubnix.	fake	NULL	0
-iCada utilizador com ~/public_gopher aparece como ~user no menu do servidor.	fake	NULL	0
-"""
 
 DEFAULT_USER_GOPHERMAP: Final[str] = """iBem-vindo ao teu espaço Gopher no runv.club.	fake	NULL	0
 iEdita este ficheiro em ~/public_gopher/gophermap.	fake	NULL	0
@@ -325,6 +321,17 @@ def load_patch_irc_module(log: logging.Logger) -> Any:
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+_IRC_PATCH_SKIP_USERS_CACHE: frozenset[str] | None = None
+
+
+def irc_patch_skip_users(log: logging.Logger) -> frozenset[str]:
+    """Contas em ``IRC_PATCH_SKIP_USERS`` (sem IRC / sem bind Gemini / fora dos índices raiz)."""
+    global _IRC_PATCH_SKIP_USERS_CACHE
+    if _IRC_PATCH_SKIP_USERS_CACHE is None:
+        _IRC_PATCH_SKIP_USERS_CACHE = load_patch_irc_module(log).IRC_PATCH_SKIP_USERS
+    return _IRC_PATCH_SKIP_USERS_CACHE
 
 
 def resolve_backfill_users(
@@ -647,6 +654,112 @@ def _ensure_gemini_fstab_line(
     log.info("fstab: bind persistido %s -> %s", src_s, mp_s)
 
 
+def _remove_gemini_fstab_lines_for_mountpoint(mountpoint: Path, log: logging.Logger) -> None:
+    """Remove todas as linhas ``bind`` do fstab cujo segundo campo é ``mountpoint``."""
+    if not FSTAB_PATH.is_file():
+        return
+    try:
+        text = FSTAB_PATH.read_text(encoding="utf-8", errors="replace")
+    except OSError as e:
+        log.warning("ler fstab: %s", e)
+        return
+    new_lines: list[str] = []
+    removed = False
+    for line in text.splitlines(keepends=True):
+        stripped = line.strip()
+        if stripped.startswith("#") or not stripped:
+            new_lines.append(line)
+            continue
+        m = _GEMINI_BIND_FSTAB_RE.match(stripped)
+        if m and Path(_unescape_fstab_path(m.group(2))) == mountpoint:
+            removed = True
+            continue
+        new_lines.append(line)
+    if not removed:
+        return
+    new_content = "".join(new_lines)
+    backup_if_exists(FSTAB_PATH, log, dry_run=False)
+    FSTAB_PATH.write_text(new_content, encoding="utf-8")
+    log.info("fstab: removida(s) linha(s) bind para %s", mountpoint)
+
+
+def remove_gemini_bind_mount(
+    username: str,
+    *,
+    dry_run: bool,
+    log: logging.Logger,
+) -> None:
+    """Desmonta ``/var/gemini/users/<user>``, limpa fstab, symlink ou directório vazio."""
+    mountpoint = GEMINI_USERS / username
+    if dry_run:
+        log.info("[dry-run] removeria bind Gemini / fstab em %s", mountpoint)
+        return
+    if _is_dir_mountpoint(mountpoint):
+        ru = run_cmd(["umount", str(mountpoint)], dry_run=False, log=log)
+        if ru is not None and ru.returncode != 0:
+            log.warning(
+                "umount %s: %s",
+                mountpoint,
+                (ru.stderr or ru.stdout or "").strip(),
+            )
+    _remove_gemini_fstab_lines_for_mountpoint(mountpoint, log)
+    if mountpoint.is_symlink():
+        try:
+            mountpoint.unlink()
+            log.info("symlink Gemini removido: %s", mountpoint)
+        except OSError as e:
+            log.warning("unlink %s: %s", mountpoint, e)
+    if mountpoint.is_dir():
+        try:
+            if not any(mountpoint.iterdir()):
+                mountpoint.rmdir()
+                log.info("directório Gemini vazio removido: %s", mountpoint)
+        except OSError as e:
+            log.warning("%s: %s", mountpoint, e)
+
+
+def build_root_gophermap_text(
+    hostname: str,
+    homes_root: Path,
+    users: list[str],
+) -> str:
+    """Menu raiz com links ``1~user`` só para contas com ``~/public_gopher`` (exclui IRC_PATCH_SKIP)."""
+    tab = "\t"
+    lines: list[str] = [
+        "!runv.club — Gopher",
+        f"iBem-vindo ao Gopher em {hostname} — pubnix.{tab}fake{tab}NULL{tab}0",
+        f"iMembros com espaço público (selector ~utilizador/).{tab}fake{tab}NULL{tab}0",
+        "#",
+    ]
+    for u in sorted(users):
+        if not (homes_root / u / "public_gopher").is_dir():
+            continue
+        lines.append(f"1~{u}{tab}~{u}/{tab}{hostname}{tab}70")
+    return "\n".join(lines) + "\n"
+
+
+def build_root_gemini_index_gmi(
+    hostname: str,
+    homes_root: Path,
+    users: list[str],
+) -> str:
+    """Índice Gemtext na raiz do DocBase; mesmos membros que no menu Gopher raiz."""
+    lines: list[str] = [
+        f"# {hostname} — Gemini",
+        "",
+        f"Bem-vindo ao **Gemini** do **{hostname}**.",
+        "",
+        "## Capsules dos membros",
+        "",
+    ]
+    for u in sorted(users):
+        if not (homes_root / u / "public_gopher").is_dir():
+            continue
+        lines.append(f"=> gemini://{hostname}/~{u}/ Capsule ~{u}")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def ensure_gemini_bind_mount(
     username: str,
     homes_root: Path,
@@ -658,12 +771,34 @@ def ensure_gemini_bind_mount(
     """
     Expõe ~/public_gemini em /var/gemini/users/<user> com mount --bind + fstab.
     O Molly Debian recusa symlinks cujo destino fica fora de DocBase (/var/gemini).
+    Contas em IRC_PATCH_SKIP_USERS não recebem bind; com force remove-se mount/fstab.
     """
     _ = homes_root  # API compatível com o backfill (getpwnam fornece a home)
     try:
         pw = pwd.getpwnam(username)
     except KeyError:
         return
+
+    sk = irc_patch_skip_users(log)
+    if username in sk:
+        if dry_run:
+            log.info("[dry-run] %s em IRC_PATCH_SKIP_USERS — bind Gemini omitido", username)
+            return
+        if force:
+            remove_gemini_bind_mount(username, dry_run=False, log=log)
+        else:
+            mp = GEMINI_USERS / username
+            if _is_dir_mountpoint(mp) or mp.is_symlink():
+                log.warning(
+                    "%s está em IRC_PATCH_SKIP_USERS mas há mount ou symlink em %s — "
+                    "use --force para remover",
+                    username,
+                    mp,
+                )
+            else:
+                log.debug("skip bind Gemini (IRC_PATCH_SKIP_USERS): %s", username)
+        return
+
     home = Path(pw.pw_dir)
     target = home / "public_gemini"
     if not target.is_dir():
@@ -921,7 +1056,9 @@ def validate_final(
         log_systemd_unit_failed_hint(molly_unit, log)
 
     if usernames:
-        sample = usernames[0]
+        sk = irc_patch_skip_users(log)
+        visible = [u for u in usernames if u not in sk]
+        sample = visible[0] if visible else usernames[0]
         try:
             pw = pwd.getpwnam(sample)
             home = Path(pw.pw_dir)
@@ -1019,6 +1156,12 @@ def main(argv: list[str] | None = None) -> int:
     cert = args.gemini_cert or DEFAULT_LE_CERT
     key = args.gemini_key or DEFAULT_LE_KEY
 
+    try:
+        backfill_users = resolve_backfill_users(args.users_json, args.homes_root, log)
+    except (FileNotFoundError, ImportError) as e:
+        log.error("%s", e)
+        return 1
+
     if not args.skip_gemini:
         ensure_le_tls_readable_for_molly(cert, dry_run=args.dry_run, log=log)
 
@@ -1053,12 +1196,18 @@ def main(argv: list[str] | None = None) -> int:
                 GOPHER_ROOT.mkdir(parents=True, exist_ok=True)
                 os.chmod(GOPHER_ROOT, 0o755)
                 root_map = GOPHER_ROOT / "gophermap"
+                gmap_body = build_root_gophermap_text(
+                    args.gemini_hostname,
+                    args.homes_root,
+                    backfill_users,
+                )
                 if not root_map.exists() or args.force:
                     if root_map.exists() and args.force:
                         backup_if_exists(root_map, log, dry_run=False)
-                    root_map.write_text(DEFAULT_ROOT_GOPHERMAP, encoding="utf-8")
+                    root_map.write_text(gmap_body, encoding="utf-8")
                     os.chmod(root_map, 0o644)
-                    log.info("gophermap raiz: %s", root_map)
+                    n_menu = sum(1 for ln in gmap_body.splitlines() if ln.startswith("1~"))
+                    log.info("gophermap raiz: %s (%d entradas ~user)", root_map, n_menu)
 
         if not args.dry_run:
             GEMINI_ROOT.mkdir(parents=True, exist_ok=True)
@@ -1070,6 +1219,24 @@ def main(argv: list[str] | None = None) -> int:
                 os.chown(GEMINI_USERS, 0, 0)
             except OSError as e:
                 log.warning("chown /var/gemini: %s", e)
+
+            if not args.skip_gemini:
+                gemi_root = GEMINI_ROOT / "index.gmi"
+                gemi_body = build_root_gemini_index_gmi(
+                    args.gemini_hostname,
+                    args.homes_root,
+                    backfill_users,
+                )
+                if not gemi_root.exists() or args.force:
+                    if gemi_root.exists() and args.force:
+                        backup_if_exists(gemi_root, log, dry_run=False)
+                    gemi_root.write_text(gemi_body, encoding="utf-8")
+                    os.chmod(gemi_root, 0o644)
+                    try:
+                        os.chown(gemi_root, 0, 0)
+                    except OSError as e:
+                        log.warning("chown %s: %s", gemi_root, e)
+                    log.info("index.gmi DocBase raiz: %s", gemi_root)
 
         if not args.skip_gemini:
             if not cert.is_file() or not key.is_file():
@@ -1117,13 +1284,8 @@ def main(argv: list[str] | None = None) -> int:
         skip_firewall=args.skip_firewall,
     )
 
-    try:
-        users = resolve_backfill_users(args.users_json, args.homes_root, log)
-    except (FileNotFoundError, ImportError) as e:
-        log.error("%s", e)
-        return 1
     if not args.skip_backfill:
-        for u in users:
+        for u in backfill_users:
             ensure_user_public_dirs(
                 u,
                 args.homes_root,
@@ -1163,7 +1325,7 @@ def main(argv: list[str] | None = None) -> int:
                 delay_s=1.0,
             )
 
-    validate_final(users, log, dry_run=args.dry_run)
+    validate_final(backfill_users, log, dry_run=args.dry_run)
     log.info("Concluído.")
     return 0
 

@@ -2,6 +2,10 @@
 """
 Provisiona a rede IRC da casa (estilo tilde.club) e o comando «chat» para utilizadores.
 
+O conjunto ``IRC_PATCH_SKIP_USERS`` também é usado por ``resolve_all_users`` para o
+backfill Gopher/Gemini (``setup_alt_protocols.py``): contas listadas não recebem
+bind mount em ``/var/gemini/users/<user>`` nem entram no menu Gopher/Gemini raiz.
+
 - Config em ~/.config/weechat (XDG), servidor interno «runv», autoconnect.
 - Aplicação **só** via binário ``weechat-headless`` (-a, -r, --stdout); não usar cliente interactivo no patch.
 - Instala /usr/local/bin/chat (launcher) salvo --skip-launcher.
@@ -68,6 +72,7 @@ IRC_PATCH_SKIP_USERS: Final[frozenset[str]] = frozenset(
         "_apt",
         "nobody",
         "entre",
+        "pmurad-admin",
         "admin",
         "postmaster",
     }

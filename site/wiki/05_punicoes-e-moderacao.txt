@@ -1,0 +1,92 @@
+RUNV.CLUB - PUNIÇÕES E MODERAÇÃO
+
+OBJETIVO DA MODERAÇÃO
+
+A moderação existe para proteger usuários, preservar a operação do sistema e impedir que uma minoria destrua a utilidade do ambiente para todos os outros.
+
+TIPOS DE MEDIDA
+
+1. Orientação informal
+   Usada em erro leve, isolado e sem dano relevante.
+
+2. Advertência formal
+   Usada quando há violação clara de regra, mas ainda cabe correção de conduta.
+
+3. Limitação temporária
+   Pode restringir postagem, interação, recurso técnico ou acesso parcial.
+
+4. Suspensão temporária
+   Bloqueio por período definido, usado em reincidência ou infração moderada/grave.
+
+5. Banimento permanente
+   Encerramento definitivo do acesso, usado quando o risco é alto ou a confiança foi quebrada.
+
+CAUSAS COMUNS DE ADVERTÊNCIA
+
+- linguagem hostil sem ameaça explícita;
+- flood leve;
+- desorganização recorrente apesar de orientação;
+- desrespeito pontual às regras de uso.
+
+CAUSAS COMUNS DE SUSPENSÃO
+
+- reincidência após advertência;
+- assédio continuado;
+- spam insistente;
+- exposição indevida de terceiros;
+- tentativa de burlar limitação;
+- uso abusivo de recursos da plataforma;
+- comportamento que prejudique a operação ou o suporte.
+
+CAUSAS COMUNS DE BANIMENTO
+
+- fraude;
+- phishing, golpe ou engenharia social;
+- invasão, tentativa de invasão ou exploração maliciosa;
+- publicação de conteúdo ilegal grave;
+- ameaça real a usuários ou equipe;
+- evasão de punição com contas alternativas;
+- reincidência grave que demonstre ausência total de boa-fé.
+
+CRITÉRIOS DE ANÁLISE
+
+A administração pode considerar:
+- gravidade da conduta;
+- intenção aparente;
+- dano causado;
+- histórico do usuário;
+- risco de repetição;
+- cooperação ou má-fé durante a apuração.
+
+NEM TUDO PRECISA SEGUIR ESCADA LINEAR
+
+Nem toda infração começa em aviso.
+Essa fantasia de que todo caso precisa passar por aviso, depois suspensão, depois banimento, independentemente da gravidade, é ingênua.
+Fraude séria, ameaça real, golpe ou ataque técnico podem justificar banimento direto.
+
+RECURSO
+
+O usuário pode contestar medida aplicada por meio do canal oficial:
+admin@runv.club
+
+O recurso deve conter:
+- identificação da conta;
+- descrição objetiva do caso;
+- motivo da contestação;
+- provas, se existirem.
+
+REGRAS DO RECURSO
+
+- recurso sem objetividade atrapalha;
+- mentira piora a situação;
+- pressão emocional não substitui evidência;
+- agressividade contra a equipe pode gerar nova penalidade.
+
+DECISÃO FINAL
+
+A administração pode revisar, manter, reduzir ou ampliar a medida aplicada com base nos elementos disponíveis.
+
+POLÍTICA CONTRA IMPUNIDADE
+
+Sistema sem execução consistente de regras vira piada.
+Se a regra existe, ela precisa produzir consequência real.

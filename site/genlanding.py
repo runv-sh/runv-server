@@ -3,10 +3,13 @@
 Configura o Apache (Debian) para servir a landing runv.club: VirtualHost,
 mod_userdir + mod_rewrite, cópia de site/public para DocumentRoot, redirect
 www → apex em HTTP. Produção ou modo --dev para testes locais.
+Metadados SEO: editar site/public/. FAQ estático: public/faq/ (copiado com o resto).
+Notícias: site/news/publish_news.py gera public/news/data/news.json e feed.rss —
+depois volte a correr este script para copiar.
 
 Executar como root (excepto --dry-run). Apenas biblioteca padrão Python 3.
 
-Versão 0.02 — runv.club
+Versão 0.03 — runv.club
 """
 
 from __future__ import annotations
@@ -22,13 +25,14 @@ import sys
 from pathlib import Path
 from typing import Final
 
-VERSION: Final[str] = "0.02"
+VERSION: Final[str] = "0.03"
 EXIT_OK: Final[int] = 0
 EXIT_USAGE: Final[int] = 1
 EXIT_ERROR: Final[int] = 2
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_SOURCE: Final[Path] = SCRIPT_DIR / "public"
+DEFAULT_MEMBERS_USERS_JSON: Final[Path] = Path("/var/lib/runv/users.json")
 
 PROD_DOMAIN: Final[str] = "runv.club"
 PROD_DOCUMENT_ROOT: Final[Path] = Path("/var/www/runv.club/html")
@@ -141,6 +145,50 @@ def copy_landing(source: Path, dest: Path, *, dry_run: bool) -> None:
     shutil.copytree(source, dest)
 
 
+def refresh_members_json_in_document_root(
+    document_root: Path,
+    *,
+    users_json: Path,
+    homes_root: Path | None,
+    dry_run: bool,
+) -> None:
+    """Regenera data/members.json no DocumentRoot após copiar site/public (stdlib)."""
+    if dry_run:
+        print(
+            "  [dry-run] regeneraria data/members.json "
+            f"({users_json} → {document_root / 'data' / 'members.json'})",
+        )
+        return
+    script = SCRIPT_DIR / "build_directory.py"
+    if not script.is_file():
+        eprint(f"Aviso: {script} não encontrado; members.json não regenerado.")
+        return
+    out = document_root / "data" / "members.json"
+    cmd = [
+        sys.executable,
+        str(script),
+        "--users-json",
+        str(users_json),
+        "-o",
+        str(out),
+    ]
+    if homes_root is not None:
+        cmd.extend(["--homes-root", str(homes_root)])
+    print(f"  $ {' '.join(cmd)}")
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    if r.returncode != 0:
+        tail = (r.stderr or r.stdout or "").strip()
+        eprint(
+            f"Aviso: build_directory.py terminou com código {r.returncode}; "
+            f"members.json pode estar desactualizado. {tail[:800]}"
+        )
+    else:
+        print(f"  [ok] members.json em {out}")
+        if r.stderr.strip():
+            for line in r.stderr.strip().splitlines()[:5]:
+                print(f"      {line}")
+
+
 def chown_www_data(path: Path, *, dry_run: bool) -> None:
     if dry_run:
         print(f"  [dry-run] chown -R www-data:www-data {path}")
@@ -194,6 +242,23 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--keep-default-site",
         action="store_true",
         help="não desactiva 000-default.conf (produção e --dev: mantém página Debian; pedidos por IP não casam com ServerName)",
+    )
+    p.add_argument(
+        "--no-refresh-members",
+        action="store_true",
+        help="não executar site/build_directory.py após copiar public/ (omitir data/members.json)",
+    )
+    p.add_argument(
+        "--members-users-json",
+        type=Path,
+        default=DEFAULT_MEMBERS_USERS_JSON,
+        help=f"fonte para build_directory.py (default: {DEFAULT_MEMBERS_USERS_JSON})",
+    )
+    p.add_argument(
+        "--members-homes-root",
+        type=Path,
+        default=None,
+        help="opcional: --homes-root para build_directory.py (ex. /home)",
     )
     p.add_argument("--version", action="version", version=f"%(prog)s {VERSION} — runv.club")
     return p.parse_args(argv)
@@ -263,6 +328,16 @@ def main(argv: list[str] | None = None) -> int:
         if not args.dry_run:
             chown_www_data(document_root, dry_run=False)
 
+        if not args.no_refresh_members:
+            refresh_members_json_in_document_root(
+                document_root,
+                users_json=args.members_users_json,
+                homes_root=args.members_homes_root.resolve()
+                if args.members_homes_root
+                else None,
+                dry_run=args.dry_run,
+            )
+
         if args.dry_run:
             print(f"  [dry-run] escreveria {conf_path}")
         else:
@@ -323,9 +398,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.dev:
         print("  - Em /etc/hosts (cliente ou VM): 127.0.0.1  runv.local  www.runv.local")
     print(
-        "  - Membros na constelação: só contas reais (provisionadas → /var/lib/runv/users.json). "
-        "Gerar lista pública com site/build_directory.py no DocumentRoot (cron; ver site/README.md). "
-        "O public/data/members.json no repo fica [] até esse passo."
+        "  - Membros na constelação: regenerado com build_directory após esta cópia "
+        "(fonte: /var/lib/runv/users.json). Novas contas: create_runv_user.py também actualiza "
+        "members.json se o DocumentRoot existir. Use --no-refresh-members para omitir."
     )
     return EXIT_OK
 

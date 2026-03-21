@@ -1,0 +1,64 @@
+RUNV.CLUB - PRIVACIDADE E SEGURANÇA
+
+PRINCÍPIO GERAL
+
+Privacidade e segurança não são perfumaria jurídica. São parte da operação básica de qualquer sistema minimamente sério.
+
+DADOS E RESPONSABILIDADE
+
+O usuário deve fornecer apenas os dados necessários para uso do sistema e manter suas informações atualizadas quando isso for relevante para acesso, suporte e segurança.
+
+A administração deve tratar os dados com cuidado, limitar acessos internos e reduzir exposição desnecessária.
+
+O USUÁRIO TAMBÉM TEM RESPONSABILIDADE
+
+Não adianta exigir segurança da plataforma e depois usar senha fraca, compartilhar conta, clicar em golpe e ignorar alertas.
+Segurança é responsabilidade dividida.
+
+O QUE O USUÁRIO DEVE EVITAR
+
+- compartilhar credenciais;
+- publicar dados pessoais de terceiros;
+- usar dispositivos inseguros para acesso sensível;
+- ignorar indícios de invasão ou comprometimento;
+- instalar extensões suspeitas ou software duvidoso no dispositivo usado para login.
+
+INCIDENTES DE SEGURANÇA
+
+Qualquer suspeita de:
+- acesso indevido;
+- roubo de conta;
+- fraude;
+- link malicioso;
+- falha técnica com impacto em segurança;
+- vazamento de informação;
+
+deve ser comunicada imediatamente para:
+admin@runv.club
+
+ANÁLISE DE EVENTOS
+
+Para proteger a plataforma, a administração pode analisar registros técnicos, padrões de uso, histórico de acesso e evidências relacionadas a incidentes, abuso e moderação.
+
+LIMITAÇÃO IMPORTANTE
+
+Nenhum sistema online é magicamente invulnerável.
+Prometer risco zero é propaganda, não verdade.
+O que importa é ter prevenção, resposta rápida, registro e correção.
+
+BOAS PRÁTICAS OPERACIONAIS
+
+- revisar acessos suspeitos;
+- registrar incidentes relevantes;
+- remover permissões desnecessárias;
+- corrigir falhas confirmadas;
+- orientar usuários afetados quando necessário.
+
+PRIVACIDADE DE TERCEIROS
+
+É proibido usar o sistema para coletar, copiar, divulgar ou explorar dados de outros usuários sem base legítima e sem autorização.
+
+CONTATO OFICIAL
+
+Dúvidas sobre segurança, privacidade ou incidente:
+admin@runv.club

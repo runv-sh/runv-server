@@ -7,3 +7,10 @@ venv/
 .env
 .env.local
 guide.md
+
+# Gerados no servidor / localmente (evita conflitos em git pull)
+site/public/news/data/news.json
+site/public/news/feed.rss
+
+# Wiki: bytecode do gerador local
+site/wiki/__pycache__/
