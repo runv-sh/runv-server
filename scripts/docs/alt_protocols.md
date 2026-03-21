@@ -8,25 +8,25 @@ Script em **`scripts/admin/setup_alt_protocols.py`**: instala e configura **goph
 |-----------|---------------|------------------|------------|
 | **HTTP** (já existente) | `~/public_html/` | `index.html` | `http://runv.club/~user/` |
 | **Gopher** | `~/public_gopher/` | `gophermap` | `gopher://runv.club/1/~user` |
-| **Gemini** | `~/public_gemini/` | `index.gmi` | `gemini://runv.club/~/user/` (canónico Molly); `gemini://runv.club/~user/` (redirect) |
+| **Gemini** | `~/public_gemini/` | `index.gmi` | `gemini://runv.club/~user/` (canónico: path **`/~user/`**, tilde colado ao nome); `gemini://runv.club/~/user/` redirecciona (**v0.11+**) |
 
 **Gemini (molly-brown):** `DocBase = /var/gemini`, `HomeDocBase = users`, symlinks **`/var/gemini/users/<user>` → `~/public_gemini`**.
 
 ### Gopher vs Gemini: formato do endereço
 
 - **Gopher (gophernicus):** selectors **`~username/…`** (tilde **colado** ao nome), alinhado com URLs como **`gopher://runv.club/1/~user`**. Não há o mesmo «split» de path que no Molly.
-- **Gemini (Molly Brown):** o servidor resolve caps em **`/~/username/…`**. URLs estilo Apache **`/~username/…`** são aceites graças a **`[TempRedirects]`** no `.conf` gerado pelo script (**v0.09+**). Pode usar indistintamente **`gemini://runv.club/~/user/`** (canónico) ou **`gemini://runv.club/~user/`** (compatível).
+- **Gemini (Molly Brown):** o código Go do Molly trata o primeiro segmento do path como **`~username`** (tilde **colado** ao nome), p.ex. **`/~pmurad/`** → `DocBase/users/pmurad/`. O formato **`/~/pmurad/`** (slash entre `~` e o nome) faz o utilizador ficar **vazio** e devolve **51 Not found**. O `.conf` gerado (**v0.11+**) inclui **`[TempRedirects]`** que redirecciona **`/~/user…` → `/~user…`** para compatibilidade com links antigos.
 
 ### URLs Gemini que *não* são capsules de utilizador
 
-O Molly **não** espelha o HTTP `mod_userdir` no mesmo path: **`gemini://runv.club/pmurad`** (path **`/pmurad`**) **não** aponta para a home — não existe ficheiro em `/var/gemini/pmurad`. O capsule está em **`gemini://runv.club/~/pmurad/`** (path **`/~/pmurad/`**, com **`~/`** e **barra final**). Sem a barra final, **`gemini://runv.club/~/pmurad`** era comum falhar com **51 Not found**; a partir do **v0.10** o `.conf` inclui redirect **`/~/user` → `/~/user/`**.
+O Molly **não** espelha o HTTP `mod_userdir` no mesmo path: **`gemini://runv.club/pmurad`** (path **`/pmurad`**) **não** aponta para a home. O capsule correcto é **`gemini://runv.club/~pmurad/`** (path **`/~pmurad/`**). **`gemini://runv.club/~/pmurad/`** (slash extra) **não** é o formato que o `resolvePath` entende sozinho; com **v0.11+**, o `.conf` redirecciona (**30**) esse pedido para **`gemini://runv.club/~pmurad/`** (o cliente deve seguir o redirect).
 
 ## Travessia da home (`755` na política runv)
 
-Apache (`mod_userdir`), **gophernicus** e **molly-brown** precisam de **execução para «others»** (`o+x`, mínimo) em **cada** componente do caminho até a pasta pública (`~/public_html`, `~/public_gopher`, `~/public_gemini`). O utilizador de runtime **não é o mesmo** em todos: no Debian o Molly costuma correr como **`www-data`**; o **gophernicus** usa o **`User=`** do unit (tipicamente `gophernicus`) — veja `/lib/systemd/system/gophernicus@.service`. Uma home em **`700`** impede a travessia: **HTTP, Gopher e Gemini** deixam de servir conteúdo (p.ex. Gemini **«Not found»** com `index.gmi` presente).
+Apache (`mod_userdir`), **gophernicus** e **molly-brown** precisam de **execução para «others»** (`o+x`, mínimo) em **cada** componente do caminho até a pasta pública (`~/public_html`, `~/public_gopher`, `~/public_gemini`). O utilizador de runtime **não é o mesmo** em todos: no Debian o pacote **molly-brown** usa **`User=molly-brown`** com **`DynamicUser=yes`** (não `www-data`); o **gophernicus** usa o **`User=`** do unit (tipicamente `gophernicus`) — veja `/lib/systemd/system/gophernicus@.service`. Uma home em **`700`** impede a travessia: **HTTP, Gopher e Gemini** deixam de servir conteúdo (p.ex. Gemini **«Not found»** com `index.gmi` presente).
 
 - **Novas contas:** [`create_runv_user.py`](../admin/create_runv_user.py) aplica **`755`** na home em `apply_runv_permissions`.
-- **Backfill:** a partir do **v0.07**, [`setup_alt_protocols.py`](../admin/setup_alt_protocols.py) repõe a home do utilizador para **`755`** quando o modo actual é outro (com registo em log). O **v0.08** corrige a detecção de caminhos Let's Encrypt quando `live`/`archive` são **symlinks** (o bloco LE deixa de saltar incorrectamente). O **v0.09** adiciona redirects Molly `~user` → `~/user` e validação **`test -r`** do `gophermap` com o utilizador do serviço gophernicus. O **v0.10** adiciona redirect **`/~/user` → `/~/user/`** (barra final exigida pelo Molly para `HomeDocBase`).
+- **Backfill:** a partir do **v0.07**, [`setup_alt_protocols.py`](../admin/setup_alt_protocols.py) repõe a home do utilizador para **`755`** quando o modo actual é outro (com registo em log). O **v0.08** corrige a detecção de caminhos Let's Encrypt quando `live`/`archive` são **symlinks**. O **v0.09** introduziu redirects Molly baseados numa leitura incorrecta do README upstream. O **v0.11** corrige **`[TempRedirects]`** para **`/~/user…` → `/~user…`** (alinhado ao `resolvePath` em Go). Validação **`test -r`** do `gophermap` com o utilizador do serviço gophernicus mantém-se.
 - **Conflito:** [`patches/patch_permissions.py`](../../patches/patch_permissions.py) pode aplicar **`chmod 700`** em cada `/home/<user>` por política de privacidade — isso **quebra** a hospedagem em `public_*` até voltar a alinhar permissões (provisionamento ou `chmod` manual).
 
 ## Let's Encrypt e chave TLS (v0.07+; symlinks v0.08+)
@@ -52,7 +52,7 @@ Se o grupo **`ssl-cert`** não existir no sistema, o script regista **WARNING** 
 No fim da execução, além de verificar ficheiros e symlink **como root**:
 
 - Se **`gophernicus.socket`** estiver **`active`**, o script tenta **`runuser -u <User=do_unit> -- test -r`** no **`gophermap`** da primeira conta da lista (o `User=` lê-se de `/lib/systemd/system/gophernicus@.service`; fallback **`gophernicus`**). Falha → **WARNING** (home `755`/`o+x`, `public_gopher` `755`, `gophermap` `644`).
-- Se **`molly-brown@`** estiver **`active`**, tenta **`runuser -u www-data -- test -r`** no **`index.gmi`** da amostra. Falha → **WARNING** (`public_gemini` `755`, `index.gmi` `644`, symlink `/var/gemini/users/<user>`).
+- Se **`molly-brown@`** estiver **`active`**, tenta **`runuser -u www-data -- test -r`** no **`index.gmi`** da amostra (heurística: o unit Debian usa **`molly-brown`** dinâmico; ficheiros **`644`** e pastas **`755`** devem permitir leitura a «others»). Falha → **WARNING** (`public_gemini` `755`, `index.gmi` `644`, symlink `/var/gemini/users/<user>`).
 
 Em **`--dry-run`**, só regista os comandos. Sem **`runuser`** (util-linux), estes passos são omitidos.
 
@@ -115,7 +115,7 @@ Raro se o `.conf` aponta para `/var/lib/molly-brown/` e não há override que de
 - **Estado e porta:** `sudo systemctl status molly-brown@runv.club.service --no-pager` e `sudo ss -tlnp | grep 1965` (deve haver um processo a escutar em **1965/tcp**).
 - **Permissões TLS (frequente):** o Molly corre como utilizador não-root; se `privkey.pem` for só `root:root` `0600`, o arranque falha. Verifique `sudo namei -l /etc/letsencrypt/live/runv.club/privkey.pem` e compare com o utilizador do unit (`systemctl cat molly-brown@runv.club.service`). Soluções típicas: grupo `ssl-cert`, ACL, ou certificados num path legível pelo utilizador do serviço (mantendo segurança).
 - **Teste local:** `openssl s_client -connect 127.0.0.1:1965 -servername runv.club </dev/null 2>/dev/null | head -20`
-- **Cliente (Lagrange, etc.):** teste `gemini://runv.club/~/user/` ou `gemini://runv.club/~user/` **depois** de `systemctl is-active molly-brown@runv.club.service` devolver `active`.
+- **Cliente (Lagrange, etc.):** teste **`gemini://runv.club/~user/`** (canónico); `gemini://runv.club/~/user/` deve redireccionar (**v0.11+** no `.conf`) **depois** de `systemctl is-active molly-brown@runv.club.service` devolver `active`.
 
 ## Execução (root)
 
@@ -133,7 +133,7 @@ sudo python3 scripts/admin/setup_alt_protocols.py --verbose
 |------|--------|
 | `--dry-run` | Simula; não grava (validação de root ignorada em alguns passos só se documentado). |
 | `--verbose` | Log detalhado. |
-| `--force` | Sobrescreve configs de sistema (com backup com timestamp) e ficheiros modelo no backfill (exceto **`~/public_gemini/index.gmi`** se já existir). Necessário para **regravar** `/etc/molly-brown/runv.club.conf` (incl. **`[TempRedirects]`** v0.09+ e redirect **`/~/user/`** v0.10) e remover o drop-in obsoleto **`50-runv-logs.conf`** (v0.05) ao migrar logs para `/var/lib/molly-brown/`. |
+| `--force` | Sobrescreve configs de sistema (com backup com timestamp) e ficheiros modelo no backfill (exceto **`~/public_gemini/index.gmi`** se já existir). Necessário para **regravar** `/etc/molly-brown/runv.club.conf` (incl. **`[TempRedirects]`** v0.11: **`/~/…` → `/~…`**) e remover o drop-in obsoleto **`50-runv-logs.conf`** (v0.05) ao migrar logs para `/var/lib/molly-brown/`. |
 | `--skip-install` | Não corre `apt-get`. |
 | `--skip-gopher` / `--skip-gemini` | Ignora pacote, config e serviço desse protocolo. |
 | `--skip-firewall` | Não altera UFW. |
@@ -170,6 +170,6 @@ Depois aplicam-se as mesmas exclusões que em **`patches/patch_irc.py`** (`IRC_P
 6. Verificar `/etc/skel/public_gopher` e `public_gemini` após `tools.py`
 7. Criar utilizador de teste com `create_runv_user.py`
 8. `ls -la /home/teste/public_gopher/gophermap /home/teste/public_gemini/index.gmi` e `ls -la /var/gemini/users/teste`
-9. Cliente Gopher/Gemini: `gopher://runv.club/1/~teste` e `gemini://runv.club/~/teste/` (ou `gemini://runv.club/~teste/` com redirect)
+9. Cliente Gopher/Gemini: `gopher://runv.club/1/~teste` e **`gemini://runv.club/~teste/`** (canónico); opcionalmente `gemini://runv.club/~/teste/` → redirect **30** para o canónico (**v0.11+**)
 
 Versão do script: ver `python3 scripts/admin/setup_alt_protocols.py --version`.

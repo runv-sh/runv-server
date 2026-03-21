@@ -7,7 +7,7 @@ Infraestrutura Gopher (gophernicus) e Gemini (molly-brown) para runv.club.
 
 Idempotente, dry-run, subprocess sem shell. Executar como root no Debian.
 
-Versão 0.10 — runv.club
+Versão 0.11 — runv.club
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from typing import Any, Final
 # Constantes
 # ---------------------------------------------------------------------------
 
-VERSION: Final[str] = "0.10"
+VERSION: Final[str] = "0.11"
 
 LETSENCRYPT_LIVE: Final[Path] = Path("/etc/letsencrypt/live")
 LETSENCRYPT_ARCHIVE: Final[Path] = Path("/etc/letsencrypt/archive")
@@ -73,7 +73,7 @@ iEdita este ficheiro em ~/public_gopher/gophermap.	fake	NULL	0
 
 DEFAULT_USER_INDEX_GMI: Final[str] = """# ~{username} — runv.club (Gemini)
 
-Bem-vindo ao teu capsule em `gemini://runv.club/~/{username}/` (URL canónica Molly: path `/~/{username}/` com **barra final**). O endereço `gemini://runv.club/~{username}/` também funciona (redirect). **Não** confundas com `gemini://runv.club/{username}` — esse path **não** é o capsule (no Molly só há homes em `/~/…`).
+Bem-vindo ao teu capsule em `gemini://runv.club/~{username}/` (canónico Molly: um só segmento de path **`/~{username}/`**, tilde **colado** ao nome). O formato `gemini://runv.club/~/{username}/` (slash extra) redirecciona para o canónico. **Não** uses `gemini://runv.club/{username}` — não é capsule.
 
 Edita este ficheiro em `~/public_gemini/index.gmi`. Mantém pastas **755** e ficheiros **644** para o servidor ler o conteúdo.
 
@@ -293,14 +293,11 @@ ErrorLog = "{error_log.as_posix()}"
 GeminiExt = "gmi"
 ReadMollyFiles = true
 
-# Molly Brown resolve espaços de utilizador em paths /~/user/… (HomeDocBase).
-# A documentação oficial exige o prefixo ~/username/ *com* barra final; sem ela,
-# /~/user não casa e devolve 51 — redireccionamos para /~/user/.
-# URLs estilo Apache /~user/… redireccionam sem tocar em ficheiros no disco.
+# Molly Brown (Go): resolvePath usa o *primeiro* segmento após / como ~NOME — ou seja
+# path canónico /~username/… (tilde colado ao utilizador). O formato /~/username/
+# deixa o nome vazio e devolve 51; redireccionamos /~/… -> /~… antes do Stat.
 [TempRedirects]
-"^/~/([^/]+)$" = "/~/$1/"
-"^/~([^/]+)(/.+)$" = "/~/$1$2"
-"^/~([^/]+)/?$" = "/~/$1/"
+"^/~/([^/]+)(/.*)?$" = "/~$1$2"
 """
 
 
