@@ -6,6 +6,12 @@ Dois níveis (resumo do modelo POSIX/OpenSSH):
 
 1. **Privacidade entre utilizadores** — não impede «cd ..»; apenas impede listar/entrar nas
    homes alheias: ``chmod 711 /home`` e ``chmod 700`` em cada ``/home/<user>``.
+   **Incompatível com hospedagem runv em** ``public_html`` / ``public_gopher`` /
+   ``public_gemini``: serviços (Apache, gophernicus, molly-brown) precisam de **atravessar**
+   a home (mínimo ``o+x``, política runv ``755``). Após ``chmod 700`` por utilizador,
+   ``setup_alt_protocols`` (backfill) ou ``create_runv_user`` repõem ``755`` na home se
+   correr o fluxo de provisionamento; não misture este patch com ``public_*`` sem saber
+   o trade-off.
 
 2. **Confinamento real** — ``Match Group`` + ``ChrootDirectory /srv/jail/%u``; o caminho do
    chroot e ascendentes devem ser **root-owned** e não graváveis por outros (requisito do

@@ -7,18 +7,20 @@ Infraestrutura Gopher (gophernicus) e Gemini (molly-brown) para runv.club.
 
 Idempotente, dry-run, subprocess sem shell. Executar como root no Debian.
 
-Versão 0.06 — runv.club
+Versão 0.07 — runv.club
 """
 
 from __future__ import annotations
 
 import argparse
+import grp
 import importlib.util
 import logging
 import os
 import pwd
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import time
@@ -30,7 +32,11 @@ from typing import Any, Final
 # Constantes
 # ---------------------------------------------------------------------------
 
-VERSION: Final[str] = "0.06"
+VERSION: Final[str] = "0.07"
+
+LETSENCRYPT_LIVE: Final[Path] = Path("/etc/letsencrypt/live")
+LETSENCRYPT_ARCHIVE: Final[Path] = Path("/etc/letsencrypt/archive")
+SSL_CERT_GROUP: Final[str] = "ssl-cert"
 
 DEFAULT_USERS_JSON: Final[Path] = Path("/var/lib/runv/users.json")
 DEFAULT_HOMES_ROOT: Final[Path] = Path("/home")
@@ -324,6 +330,101 @@ def wait_for_unit_active(
     return False
 
 
+def ensure_le_tls_readable_for_molly(
+    cert_path: Path,
+    *,
+    dry_run: bool,
+    log: logging.Logger,
+) -> None:
+    """
+    Ajusta /etc/letsencrypt/live e archive (e o directório do certificado) para 755, e
+    archive/<domínio>/privkey*.pem para grupo ssl-cert + 640, para o molly-brown ler a chave.
+    Só actua se cert_path estiver sob .../live/<domínio>/ (Let's Encrypt típico).
+    """
+    try:
+        cert_resolved = cert_path.resolve()
+    except OSError as e:
+        log.debug("LE TLS: resolve %s: %s — salto", cert_path, e)
+        return
+    try:
+        cert_resolved.relative_to(LETSENCRYPT_LIVE)
+    except ValueError:
+        log.debug("LE TLS: cert não está sob %s — salto", LETSENCRYPT_LIVE)
+        return
+
+    live_domain_dir = cert_resolved.parent
+    if live_domain_dir.parent != LETSENCRYPT_LIVE:
+        log.debug(
+            "LE TLS: esperado .../live/<domínio>/fullchain.pem — salto (%s)",
+            cert_resolved,
+        )
+        return
+
+    domain = live_domain_dir.name
+    archive_domain_dir = LETSENCRYPT_ARCHIVE / domain
+
+    try:
+        ssl_gid = grp.getgrnam(SSL_CERT_GROUP).gr_gid
+    except KeyError:
+        log.warning(
+            "LE TLS: grupo %r inexistente — não ajusto privkey*.pem (instale openssl/ssl-cert)",
+            SSL_CERT_GROUP,
+        )
+        ssl_gid = None
+
+    dirs_755: list[Path] = [
+        LETSENCRYPT_LIVE,
+        LETSENCRYPT_ARCHIVE,
+        live_domain_dir,
+    ]
+    if archive_domain_dir.is_dir():
+        dirs_755.append(archive_domain_dir)
+
+    for d in dirs_755:
+        if not d.is_dir():
+            log.info("LE TLS: omito chmod 755 (não existe): %s", d)
+            continue
+        if dry_run:
+            log.info("[dry-run] chmod 755 %s", d)
+            continue
+        try:
+            before = stat.S_IMODE(os.stat(d).st_mode)
+            os.chmod(d, 0o755)
+            if before != 0o755:
+                log.info("LE TLS: %s modo %04o -> 0755", d, before)
+        except OSError as e:
+            log.warning("LE TLS: chmod %s: %s", d, e)
+
+    if not archive_domain_dir.is_dir():
+        log.info("LE TLS: %s inexistente — sem privkey*.pem", archive_domain_dir)
+        return
+
+    privkeys = sorted(archive_domain_dir.glob("privkey*.pem"))
+    if not privkeys:
+        log.info("LE TLS: sem privkey*.pem em %s", archive_domain_dir)
+        return
+
+    if ssl_gid is None:
+        log.warning("LE TLS: sem grupo ssl-cert — não altero privkey em %s", archive_domain_dir)
+        return
+
+    for pk in privkeys:
+        if not pk.is_file():
+            continue
+        if dry_run:
+            log.info("[dry-run] chgrp %s %s && chmod 640 %s", SSL_CERT_GROUP, pk, pk)
+            continue
+        try:
+            st = os.stat(pk)
+            os.chown(pk, st.st_uid, ssl_gid)
+            before_m = stat.S_IMODE(st.st_mode)
+            os.chmod(pk, 0o640)
+            if before_m != 0o640:
+                log.info("LE TLS: %s modo %04o -> 0640, grupo %s", pk, before_m, SSL_CERT_GROUP)
+        except OSError as e:
+            log.warning("LE TLS: ajuste %s: %s", pk, e)
+
+
 def ensure_user_public_dirs(
     username: str,
     homes_root: Path,
@@ -346,6 +447,14 @@ def ensure_user_public_dirs(
 
     if dry_run:
         log.info("[dry-run] garantiria ~/public_gopher e ~/public_gemini para %s", username)
+        if home.is_dir():
+            try:
+                cur = stat.S_IMODE(os.stat(home).st_mode)
+            except OSError as e:
+                log.debug("[dry-run] stat home %s: %s", home, e)
+            else:
+                if cur != 0o755:
+                    log.info("[dry-run] chmod 755 %s (era %04o)", home, cur)
         return
 
     gdir.mkdir(parents=True, exist_ok=True)
@@ -377,6 +486,16 @@ def ensure_user_public_dirs(
         log.info("index.gmi: %s", xidx)
     else:
         log.debug("index.gmi já existe, mantido: %s", xidx)
+
+    if home.is_dir():
+        try:
+            cur = stat.S_IMODE(os.stat(home).st_mode)
+        except OSError as e:
+            log.warning("stat home %s: %s", home, e)
+        else:
+            if cur != 0o755:
+                os.chmod(home, 0o755)
+                log.info("home %s: modo %04o -> 0755 (atravessável por serviços)", home, cur)
 
 
 def ensure_gemini_symlink(
@@ -603,6 +722,9 @@ def main(argv: list[str] | None = None) -> int:
 
     cert = args.gemini_cert or DEFAULT_LE_CERT
     key = args.gemini_key or DEFAULT_LE_KEY
+
+    if not args.skip_gemini:
+        ensure_le_tls_readable_for_molly(cert, dry_run=args.dry_run, log=log)
 
     pkgs: list[str] = []
     if not args.skip_install:

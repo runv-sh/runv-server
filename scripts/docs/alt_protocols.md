@@ -12,6 +12,32 @@ Script em **`scripts/admin/setup_alt_protocols.py`**: instala e configura **goph
 
 **Gemini (molly-brown):** `DocBase = /var/gemini`, `HomeDocBase = users`, symlinks **`/var/gemini/users/<user>` → `~/public_gemini`**.
 
+## Travessia da home (`755` na política runv)
+
+Serviços que leem `~/public_html`, `~/public_gopher` e `~/public_gemini` (Apache, gophernicus, molly-brown) correndo como utilizador do sistema (ex. `www-data`) precisam de **execução para «others»** (`o+x`, mínimo) em **cada** componente do caminho até à pasta pública. Uma home em **`700`** impede essa travessia: o Gemini pode responder **«Not found»** mesmo com `index.gmi` presente.
+
+- **Novas contas:** [`create_runv_user.py`](../admin/create_runv_user.py) aplica **`755`** na home em `apply_runv_permissions`.
+- **Backfill:** a partir do **v0.07**, [`setup_alt_protocols.py`](../admin/setup_alt_protocols.py) repõe a home do utilizador para **`755`** quando o modo actual é outro (com registo em log).
+- **Conflito:** [`patches/patch_permissions.py`](../../patches/patch_permissions.py) pode aplicar **`chmod 700`** em cada `/home/<user>` por política de privacidade — isso **quebra** a hospedagem em `public_*` até voltar a alinhar permissões (provisionamento ou `chmod` manual).
+
+## Let's Encrypt e chave TLS (v0.07+)
+
+Quando o certificado Gemini está sob **`/etc/letsencrypt/live/<domínio>/`** (por defeito `runv.club/fullchain.pem`), o script aplica **antes** de gravar o `.conf` do molly-brown:
+
+| Alvo | Acção |
+|------|--------|
+| `/etc/letsencrypt/live` | `chmod 755` |
+| `/etc/letsencrypt/archive` | `chmod 755` |
+| `/etc/letsencrypt/live/<domínio>` | `chmod 755` |
+| `/etc/letsencrypt/archive/<domínio>` | `chmod 755` (se existir) |
+| `archive/<domínio>/privkey*.pem` | `chgrp ssl-cert`, `chmod 640` |
+
+O `<domínio>` é o nome do directório pai de `fullchain.pem` (igual ao de `--gemini-cert` quando aponta para LE). Caminhos **fora** de `/etc/letsencrypt/live/` **não** são alterados.
+
+Se o grupo **`ssl-cert`** não existir no sistema, o script regista **WARNING** e não altera os `privkey*.pem` (instale o pacote que fornece esse grupo, p.ex. em Debian).
+
+**`certbot renew`** pode repor modos mais restritos nos directórios e chaves. Recomenda-se um script em **`/etc/letsencrypt/renewal-hooks/deploy/`** que volte a aplicar a mesma política, ou reexecutar `setup_alt_protocols.py` após renovações (com as flags que fizer sentido: p.ex. `--skip-install --skip-gopher --skip-backfill` se só quiser TLS + Gemini).
+
 ## Utilizadores antigos vs novos
 
 - **Novos:** recebem modelos via **`/etc/skel`** (após `tools/tools.py`) e via **`create_runv_user.py`** (sempre que o provisionador corre).
@@ -26,7 +52,7 @@ Script em **`scripts/admin/setup_alt_protocols.py`**: instala e configura **goph
 
 O **molly-brown** trata `AccessLog` e `ErrorLog` como **caminhos de ficheiro**. Valores como `"-"` (estilo «stdout» noutros programas) são interpretados de forma errada e o processo tenta abrir `/-`, falhando de imediato.
 
-- **Comportamento actual do script (v0.06+):** grava `AccessLog` / `ErrorLog` em **`/var/lib/molly-brown/`** (`runv.club-access.log`, `runv.club-error.log`). Esse caminho coincide com **`StateDirectory=molly-brown`** do unit Debian: o systemd cria o directório com o dono correcto (**`DynamicUser=yes`**) **antes** do `ExecStart`, sem `chown` manual. **Não** pré-cria pastas nem ficheiros de log (evita conflitos com `LogsDirectory` em `/var/log`).
+- **Comportamento actual do script (v0.06+):** grava `AccessLog` / `ErrorLog` em **`/var/lib/molly-brown/`** (v0.07+ inclui ajuste automático de permissões Let's Encrypt; ver secção acima). (`runv.club-access.log`, `runv.club-error.log`). Esse caminho coincide com **`StateDirectory=molly-brown`** do unit Debian: o systemd cria o directório com o dono correcto (**`DynamicUser=yes`**) **antes** do `ExecStart`, sem `chown` manual. **Não** pré-cria pastas nem ficheiros de log (evita conflitos com `LogsDirectory` em `/var/log`).
 - **Versões antigas (v0.05):** usavam o drop-in `50-runv-logs.conf` com `LogsDirectory=molly-brown`. Se `/var/log/molly-brown` já existia como root, o systemd podia **migrar** para `/var/log/private/molly-brown` e o serviço falhava. O **v0.06+** **remove** esse drop-in e muda os caminhos no `.conf` para `/var/lib/molly-brown/`.
 - **Servidor já provisionado:** correr com **`--force`** para regravar o `.conf` e remover o drop-in obsoleto (com backup do drop-in se usar `--force`). Exemplo:  
   `sudo python3 scripts/admin/setup_alt_protocols.py --verbose --force`

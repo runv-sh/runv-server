@@ -755,7 +755,8 @@ def apply_runv_permissions(home: Path, uid: int, gid: int) -> None:
     Aplica modos e donos esperados na home e nos artefactos runv (passo 5 do contrato).
 
     Deve ser chamado após criar o utilizador, chave SSH, ``public_html`` e ``README.md``,
-    para garantir home ``755`` (Apache atravessa até ``public_html``), ``.ssh`` ``700``,
+    para garantir home ``755`` (Apache, Gophernicus e Molly-Brown atravessam até
+    ``public_html`` / ``public_gopher`` / ``public_gemini``), ``.ssh`` ``700``,
     ``authorized_keys`` ``600``, site ``755``/``644``.
     """
     try:
