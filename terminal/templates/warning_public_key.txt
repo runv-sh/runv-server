@@ -1,25 +1,11 @@
-  Aviso importante — chave SSH
-  ───────────────────────────
 
-  Você vai colar sua chave **pública**, a que costuma terminar em .pub ou que
-  começa por um tipo como:
+  Antes da chave SSH
+  ───────────────────
 
-    ssh-ed25519
-    ssh-rsa
-    ecdsa-sha2-nistp256
-    ecdsa-sha2-nistp384
-    ecdsa-sha2-nistp521
+  No último passo vais colar **só a chave pública** — uma linha, começando por algo
+  como ssh-ed25519 ou ssh-rsa.
 
-%%PAGE%%
+  **Nunca** a chave privada (ficheiros sem .pub, linhas -----BEGIN … PRIVATE KEY-----,
+  ou export PuTTY “Private key”).
 
-  **Nunca** cole aqui a chave **privada** (arquivos sem .pub, blocos que
-  começam por -----BEGIN … PRIVATE KEY-----, ou texto do PuTTY “Private key”).
-  Quem tiver a privada controla seu acesso. Trate-a como senha: só em
-  arquivos locais protegidos.
-
-  Cole **uma única linha**, a mesma que colocaria em authorized_keys.
-  Sem quebras de linha no meio.
-
-  Se tiver dúvida, pare e gere um par novo no seu computador antes de
-  continuar.
-
+  Em dúvida, gera um par novo no teu computador antes de colar.

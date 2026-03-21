@@ -6,8 +6,9 @@ Visão para **quem entra no servidor** pela primeira vez (e para quem documenta 
 
 1. **MOTD** — O Debian executa os scripts em `/etc/update-motd.d/`. O fragmento **`60-runv`** mostra:
    - logótipo **RUNV** (mesmo desenho UTF-8 da landing) **só nesse bloco** em verde;
-   - tagline `.club — um computador para compartilhar` (sem bloco de estatísticas no MOTD; use **`runv-status`** para data, uptime, memória, disco, sessões);
-   - lista curta de comandos (incluindo `lynx`, `tmux`, `byobu`, `mutt`, `weechat`, `adventure`);
+   - tagline `.club — um computador para compartilhar` (sem estatísticas no MOTD; o comando **`runv-status`** existe mas **não** é listado aqui e só o utilizador **`pmurad-admin`** pode executá-lo);
+   - **Comandos úteis** em lista, com nome a verde e descrição a cinza (ANSI), alinhada ao texto do `runv-help`;
+   - grelha **3×3** com os **primeiros campos** das **9** sessões mais recentes de **`last`** (wtmp; ignora linhas `reboot` / `wtmp`);
    - linha final: **digite `runv-help` para começar**.
 
 2. **Prompt da shell** — Depende do shell padrão (geralmente Bash no Debian). O que o usuário **herda** da home vem do **`/etc/skel`** no momento em que a conta foi criada.
@@ -18,7 +19,7 @@ Visão para **quem entra no servidor** pela primeira vez (e para quem documenta 
 |---------|--------|
 | **`runv-help`** | Texto de ajuda: o que é o runv, comandos úteis, dicas, link do site. |
 | **`runv-links`** | Links: runv.club, Portal IDEA, etc. |
-| **`runv-status`** | Hostname, uptime, memória, disco, `who`, atalhos. |
+| **`runv-status`** | (Só **`pmurad-admin`**) hostname, uptime, memória, disco, `who`. Não aparece no MOTD nem em `runv-help`. |
 
 Todos são **shell scripts** em **`/usr/local/bin`**, com cores ANSI simples, texto em **português**. Não dependem de Python na sessão do usuário.
 
@@ -34,7 +35,7 @@ Quando um administrador cria a conta com **`adduser`**, o Debian copia **`/etc/s
 
 ## Programas globais (apt)
 
-Pacotes como **tmux**, **lynx**, **weechat**, **mutt**, **git**, **tree**, etc. ficam **instalados no sistema**. O usuário **não** precisa de nada no skel para **executá-los**: após o admin rodar `tools.py`, eles passam a existir em `/usr/bin` (ou caminhos padrão). Ou seja:
+Pacotes listados em **`manifests/apt_packages.txt`** (incluindo ferramentas de terminal e IRC) ficam **instalados no sistema**. O comando global **`chat`** em `/usr/local/bin` é o único nome que o utilizador precisa para IRC na rede da casa; a config é aplicada pelo admin com **`scripts/admin/patch_irc.py`**. O usuário **não** precisa de nada no skel para **executá-los**: após o admin rodar `tools.py`, eles passam a existir no `PATH`. Ou seja:
 
 - **Skel** ≠ instalar programas.
 - **Skel** = arquivos iniciais na home.
@@ -51,6 +52,6 @@ Pacotes como **tmux**, **lynx**, **weechat**, **mutt**, **git**, **tree**, etc. 
 - **MOTD** orienta na hora do login (**`runv-help`**).
 - **`README.md`** na home repete conceitos com calma (site, permissões).
 - **`runv-links`** centraliza URLs oficiais.
-- **`runv-status`** dá contexto do servidor sem precisar decorar comandos longos.
+- Administradores com a conta **`pmurad-admin`** podem usar **`runv-status`** para contexto do servidor (outros utilizadores recebem recusa explícita).
 
 Juntos, reduzem fricção para quem nunca usou pubnix ou SSH no dia a dia.

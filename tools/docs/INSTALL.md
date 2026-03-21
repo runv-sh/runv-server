@@ -16,12 +16,16 @@ Não é necessário Docker, banco de dados nem painel web.
 1. Valida execução como **root** (exceto em `--dry-run`, que só simula).
 2. Lê **`manifests/apt_packages.txt`** (ignora linhas vazias e `#`).
 3. Executa **`apt-get update -qq`** e **`apt-get install -y --no-install-recommends`** com esses pacotes.
-4. Copia **`bin/runv-help`**, **`runv-links`**, **`runv-status`** → **`/usr/local/bin/`** com modo **755**.
+4. Copia **`bin/runv-help`**, **`runv-links`**, **`runv-status`**, **`bin/chat`** → **`/usr/local/bin/`** com modo **755** (`chat` abre o IRC com config em `~/.config/weechat`; ver **`scripts/docs/irc_patch.md`**).
 5. Copia **`motd/60-runv`** → **`/etc/update-motd.d/60-runv`** com modo **755**.
 6. Copia o **`skel/`** do repositório para **`/etc/skel/`**:
    - `README.md` → **644**
    - `.bash_aliases` → **644**
    - `public_html/index.html` → diretório **`public_html` 755**, arquivo **644**
+   - `public_gopher/gophermap` → diretório **`public_gopher` 755**, arquivo **644**
+   - `public_gemini/index.gmi` → diretório **`public_gemini` 755**, arquivo **644**
+
+O **`/etc/skel`** só afeta **contas novas** criadas depois da cópia (o Debian copia o skel no `adduser`). Utilizadores **já existentes** não recebem automaticamente estes ficheiros: use **[`scripts/admin/setup_alt_protocols.py`](../../scripts/docs/alt_protocols.md)** (backfill) ou crie `~/public_gopher` e `~/public_gemini` manualmente.
 
 Se o destino **já existir** e for **idêntico** (conteúdo byte-a-byte) à origem no repositório, a cópia é **ignorada**. Se o ficheiro no repo **mudou**, o `tools.py` **atualiza** o destino mesmo sem **`--force`**. Use **`--force`** para sobrescrever sempre (útil para repor permissões/mtime ou forçar cópia igual).
 
@@ -50,7 +54,7 @@ sudo python3 tools/tools.py --dry-run --verbose
 ## Verificar pacotes instalados
 
 ```bash
-dpkg -l byobu tmux lynx weechat mutt bsdgames tree less curl wget git
+dpkg -l byobu tmux lynx weechat weechat-headless mutt bsdgames tree less curl wget git
 ```
 
 Ou:
@@ -64,7 +68,7 @@ apt list --installed 2>/dev/null | grep -E 'byobu|tmux|lynx|weechat|mutt|bsdgame
 ## Verificar comandos em `/usr/local/bin`
 
 ```bash
-ls -l /usr/local/bin/runv-help /usr/local/bin/runv-links /usr/local/bin/runv-status
+ls -l /usr/local/bin/runv-help /usr/local/bin/runv-links /usr/local/bin/runv-status /usr/local/bin/chat
 /usr/local/bin/runv-help
 ```
 
@@ -85,7 +89,7 @@ Para ver a sequência completa (pode ser longa):
 run-parts /etc/update-motd.d/
 ```
 
-Em novo login SSH você deve ver o bloco **verde** com arte **RUNV**, a tagline, a lista de comandos úteis e a dica **“digite runv-help para começar”**. Estatísticas (data, uptime, memória, disco, sessões) estão em **`runv-status`**, não no MOTD.
+Em novo login SSH você deve ver o bloco **verde** com arte **RUNV**, a tagline, a lista de comandos úteis e a dica **“digite runv-help para começar”**. Estatísticas do servidor (**`runv-status`**) não aparecem no MOTD nem em `runv-help`; só o utilizador **`pmurad-admin`** pode executar `runv-status`.
 
 ## Verificar `/etc/skel`
 
@@ -107,7 +111,7 @@ Novas contas criadas com `adduser` **depois** desta instalação recebem esses a
 1. **Dry-run:** `sudo python3 tools/tools.py --dry-run --verbose` — revisar saída.
 2. **Aplicar:** `sudo python3 tools/tools.py --verbose`.
 3. **Segunda execução** sem `--force` com repo **inalterado** — deve **pular** ficheiros já iguais; após **editar** MOTD/bin/skel no repo, a mesma execução deve **copiar de novo**.
-4. **`runv-help` / `runv-links` / `runv-status`** — executar manualmente.
+4. **`runv-help` / `runv-links`** — qualquer utilizador; **`runv-status`** — apenas como **`pmurad-admin`**.
 5. **MOTD:** rodar `/etc/update-motd.d/60-runv` ou novo login SSH.
 6. **Skel:** criar usuário de teste com `adduser` e conferir `~usuario/README.md` e `~/public_html/index.html`.
 

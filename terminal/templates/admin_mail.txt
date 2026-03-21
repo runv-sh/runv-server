@@ -8,6 +8,11 @@ submitted_at: {submitted_at}
 remote_addr: {remote_addr}
 tty        : {tty}
 
+Onde aparece online (texto do candidato):
+---
+{online_presence}
+---
+
 Chave pública (uma linha):
 {public_key}
 

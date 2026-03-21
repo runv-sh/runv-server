@@ -32,6 +32,7 @@ INTRO_PAGE_BREAK: str = "%%PAGE%%"
 from entre_core import (
     APP_VERSION,
     DEFAULT_MAIL_FROM,
+    MAX_ONLINE_PRESENCE_LEN,
     ValidationError,
     build_request_payload,
     find_config_path,
@@ -46,6 +47,7 @@ from entre_core import (
     setup_file_logger,
     ssh_remote_context,
     validate_email,
+    validate_online_presence,
     validate_public_key_line,
     validate_username,
 )
@@ -73,6 +75,47 @@ def read_line(prompt: str, stdin, stdout) -> str:
     if not line:
         raise SystemExit(0)
     return line.rstrip("\r\n")
+
+
+def write_data_step_header(stdout, step: int, total: int, title: str) -> None:
+    """Cabeçalho visível antes de cada campo do formulário."""
+    clear_screen(stdout)
+    g = "\033[92m" if _use_ansi_color(stdout) else ""
+    c = "\033[96m" if _use_ansi_color(stdout) else ""
+    b = "\033[1m" if _use_ansi_color(stdout) else ""
+    r = "\033[0m" if g else ""
+    bar = "━" * 52
+    stdout.write(f"\n  {g}{bar}{r}\n")
+    stdout.write(f"  {b}{c}Dados · passo {step}/{total}{r}\n")
+    stdout.write(f"  {b}{g}{title}{r}\n")
+    stdout.write(f"  {g}{bar}{r}\n\n")
+
+
+def read_multiline_until_dot(stdin, stdout, *, max_lines: int = 48) -> str:
+    """Várias linhas; termina com uma linha só com '.' (como no SMTP clássico)."""
+    d = "\033[2m" if _use_ansi_color(stdout) else ""
+    r = "\033[0m" if d else ""
+    stdout.write(
+        f"{d}  (podes usar várias linhas; para terminar, uma linha só com . e Enter){r}\n\n"
+    )
+    stdout.flush()
+    lines: list[str] = []
+    for _ in range(max_lines):
+        line = stdin.readline()
+        if not line:
+            raise SystemExit(0)
+        s = line.rstrip("\r\n")
+        if s == ".":
+            if lines:
+                break
+            continue
+        lines.append(s)
+        if len("\n".join(lines)) > MAX_ONLINE_PRESENCE_LEN:
+            stdout.write(
+                f"\n  {d}(limite de tamanho atingido — campo fechado aqui.){r}\n"
+            )
+            break
+    return "\n".join(lines).strip()
 
 
 def clear_screen(stdout) -> None:
@@ -160,30 +203,58 @@ def show_paged_template(stdin, stdout, template_path: Path) -> None:
         pause(stdin, stdout)
 
 
-def collect_loop(stdin, stdout, templates: Path) -> tuple[str, str, str, str]:
-    username = email = pubkey = ""
+def collect_loop(stdin, stdout, templates: Path) -> tuple[str, str, str, str, str]:
+    username = email = online_presence = pubkey = ""
     fp = ""
+    total = 4
     while True:
-        clear_screen(stdout)
-        stdout.write(style_runv_club("— runv.club · dados —  (1/3)\n\n", stdout))
-        stdout.write("Nome de utilizador desejado (minúsculas, letras, dígitos, _ ou -).\n")
-        stdout.write("Deixe em branco só se ainda não tiver escolhido.\n\n")
-        u = read_line(f"  Utilizador [{username or '(vazio)'}]: ", stdin, stdout).strip()
+        write_data_step_header(stdout, 1, total, "Nome de utilizador Unix desejado")
+        stdout.write(
+            style_runv_club(
+                "Letras minúsculas, dígitos, _ ou -; começa com letra. "
+                "Deixa em branco só se ainda não tiveres escolhido.\n",
+                stdout,
+            )
+        )
+        b = "\033[1m" if _use_ansi_color(stdout) else ""
+        r = "\033[0m" if b else ""
+        stdout.write(f"\n  {b}» Escreve abaixo e prima Enter:{r}\n\n  ")
+        stdout.flush()
+        u = read_line("", stdin, stdout).strip()
         if u:
             username = u
 
-        clear_screen(stdout)
-        stdout.write(style_runv_club("— runv.club · dados —  (2/3)\n\n", stdout))
-        stdout.write("Email para a administração entrar em contacto consigo.\n\n")
-        e = read_line(f"  Email [{email or '(vazio)'}]: ", stdin, stdout).strip()
+        write_data_step_header(stdout, 2, total, "Email de contacto")
+        stdout.write(
+            "Endereço para a equipa te responder sobre este pedido.\n"
+        )
+        stdout.write(f"\n  {b}» Escreve abaixo e prima Enter:{r}\n\n  ")
+        stdout.flush()
+        e = read_line("", stdin, stdout).strip()
         if e:
             email = e
 
-        clear_screen(stdout)
-        stdout.write(style_runv_club("— runv.club · dados —  (3/3)\n\n", stdout))
-        stdout.write("Cole a sua chave pública SSH (uma linha) e prima Enter.\n")
-        stdout.write("Só a pública — nunca a chave privada.\n\n")
-        stdout.write("  Chave pública:\n  ")
+        write_data_step_header(stdout, 3, total, "Onde te encontramos online?")
+        stdout.write(
+            style_runv_club(
+                "Links, perfis ou páginas onde aparece o teu trabalho, código ou participação "
+                "— por exemplo site, GitHub, Mastodon, itch.io, etc. "
+                "Uma sugestão por linha.\n",
+                stdout,
+            )
+        )
+        stdout.write(f"\n  {b}» A tua resposta (várias linhas):{r}\n")
+        stdout.flush()
+        raw_on = read_multiline_until_dot(stdin, stdout)
+        if raw_on:
+            online_presence = raw_on
+
+        write_data_step_header(stdout, 4, total, "Chave pública SSH")
+        stdout.write(
+            "Uma única linha, a mesma que irias pôr em authorized_keys. "
+            "Só a pública.\n"
+        )
+        stdout.write(f"\n  {b}» Cola a linha abaixo e prima Enter:{r}\n\n  ")
         stdout.flush()
         pk = stdin.readline()
         if not pk:
@@ -204,6 +275,11 @@ def collect_loop(stdin, stdout, templates: Path) -> tuple[str, str, str, str]:
             errors.append(str(ex))
             ve = ""
         try:
+            v_on = validate_online_presence(online_presence)
+        except ValidationError as ex:
+            errors.append(str(ex))
+            v_on = ""
+        try:
             if not pubkey:
                 raise ValidationError("a chave pública é obrigatória.")
             nkey, fp = validate_public_key_line(pubkey)
@@ -213,14 +289,14 @@ def collect_loop(stdin, stdout, templates: Path) -> tuple[str, str, str, str]:
 
         if errors:
             clear_screen(stdout)
-            stdout.write("— Corrija os dados —\n\n")
+            stdout.write("— Corrige os dados —\n\n")
             for err in errors:
                 stdout.write(f"  • {err}\n")
             stdout.write("\n[Enter] para voltar ao início do formulário\n")
             stdout.flush()
             stdin.readline()
             continue
-        return vu, ve, nkey, fp
+        return vu, ve, v_on, nkey, fp
 
 
 def confirm_loop(
@@ -229,6 +305,7 @@ def confirm_loop(
     *,
     username: str,
     email: str,
+    online_presence: str,
     fingerprint: str,
     templates: Path,
 ) -> str:
@@ -238,6 +315,7 @@ def confirm_loop(
         {
             "username": username,
             "email": email,
+            "online_presence": online_presence,
             "fingerprint": fingerprint,
             "submitted_preview": now,
         },
@@ -307,13 +385,16 @@ def main() -> int:
         show_paged_template(stdin, stdout, templates / "warning_public_key.txt")
 
         # --- Etapa 3–4: coleta e confirmação (com edição repetível)
-        username, email, pubkey, fingerprint = collect_loop(stdin, stdout, templates)
+        username, email, online_presence, pubkey, fingerprint = collect_loop(
+            stdin, stdout, templates
+        )
         while True:
             action = confirm_loop(
                 stdin,
                 stdout,
                 username=username,
                 email=email,
+                online_presence=online_presence,
                 fingerprint=fingerprint,
                 templates=templates,
             )
@@ -322,7 +403,9 @@ def main() -> int:
                 stdout.write("\nPedido cancelado. Até logo.\n\n")
                 return 0
             if action == "edit":
-                username, email, pubkey, fingerprint = collect_loop(stdin, stdout, templates)
+                username, email, online_presence, pubkey, fingerprint = collect_loop(
+                    stdin, stdout, templates
+                )
                 continue
             break
 
@@ -334,6 +417,7 @@ def main() -> int:
                 request_id=request_id,
                 username=username,
                 email=email,
+                online_presence=online_presence,
                 public_key=pubkey,
                 fingerprint=fingerprint,
                 remote_addr=ctx.get("remote_addr"),
@@ -364,6 +448,9 @@ def main() -> int:
 
         # Aviso em consola ao admin (template curto)
         try:
+            oneline = online_presence.replace("\n", " ").strip()
+            if len(oneline) > 100:
+                oneline = oneline[:97] + "..."
             notice = render_template(
                 templates / "admin_console_notice.txt",
                 {
@@ -372,6 +459,7 @@ def main() -> int:
                     "email": email,
                     "fingerprint": fingerprint,
                     "submitted_at": submitted_at,
+                    "online_presence_line": oneline,
                 },
             )
             log_session(logger, "admin_console_notice:\n" + notice.strip())
@@ -391,6 +479,7 @@ def main() -> int:
                         "request_id": request_id,
                         "username": username,
                         "email": email,
+                        "online_presence": online_presence,
                         "public_key": pubkey,
                         "fingerprint": fingerprint,
                         "submitted_at": submitted_at,

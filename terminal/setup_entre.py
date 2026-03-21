@@ -612,7 +612,6 @@ def copy_module(dest: Path, *, dry_run: bool) -> None:
     files = [
         "entre_app.py",
         "entre_core.py",
-        "del_entre.py",
         "config.example.toml",
         "README.md",
     ]

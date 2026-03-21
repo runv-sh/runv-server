@@ -15,6 +15,7 @@ Fluxo geral de instalação e utilização: **[USO.md](USO.md)**.
 | `request_id` | Identificador único. |
 | `username` | Nome Unix desejado pelo candidato. |
 | `email` | Contacto. |
+| `online_presence` | Texto livre com sítios/perfis indicados pelo candidato. |
 | `public_key` | Linha OpenSSH normalizada. |
 | `public_key_fingerprint` | SHA256 (formato OpenSSH). |
 | `submitted_at` | ISO 8601 UTC. |
@@ -33,7 +34,7 @@ sudo jq -r '"\(.submitted_at) \(.username) \(.email) \(.status)"' /var/lib/runv/
 
 ## Revisão manual
 
-1. Abrir o JSON e confirmar que username, email e chave são plausíveis.
+1. Abrir o JSON e confirmar que username, email, `online_presence` e chave são plausíveis.
 2. Procurar duplicados (mesmo email ou mesma fingerprint com pedidos `pending`).
 3. Decidir: aprovar, rejeitar ou pedir mais informação por email **fora** deste sistema.
 

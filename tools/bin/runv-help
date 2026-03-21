@@ -20,7 +20,6 @@ printf '%bpágina pessoal em %b~/public_html/%b e comunidade em torno de Linux e
 printf '%b%bComandos runv.club%b\n' "${Y}" "${B}" "${R}"
 printf '  %brunv-help%b      Esta mensagem (ajuda e boas práticas).\n' "${G}" "${R}"
 printf '  %brunv-links%b     Links do projeto, site e parceiros.\n' "${G}" "${R}"
-printf '  %brunv-status%b    Hostname, uptime, memória, disco, quem está online.\n' "${G}" "${R}"
 printf '\n'
 
 printf '%b%bFerramentas instaladas no servidor%b (exemplos)\n' "${Y}" "${B}" "${R}"
@@ -30,7 +29,7 @@ printf '  %bgit%b            Controlo de versão.\n' "${G}" "${R}"
 printf '  %bless%b           Paginar ficheiros longos (ex.: less README.md).\n' "${G}" "${R}"
 printf '  %btmux%b / %bbyobu%b   Multiplexadores de terminal (várias sessões).\n' "${G}" "${R}" "${G}" "${R}"
 printf '  %bmutt%b           E-mail no terminal.\n' "${G}" "${R}"
-printf '  %bweechat%b        IRC no terminal.\n' "${G}" "${R}"
+printf '  %bchat%b           IRC da rede da casa (após o admin aplicar o patch no servidor).\n' "${G}" "${R}"
 printf '  %btree%b           Árvore de diretórios.\n' "${G}" "${R}"
 printf '  %badventure%b      Jogo de aventura (bsdgames).\n' "${G}" "${R}"
 printf '\n'

@@ -7,11 +7,14 @@ Contrato de provisionamento (ordem garantida após validação):
 1. **Criar o usuário** — ``adduser --disabled-password``.
 2. **Instalar a chave** — ``~/.ssh/authorized_keys`` com modos ``700`` / ``600``.
 3. **Preparar public_html** — diretório ``755``, ``index.html`` estático ``644``.
-4. **Copiar o skel** — o Debian copia ``/etc/skel`` para a home **durante** o passo 1; depois,
-   após ``public_html``, o script acrescenta ``README.md`` runv (português), sem apagar o que
-   veio do skel (use ``--force-readme`` para substituir). Prepare ``/etc/skel`` com ``skel.py``
+4. **Preparar public_gopher / public_gemini** — ``gophermap`` e ``index.gmi`` modelo (não
+   sobrescreve sem ``--force-gopher`` / ``--force-gemini``); symlink Gemini em
+   ``/var/gemini/users/<user>`` quando o diretório existir.
+5. **Copiar o skel** — o Debian copia ``/etc/skel`` para a home **durante** o passo 1; depois,
+   após os diretórios públicos, o script acrescenta ``README.md`` runv (português), sem apagar o que
+   veio do skel (use ``--force-readme`` para substituir). Prepare ``/etc/skel`` com ``tools.py``
    antes das contas, se for política do servidor.
-5. **Aplicar permissões** — ``apply_runv_permissions``: home, ``.ssh``, site e README com modos
+6. **Aplicar permissões** — ``apply_runv_permissions``: home, ``.ssh``, sites públicos e README com modos
    e donos corretos, antes da quota e da verificação final.
 
 Quota ext4, metadados JSON e logging seguem após estes passos.
@@ -103,6 +106,8 @@ DEFAULT_METADATA_PATH: Final[Path] = Path("/var/lib/runv/users.json")
 DEFAULT_LOCK_PATH: Final[Path] = Path("/var/lib/runv/users.lock")
 DEFAULT_LOG_PATH: Final[Path] = Path("/var/log/runv-user-provision.log")
 DEFAULT_BASE_URL: Final[str] = "http://runv.club"
+DEFAULT_GEMINI_HOST_PUBLIC: Final[str] = "runv.club"
+GEMINI_USERS_DIR: Final[Path] = Path("/var/gemini/users")
 
 # Quota ext4 (valores padrão runv; limites em MiB = 1024² bytes → setquota usa kiB de 1024 B)
 DEFAULT_QUOTA_SOFT_MIB: Final[int] = 450
@@ -173,6 +178,13 @@ def validate_email(email: str) -> str:
     if email != email.strip():
         raise ValidationError("email não pode ter espaços no início ou fim")
     e = email.strip()
+    at = e.count("@")
+    if at == 0:
+        raise ValidationError(
+            "indica um endereço com @, por exemplo nome@exemplo.org."
+        )
+    if at != 1:
+        raise ValidationError("o email deve ter um único @.")
     if not EMAIL_PATTERN.fullmatch(e):
         raise ValidationError("formato de email inválido")
     return e
@@ -393,6 +405,13 @@ e `644` nos ficheiros servidos.
 Tudo o que colocares em **`public_html`** pode ser lido pelo mundo via HTTP no endereço
 `~{username}/...`. Não coloques aí segredos, chaves privadas nem dados sensíveis.
 
+## Gopher e Gemini (protocolos alternativos)
+
+- **Gopher:** edita `~/public_gopher/gophermap` (e outros ficheiros nessa pasta). URL típica:
+  `gopher://{DEFAULT_GEMINI_HOST_PUBLIC}/1/~{username}` (o caminho exacto depende do servidor).
+- **Gemini:** edita `~/public_gemini/index.gmi`. URL típica: `gemini://{DEFAULT_GEMINI_HOST_PUBLIC}/~{username}/`
+- Mantém **755** nas pastas públicas e **644** nos ficheiros, para o servidor conseguir ler.
+
 ## Comandos úteis na shell
 
 ```bash
@@ -438,6 +457,130 @@ def prepare_public_html(
         os.chown(index, uid, gid)
     except PermissionError as e:
         raise SystemProvisionError(f"não foi possível ajustar dono de {index}: {e}") from e
+
+
+def default_gophermap_text(username: str) -> str:
+    return f"""iBem-vindo ao teu espaço Gopher no runv.club.	fake	NULL	0
+iEdita este ficheiro em ~/public_gopher/gophermap para personalizares o menu.	fake	NULL	0
+iDocumentação: man gophermap (no pacote gophernicus).	fake	NULL	0
+"""
+
+
+def default_gemini_index_gmi(username: str) -> str:
+    return f"""# ~{username} — runv.club (Gemini)
+
+Bem-vindo ao teu capsule em `gemini://{DEFAULT_GEMINI_HOST_PUBLIC}/~{username}/`.
+
+Edita este ficheiro em `~/public_gemini/index.gmi`. Mantém pastas **755** e ficheiros **644**.
+
+## Dicas
+
+* Ficheiros `.gmi` são Texto Gemini.
+* Não coloques segredos em diretórios públicos.
+"""
+
+
+def prepare_public_gopher(
+    home: Path,
+    username: str,
+    uid: int,
+    gid: int,
+    force_gopher: bool,
+    log: logging.Logger,
+) -> None:
+    d = home / "public_gopher"
+    d.mkdir(parents=True, exist_ok=True)
+    os.chmod(d, 0o755)
+    try:
+        os.chown(d, uid, gid)
+    except PermissionError as e:
+        raise SystemProvisionError(f"não foi possível ajustar dono de {d}: {e}") from e
+    gmap = d / "gophermap"
+    if gmap.exists() and not force_gopher:
+        log.info("%s já existe; não sobrescrevendo (use --force-gopher)", gmap)
+        return
+    if gmap.exists() and force_gopher:
+        log.warning("sobrescrevendo %s (--force-gopher)", gmap)
+    gmap.write_text(default_gophermap_text(username), encoding="utf-8")
+    os.chmod(gmap, 0o644)
+    try:
+        os.chown(gmap, uid, gid)
+    except PermissionError as e:
+        raise SystemProvisionError(f"não foi possível ajustar dono de {gmap}: {e}") from e
+
+
+def prepare_public_gemini(
+    home: Path,
+    username: str,
+    uid: int,
+    gid: int,
+    force_gemini: bool,
+    log: logging.Logger,
+) -> None:
+    d = home / "public_gemini"
+    d.mkdir(parents=True, exist_ok=True)
+    os.chmod(d, 0o755)
+    try:
+        os.chown(d, uid, gid)
+    except PermissionError as e:
+        raise SystemProvisionError(f"não foi possível ajustar dono de {d}: {e}") from e
+    idx = d / "index.gmi"
+    if idx.exists() and not force_gemini:
+        log.info("%s já existe; não sobrescrevendo (use --force-gemini)", idx)
+        return
+    if idx.exists() and force_gemini:
+        log.warning("sobrescrevendo %s (--force-gemini)", idx)
+    idx.write_text(default_gemini_index_gmi(username), encoding="utf-8")
+    os.chmod(idx, 0o644)
+    try:
+        os.chown(idx, uid, gid)
+    except PermissionError as e:
+        raise SystemProvisionError(f"não foi possível ajustar dono de {idx}: {e}") from e
+
+
+def ensure_gemini_user_symlink(
+    username: str,
+    home: Path,
+    log: logging.Logger,
+    *,
+    force: bool,
+) -> None:
+    """Cria /var/gemini/users/<user> -> <home>/public_gemini se o diretório global existir."""
+    target = (home / "public_gemini").resolve()
+    if not GEMINI_USERS_DIR.is_dir():
+        log.warning(
+            "diretório %s inexistente — symlink Gemini não criado. "
+            "Execute scripts/admin/setup_alt_protocols.py no servidor.",
+            GEMINI_USERS_DIR,
+        )
+        return
+    link = GEMINI_USERS_DIR / username
+    if link.is_symlink():
+        if link.resolve() == target:
+            log.info("symlink Gemini já correto: %s", link)
+            return
+        if force:
+            link.unlink()
+            log.info("symlink Gemini antigo removido: %s", link)
+        else:
+            log.warning(
+                "symlink %s aponta para %s (esperado %s); não altero sem --force-gemini",
+                link,
+                link.resolve(),
+                target,
+            )
+            return
+    elif link.exists():
+        if not force:
+            log.warning("%s existe e não é symlink; não sobrescrevo sem --force-gemini", link)
+            return
+        if link.is_dir():
+            shutil.rmtree(link)
+        else:
+            link.unlink()
+        log.info("removido destino em conflito para symlink Gemini: %s", link)
+    link.symlink_to(target, target_is_directory=True)
+    log.info("symlink Gemini: %s -> %s", link, target)
 
 
 def prepare_user_readme(
@@ -659,6 +802,31 @@ def apply_runv_permissions(home: Path, uid: int, gid: int) -> None:
         except PermissionError as e:
             raise SystemProvisionError(f"não foi possível ajustar permissões de {readme}: {e}") from e
 
+    for label, path in (
+        ("public_gopher", home / "public_gopher"),
+        ("public_gemini", home / "public_gemini"),
+    ):
+        if path.is_dir():
+            try:
+                os.chmod(path, 0o755)
+                os.chown(path, uid, gid)
+            except PermissionError as e:
+                raise SystemProvisionError(f"não foi possível ajustar permissões de {path}: {e}") from e
+    gmap = home / "public_gopher" / "gophermap"
+    if gmap.is_file():
+        try:
+            os.chmod(gmap, 0o644)
+            os.chown(gmap, uid, gid)
+        except PermissionError as e:
+            raise SystemProvisionError(f"não foi possível ajustar permissões de {gmap}: {e}") from e
+    gmi = home / "public_gemini" / "index.gmi"
+    if gmi.is_file():
+        try:
+            os.chmod(gmi, 0o644)
+            os.chown(gmi, uid, gid)
+        except PermissionError as e:
+            raise SystemProvisionError(f"não foi possível ajustar permissões de {gmi}: {e}") from e
+
 
 def verify_user_artifact_permissions(home: Path, uid: int, gid: int) -> None:
     """
@@ -670,6 +838,10 @@ def verify_user_artifact_permissions(home: Path, uid: int, gid: int) -> None:
         (home / ".ssh" / "authorized_keys", 0o600, "authorized_keys"),
         (home / "public_html", 0o755, "public_html"),
         (home / "public_html" / "index.html", 0o644, "index.html"),
+        (home / "public_gopher", 0o755, "public_gopher"),
+        (home / "public_gopher" / "gophermap", 0o644, "gophermap"),
+        (home / "public_gemini", 0o755, "public_gemini"),
+        (home / "public_gemini" / "index.gmi", 0o644, "index.gmi"),
         (home / "README.md", 0o644, "README.md"),
     ]
     for path, want_mode, label in checks:
@@ -986,12 +1158,22 @@ def interactive_fill(args: argparse.Namespace) -> None:
             "Se já existir ~/public_html/index.html, sobrescrever (--force-index)?",
             default_no=True,
         )
+        args.force_gopher = prompt_yes_no(
+            "Se já existir ~/public_gopher/gophermap, sobrescrever (--force-gopher)?",
+            default_no=True,
+        )
+        args.force_gemini = prompt_yes_no(
+            "Se já existir ~/public_gemini/index.gmi, sobrescrever (--force-gemini)?",
+            default_no=True,
+        )
         args.force_readme = prompt_yes_no(
             "Se já existir ~/README.md, sobrescrever (--force-readme)?",
             default_no=True,
         )
     else:
         args.force_index = False
+        args.force_gopher = False
+        args.force_gemini = False
         args.force_readme = False
 
     args.verbose = prompt_yes_no("Log verboso no terminal?", default_no=True)
@@ -1068,6 +1250,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--force-readme",
         action="store_true",
         help="sobrescrever ~/README.md se já existir",
+    )
+    p.add_argument(
+        "--force-gopher",
+        action="store_true",
+        help="sobrescrever ~/public_gopher/gophermap se já existir",
+    )
+    p.add_argument(
+        "--force-gemini",
+        action="store_true",
+        help="sobrescrever ~/public_gemini/index.gmi e corrigir symlink em /var/gemini/users se necessário",
     )
     p.add_argument(
         "--metadata-file",
@@ -1234,7 +1426,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  fingerprint:  {fingerprint}")
         print(
             "  ações: (1) adduser + /etc/skel  (2) authorized_keys  (3) public_html  "
-            "(4) README.md  (5) permissões consolidadas  + quota (se ativa) + metadados JSON"
+            "(4) public_gopher + public_gemini + symlink Gemini  (5) README.md  "
+            "(6) permissões consolidadas  + quota (se ativa) + metadados JSON"
         )
         if args.no_quota:
             print("  quota:        desativada (--no-quota)")
@@ -1271,10 +1464,15 @@ def main(argv: list[str] | None = None) -> int:
         log.info("=== fase 3: public_html e index.html estático")
         prepare_public_html(home, user, uid, gid, args.force_index, log)
 
+        log.info("=== fase 3b: public_gopher (gophermap) e public_gemini (index.gmi)")
+        prepare_public_gopher(home, user, uid, gid, args.force_gopher, log)
+        prepare_public_gemini(home, user, uid, gid, args.force_gemini, log)
+        ensure_gemini_user_symlink(user, home, log, force=args.force_gemini)
+
         log.info("=== fase 4: README.md runv (após skel /etc/skel do adduser; texto em português)")
         prepare_user_readme(home, user, uid, gid, args.base_url, args.force_readme, log)
 
-        log.info("=== fase 5: permissões consolidadas (home, .ssh, site, README)")
+        log.info("=== fase 5: permissões consolidadas (home, .ssh, sites públicos, README)")
         apply_runv_permissions(home, uid, gid)
 
         log.info("=== fase: quota (setquota em ext4 com usrquota)")
@@ -1345,6 +1543,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  home:              {home}")
         print("  ssh:               authorized_keys instalado")
         print("  public_html:       pronto (index.html estático)")
+        print("  public_gopher:     pronto (gophermap)")
+        print("  public_gemini:     pronto (index.gmi)")
+        print("  symlink Gemini:    /var/gemini/users/<user> (se o diretório existir)")
         print("  README.md:         criado em ~/README.md (pt-BR)")
         print(f"  URL prevista:      {args.base_url.rstrip('/')}/~{user}/")
         print(f"  fingerprint:       {fingerprint}")

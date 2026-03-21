@@ -1,12 +1,17 @@
 #!/bin/sh
 # runv.club — MOTD dinâmico (Debian update-motd.d)
 #
-# RUNV em verde (ANSI); tagline e rodapé em texto normal — alinhado a
-# site/public/index.html e terminal/entre_app.py (RUNV_ASCII_ART / ASCII_TAGLINE).
-# Estatísticas do sistema ficam em runv-status, não no MOTD.
+# RUNV em verde (ANSI); tagline e rodapé — alinhado a site/public/index.html
+# e terminal/entre_app.py (RUNV_ASCII_ART / ASCII_TAGLINE).
+# Estatísticas gerais: runv-status (só pmurad-admin); aqui: lista de comandos + últimas sessões.
 #
-# Cores: cada sequência ANSI vai em argumento próprio com conversão %b (POSIX).
-# Não guardar \033 em variável e depois usar %s — em alguns ambientes aparece literal.
+# Cores: printf %b com literais \033 (POSIX). Sem echo -e.
+
+R='\033[0m'
+G='\033[0;32m'
+Y='\033[0;33m'
+B='\033[1m'
+D='\033[2m'
 
 # Bloco RUNV (UTF-8) — só este trecho em verde brilhante
 print_runv_art() {
@@ -22,8 +27,57 @@ print_runv_art() {
 RUNV_ART
 }
 
+# Últimas 9 sessões em last(1) → grelha 3×3 (primeiro campo = utilizador)
+print_last_sessions_3x3() {
+  if ! command -v last >/dev/null 2>&1; then
+    printf '  %s\n' "${D}(comando last indisponível)${R}"
+    return
+  fi
+  tf=$(mktemp -t runvmotd.XXXXXX 2>/dev/null) || tf=/tmp/runvmotd.$$
+  trap 'rm -f "$tf"' EXIT HUP INT
+  # Ignora reboot, wtmp e linhas vazias; até 9 utilizadores (sessões recentes)
+  last -n 200 2>/dev/null | awk '
+    /^reboot/ || /^wtmp/ || /^$/ { next }
+    NF < 1 { next }
+    { print $1; if (++n >= 9) exit }
+  ' > "$tf" || true
+
+  if ! [ -s "$tf" ]; then
+    printf '  %s\n' "${D}(sem registos recentes em wtmp)${R}"
+    rm -f "$tf"
+    trap - EXIT HUP INT
+    return
+  fi
+
+  printf '\n%bÚltimas sessões%b %b(9 entradas recentes de last)%b\n' "${B}" "${R}" "${D}" "${R}"
+  row=1
+  while [ "$row" -le 3 ]; do
+    read -r c1 || c1=''
+    read -r c2 || c2=''
+    read -r c3 || c3=''
+    printf '  %b%-12s%b  %b%-12s%b  %b%-12s%b\n' \
+      "${Y}" "$c1" "${R}" \
+      "${Y}" "$c2" "${R}" \
+      "${Y}" "$c3" "${R}"
+    row=$((row + 1))
+  done < "$tf"
+  rm -f "$tf"
+  trap - EXIT HUP INT
+}
+
 print_runv_art
 printf '\n%s\n' '.club — um computador para compartilhar'
 
-printf '\n%s\n' 'Comandos úteis: runv-help · runv-links · runv-status · lynx · tmux · byobu · mutt · weechat · adventure'
+printf '\n%bComandos úteis%b\n' "${B}" "${R}"
+printf '  %brunv-help%b    %b—%b ajuda e boas práticas do runv.club.\n' "${G}" "${R}" "${D}" "${R}"
+printf '  %brunv-links%b   %b—%b links do site e do mantenedor.\n' "${G}" "${R}" "${D}" "${R}"
+printf '  %blynx%b         %b—%b navegador web no terminal.\n' "${G}" "${R}" "${D}" "${R}"
+printf '  %btmux%b         %b—%b multiplexador de terminal (várias sessões).\n' "${G}" "${R}" "${D}" "${R}"
+printf '  %bbyobu%b        %b—%b barra de estado e atalhos sobre tmux/screen.\n' "${G}" "${R}" "${D}" "${R}"
+printf '  %bmutt%b         %b—%b cliente de e-mail no terminal.\n' "${G}" "${R}" "${D}" "${R}"
+printf '  %bchat%b        %b—%b IRC da rede da casa (configuração pelo admin).\n' "${G}" "${R}" "${D}" "${R}"
+printf '  %badventure%b    %b—%b jogo de aventura em texto (bsdgames).\n' "${G}" "${R}" "${D}" "${R}"
+
+print_last_sessions_3x3
+
 printf '\n%s\n' '→ Digite runv-help para começar.'

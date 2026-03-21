@@ -1,0 +1,10 @@
+# Capsule Gemini — runv.club
+
+O teu endereço público segue o padrão `gemini://runv.club/~NOME_UTILIZADOR/` (substitui pelo teu username Unix).
+
+Edita este ficheiro em `~/public_gemini/index.gmi`. Ficheiros `.gmi` são Texto Gemini; mantém pastas 755 e ficheiros 644 para o servidor conseguir ler.
+
+## Dicas
+
+* Podes criar subpáginas com extensão `.gmi`.
+* Evita colocar segredos em pastas públicas.

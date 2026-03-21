@@ -3,11 +3,13 @@
 
   Revisa os dados antes de enviar.
 
-    Nome desejado     : {username}
-    Email             : {email}
-    Fingerprint SHA256: {fingerprint}
+    Nome desejado      : {username}
+    Email              : {email}
+    Onde apareces online:
+{online_presence}
+
+    Fingerprint SHA256 : {fingerprint}
     (relógio local do servidor ao confirmar): {submitted_preview}
 
   Depois de confirmar, o pedido fica na fila para análise manual. Não há
   criação imediata de conta.
-

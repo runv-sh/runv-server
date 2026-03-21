@@ -3,7 +3,8 @@
 Lógica partilhada do fluxo SSH «entre» (runv.club): validação, fila, log, email.
 
 Mantido alinhado com as regras de ``scripts/admin/create_runv_user.py`` (username,
-email, tipos de chave). Sem dependências PyPI.
+email, tipos de chave). Campo ``online_presence`` é texto livre na fila (não duplicado
+em ``create_runv_user``). Sem dependências PyPI.
 
 Versão 0.01 — runv.club
 """
@@ -87,6 +88,8 @@ PRIVATE_KEY_MARKERS: Final[tuple[str, ...]] = (
 MAX_USERNAME_LEN: Final[int] = 32
 MAX_EMAIL_LEN: Final[int] = 254
 MAX_PUBKEY_LEN: Final[int] = 16_384
+MIN_ONLINE_PRESENCE_LEN: Final[int] = 16
+MAX_ONLINE_PRESENCE_LEN: Final[int] = 4000
 
 APP_VERSION: Final[str] = "0.01"
 SOURCE_TAG: Final[str] = "entre-ssh"
@@ -129,12 +132,42 @@ def validate_username(username: str) -> str:
     return u
 
 
+def validate_online_presence(raw: str) -> str:
+    """Texto livre: URLs, perfis, uma linha por sítio — sem mencionar moderação ao utilizador."""
+    if raw is None or not str(raw).strip():
+        raise ValidationError(
+            "indica sítios ou perfis onde possamos ver o teu trabalho ou o que publicas online "
+            f"(mínimo {MIN_ONLINE_PRESENCE_LEN} caracteres). Podes usar várias linhas no passo anterior."
+        )
+    t = str(raw).strip()
+    if len(t) < MIN_ONLINE_PRESENCE_LEN:
+        raise ValidationError(
+            "esse campo ainda é curto demais — adiciona um link, perfil ou página onde apareças online."
+        )
+    if len(t) > MAX_ONLINE_PRESENCE_LEN:
+        raise ValidationError(
+            "texto demasiado longo; resume ou escolhe os links mais importantes."
+        )
+    if "\x00" in t:
+        raise ValidationError("caracteres inválidos no texto.")
+    return t
+
+
 def validate_email(email: str) -> str:
     if not email or not email.strip():
         raise ValidationError("o email é obrigatório.")
+    if email != email.strip():
+        raise ValidationError("o email não pode ter espaços no início ou fim.")
     e = email.strip()
     if len(e) > MAX_EMAIL_LEN:
         raise ValidationError("email demasiado longo.")
+    at = e.count("@")
+    if at == 0:
+        raise ValidationError(
+            "indica um endereço com @, por exemplo nome@exemplo.org."
+        )
+    if at != 1:
+        raise ValidationError("o email deve ter um único @.")
     if not EMAIL_PATTERN.fullmatch(e):
         raise ValidationError("formato de email inválido.")
     return e
@@ -347,6 +380,7 @@ def build_request_payload(
     request_id: str,
     username: str,
     email: str,
+    online_presence: str,
     public_key: str,
     fingerprint: str,
     remote_addr: str | None,
@@ -356,6 +390,7 @@ def build_request_payload(
         "request_id": request_id,
         "username": username,
         "email": email,
+        "online_presence": online_presence,
         "public_key": public_key,
         "public_key_fingerprint": fingerprint,
         "submitted_at": datetime.now(timezone.utc).isoformat(),

@@ -152,6 +152,33 @@ def confirm_interactive(username: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Gemini (symlink em /var/gemini/users)
+# ---------------------------------------------------------------------------
+
+GEMINI_USERS_DIR: Final[Path] = Path("/var/gemini/users")
+
+
+def remove_gemini_user_symlink(username: str, *, dry_run: bool, verbose: bool) -> None:
+    """Remove apenas o symlink /var/gemini/users/<user> se existir e for symlink."""
+    link = GEMINI_USERS_DIR / username
+    if not link.is_symlink():
+        if link.exists() and verbose:
+            print(
+                f"  [aviso] {link} existe mas não é symlink; não removo automaticamente.",
+                file=sys.stderr,
+            )
+        return
+    if dry_run:
+        print(f"  [dry-run] removeria symlink Gemini {link}")
+        return
+    try:
+        link.unlink()
+        print(f"  [ok] symlink Gemini removido: {link}")
+    except OSError as e:
+        print(f"  [aviso] não foi possível remover {link}: {e}", file=sys.stderr)
+
+
+# ---------------------------------------------------------------------------
 # deluser
 # ---------------------------------------------------------------------------
 
@@ -428,6 +455,7 @@ def main() -> int:
             verbose=args.verbose,
             dry_run=True,
         )
+        remove_gemini_user_symlink(username, dry_run=True, verbose=args.verbose)
         run_deluser(
             username,
             purge_all_files=args.purge_all_files,
@@ -460,6 +488,8 @@ def main() -> int:
         verbose=args.verbose,
         dry_run=False,
     )
+
+    remove_gemini_user_symlink(username, dry_run=False, verbose=args.verbose)
 
     run_deluser(
         username,

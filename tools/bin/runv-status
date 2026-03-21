@@ -1,7 +1,14 @@
 #!/bin/sh
 # runv.club — status rápido do servidor
 #
+# Restrito ao utilizador pmurad-admin (informação sensível: disco, sessões, carga).
 # Usar printf %b para argumentos com sequências ANSI (\033).
+
+RUNV_STATUS_USER=pmurad-admin
+if [ "$(id -un)" != "$RUNV_STATUS_USER" ]; then
+  printf '%s\n' "runv-status: apenas o utilizador «${RUNV_STATUS_USER}» pode executar este comando." >&2
+  exit 1
+fi
 
 R='\033[0m'
 G='\033[0;32m'
@@ -47,5 +54,5 @@ if command -v who >/dev/null 2>&1; then
   fi
 fi
 
-printf '\n%bAtalhos:%b runv-help  ·  runv-links  ·  runv-status\n' "${Y}" "${R}"
+printf '\n%bAtalhos:%b runv-help  ·  runv-links\n' "${Y}" "${R}"
 printf '%b\n' "${G}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${R}"

@@ -44,18 +44,19 @@ Este documento resume **como instalar**, **como usar** (visitante e administrado
 
 2. **Opcional:** em **`key-only`**, ou se o admin tiver posto a tua chave em `authorized_keys` (não aplica ao modo `shared-password` por defeito).
 
-3. No início aparece o **logo RUNV em ASCII** (verde, se o terminal suportar cores) e a frase *Aperte qualquer tecla para continuar...*; em todo o fluxo, a cadeia **`runv.club`** é destacada a verde quando o terminal suporta cores (`style_runv_club` em `entre_app.py`); a **história** e o **aviso da chave** vão em **vários ecrãs** (Enter para seguir). A **coleta** é **um campo por ecrã** (utilizador, email, chave pública), com entrada de teclado normal linha a linha.
-4. No **aviso da chave**: confirmar que vai colar só a **pública**, nunca a privada (gera um par com `ssh-keygen` no teu PC se ainda não tiveres).
-5. **Informar três dados:**
-   - nome de utilizador **desejado** (regras: minúsculas, letras/dígitos/`_`/`-`, não pode ser nome reservado nem utilizador já existente no servidor);
-   - **email** de contacto;
-   - **chave pública** (uma linha inteira).
-6. **Rever o resumo** (inclui fingerprint SHA256 da chave pública que colaste):
+3. No início aparece o **logo RUNV em ASCII** (verde, se o terminal suportar cores) e a frase *Aperte qualquer tecla para continuar...*; a cadeia **`runv.club`** é destacada a verde onde o terminal suporta. Segue-se uma **intro curta** e um **aviso sobre a chave** (Enter para seguir; `%%PAGE%%` nos `.txt` ainda pode partir em mais do que um ecrã se quiseres).
+4. No **aviso da chave**: relembra colar só a **pública**, nunca a privada.
+5. **Formulário em quatro passos**, cada um com cabeçalho claro e linha **»** onde escreves:
+   - **utilizador** desejado (regras: minúsculas, letras/dígitos/`_`/`-`, não reservado nem já existente);
+   - **email** de contacto — formato `nome@domínio` (com um único `@` e pelo menos um ponto no domínio, ex.: `maria@exemplo.org`);
+   - **onde apareces online** — links ou perfis (várias linhas; termina com uma linha só com `.` e Enter);
+   - **chave pública** SSH (uma linha).
+6. **Rever o resumo** (inclui fingerprint SHA256 e o texto “online”):
    - confirmar envio, **editar** de novo ou **cancelar**.
 7. Se confirmar: o pedido fica na fila; aparece a **despedida** com a referência `{request_id}`.
 8. **Aguardar email** da administração; não repetir o mesmo pedido muitas vezes.
 
-O **splash ASCII** (igual ao da landing em `site/public/index.html`) e o texto *Aperte qualquer tecla...* estão em [`entre_app.py`](../entre_app.py) (`RUNV_ASCII_ART`, `show_opening_splash`). Em `intro.txt` e `warning_public_key.txt`, uma linha só com `%%PAGE%%` **parte o texto em vários ecrãs** (`show_paged_template`). Os restantes textos: `confirm.txt`, `goodbye.txt`.
+O **splash ASCII** (igual ao da landing em `site/public/index.html`) e o texto *Aperte qualquer tecla...* estão em [`entre_app.py`](../entre_app.py) (`RUNV_ASCII_ART`, `show_opening_splash`). Em `intro.txt` e `warning_public_key.txt`, `%%PAGE%%` **parte o texto em ecrãs** (`show_paged_template`). Os restantes textos: `confirm.txt`, `goodbye.txt`.
 
 ---
 

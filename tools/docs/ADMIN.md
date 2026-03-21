@@ -28,6 +28,8 @@ sudo python3 tools/tools.py --force --skip-apt
 
 ## Editar `runv-help`, `runv-links`, `runv-status`
 
+- **`runv-status`** verifica o nome de login (`id -un`); por omissão só **`pmurad-admin`** passa. Para outro admin, edite a variável **`RUNV_STATUS_USER`** no script em **`tools/bin/runv-status`** antes de reaplicar.
+
 1. Altere os arquivos em **`tools/bin/`**.
 2. Instale de novo:
 

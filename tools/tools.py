@@ -20,6 +20,11 @@ from pathlib import Path
 
 TOOL_ROOT: Path = Path(__file__).resolve().parent
 MANIFEST_PATH: Path = TOOL_ROOT / "manifests" / "apt_packages.txt"
+
+# Nome no manifesto → pacote apt real ("chat" = IRC no terminal; Debian usa o pacote weechat).
+_APT_PACKAGE_ALIASES: dict[str, str] = {
+    "chat": "weechat",
+}
 BIN_DIR: Path = TOOL_ROOT / "bin"
 MOTD_SRC: Path = TOOL_ROOT / "motd" / "60-runv"
 SKEL_DIR: Path = TOOL_ROOT / "skel"
@@ -91,7 +96,7 @@ def read_apt_manifest(path: Path, log: logging.Logger) -> list[str]:
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
-        packages.append(line)
+        packages.append(_APT_PACKAGE_ALIASES.get(line, line))
     return packages
 
 
@@ -201,7 +206,7 @@ def install_bin_scripts(
 ) -> None:
     if not dry_run:
         DEST_BIN_DIR.mkdir(parents=True, exist_ok=True)
-    for name in ("runv-help", "runv-links", "runv-status"):
+    for name in ("runv-help", "runv-links", "runv-status", "chat"):
         copy_one(
             BIN_DIR / name,
             DEST_BIN_DIR / name,
@@ -284,6 +289,61 @@ def install_skel(
             os.chown(pub_dir, 0, 0)
         except OSError:
             pass
+
+    # public_gopher / public_gemini (Gopher / Gemini — mesmo critério que public_html)
+    gopher_dir = DEST_SKEL / "public_gopher"
+    gopher_src = SKEL_DIR / "public_gopher" / "gophermap"
+    gopher_dst = gopher_dir / "gophermap"
+    gemini_dir = DEST_SKEL / "public_gemini"
+    gemini_src = SKEL_DIR / "public_gemini" / "index.gmi"
+    gemini_dst = gemini_dir / "index.gmi"
+
+    if not gopher_src.is_file() or not gemini_src.is_file():
+        for p in (gopher_src, gemini_src):
+            if not p.is_file():
+                summary.errors.append(f"origem inexistente: {p}")
+                log.error("Origem inexistente: %s", p)
+    else:
+        if not dry_run:
+            gopher_dir.mkdir(parents=True, exist_ok=True)
+            os.chmod(gopher_dir, 0o755)
+            gemini_dir.mkdir(parents=True, exist_ok=True)
+            os.chmod(gemini_dir, 0o755)
+            try:
+                os.chown(gopher_dir, 0, 0)
+                os.chown(gemini_dir, 0, 0)
+            except OSError as e:
+                log.warning("chown em skel gopher/gemini: %s", e)
+        else:
+            if not gopher_dir.exists():
+                log.info("[dry-run] criaria diretório %s (755)", gopher_dir)
+            if not gemini_dir.exists():
+                log.info("[dry-run] criaria diretório %s (755)", gemini_dir)
+
+        copy_one(
+            gopher_src,
+            gopher_dst,
+            0o644,
+            force=force,
+            dry_run=dry_run,
+            log=log,
+            summary=summary,
+        )
+        copy_one(
+            gemini_src,
+            gemini_dst,
+            0o644,
+            force=force,
+            dry_run=dry_run,
+            log=log,
+            summary=summary,
+        )
+
+        if not dry_run:
+            if gopher_dir.is_dir():
+                os.chmod(gopher_dir, 0o755)
+            if gemini_dir.is_dir():
+                os.chmod(gemini_dir, 0o755)
 
 
 def print_summary(summary: RunSummary, log: logging.Logger) -> None:

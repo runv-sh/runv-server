@@ -1,6 +1,6 @@
 # terminal — pedido de entrada SSH (`entre@runv.club`)
 
-Módulo **runv.club** para quem se liga por SSH ao utilizador Unix **`entre`**: em vez de shell normal, corre uma experiência **textual guiada** que recolhe username desejado, email e chave pública SSH, grava um JSON na **fila local** e (opcionalmente) notifica o administrador por **sendmail**.
+Módulo **runv.club** para quem se liga por SSH ao utilizador Unix **`entre`**: em vez de shell normal, corre uma experiência **textual guiada** que recolhe nome de utilizador, email, **sítios ou perfis online** (onde te possamos ver) e chave pública SSH, grava um JSON na **fila local** e (opcionalmente) notifica o administrador por **sendmail**.
 
 **Não cria contas Linux.** O provisionamento continua a ser manual (ou via [`scripts/admin/create_runv_user.py`](../scripts/admin/create_runv_user.md)).
 
@@ -11,7 +11,6 @@ Módulo **runv.club** para quem se liga por SSH ao utilizador Unix **`entre`**: 
 | `entre_app.py` | Programa principal (ForceCommand SSH). |
 | `entre_core.py` | Validação, fila JSON, log, email. |
 | `setup_entre.py` | Instalação no servidor (root): utilizador `entre`, shell `/bin/sh`, `--auth-mode` (`shared-password` \| `key-only` \| `empty-password` estilo tilde.town), PAM opcional, drop-in SSH, `sshd -t` + `sshd -T -C`, reload. |
-| `del_entre.py` | Remoção (root): retira `runv-entre.conf`, recarrega `sshd`, `userdel` do utilizador `entre`; opções `--purge-install`, `--purge-queue`, `--keep-home`. |
 | `config.example.toml` | Modelo de configuração → copiar para `config.toml`. |
 | `templates/*.txt` | Textos da experiência e do email ao admin. |
 | `docs/USO.md` | **Instalação + uso** (admin, visitante, testes, checklist). |
@@ -54,7 +53,7 @@ Usa `terminal/data/queue` e `config.example.toml`. Exige **`ssh-keygen`** no PAT
 
 ## Checklist manual de teste
 
-- [ ] `python3 -m py_compile entre_app.py entre_core.py setup_entre.py del_entre.py`
+- [ ] `python3 -m py_compile entre_app.py entre_core.py setup_entre.py`
 - [ ] `./scripts/test_local.sh` — percorrer fluxo até gravar JSON em `data/queue/`
 - [ ] Confirmar que **não** sobrescreve se repetir o mesmo `request_id` (colisão improvável; o código regera UUID)
 - [ ] Com `admin_email` preenchido e `mailutils`/`sendmail`: pedido gera tentativa de email (ver log)

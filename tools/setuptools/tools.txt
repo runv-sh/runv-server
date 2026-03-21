@@ -6,4 +6,4 @@
 # Lista oficial: tools/manifests/apt_packages.txt
 
 sudo apt update
-sudo apt install -y byobu tmux lynx weechat mutt bsdgames tree less curl wget git
+sudo apt install -y byobu tmux lynx weechat weechat-headless mutt bsdgames tree less curl wget git

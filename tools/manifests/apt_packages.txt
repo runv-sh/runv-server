@@ -5,7 +5,8 @@
 byobu
 tmux
 lynx
-weechat
+chat
+weechat-headless
 mutt
 bsdgames
 tree

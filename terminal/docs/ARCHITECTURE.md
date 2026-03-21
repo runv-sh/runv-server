@@ -15,9 +15,9 @@ sequenceDiagram
 
   C->>S: autentica como entre
   S->>A: ForceCommand
-  A->>C: splash, intro/avisos em vários ecrãs
-  A->>C: formulário (1 campo por ecrã)
-  C->>A: username, email, pubkey (linha a linha)
+  A->>C: splash, intro curta + aviso chave
+  A->>C: formulário (4 passos: user, email, presença online, pubkey)
+  C->>A: respostas por ecrã (presença online: várias linhas até .)
   A->>A: validação (entre_core)
   A->>Q: JSON O_EXCL
   A->>L: eventos
@@ -62,4 +62,4 @@ sequenceDiagram
 
 ## Alinhamento com `create_runv_user.py`
 
-Regex de username/email, tipos de chave e normalização da linha pública seguem a mesma filosofia que [`scripts/admin/create_runv_user.py`](../../scripts/admin/create_runv_user.py). O código **não** importa esse ficheiro em runtime (evita dependência de path do repositório em `/opt/runv/terminal`); comentários no código referem a necessidade de manter políticas sincronizadas.
+Regex de username/email (inclui checagem explícita de um único `@` antes do regex), tipos de chave e normalização da linha pública seguem a mesma filosofia que [`scripts/admin/create_runv_user.py`](../../scripts/admin/create_runv_user.py). O código **não** importa esse ficheiro em runtime (evita dependência de path do repositório em `/opt/runv/terminal`); comentários no código referem a necessidade de manter políticas sincronizadas.

@@ -44,7 +44,6 @@ Você verá uma lista de **comandos úteis** (navegação no terminal, e-mail, I
 Outros comandos locais:
 
 - **`runv-links`** — links do projeto e do mantenedor.
-- **`runv-status`** — hostname, uptime, memória, disco e quem está online.
 
 ## Arquivos públicos
 

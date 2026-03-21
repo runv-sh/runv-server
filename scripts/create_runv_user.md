@@ -13,8 +13,9 @@ Ferramenta de linha de comando para **administradores** criarem contas Unix no s
 1. **Criar o usuário** — `adduser --disabled-password` (conta Unix).
 2. **Instalar a chave** — `~/.ssh/authorized_keys` com chave validada e modos `700` / `600`.
 3. **Preparar `public_html`** — diretório `755` e `~/public_html/index.html` estático (sem JavaScript, sem CDN); não sobrescreve sem `--force-index`.
-4. **Copiar o skel** — o Debian **copia `/etc/skel` para a home no passo 1**. Depois, o script acrescenta `~/README.md` runv em português (runv.club, URL `~/username/`, permissões, comandos, aviso sobre arquivos públicos); não sobrescreve sem **`--force-readme`**. Se o skel do sistema já tiver um `README.md`, ele permanece até usar `--force-readme`. Para padronizar o skel do servidor, use **[`skel.py`](skel.md)** antes de criar contas.
-5. **Aplicar permissões** — `apply_runv_permissions` reforça home `755`, `.ssh` / `authorized_keys`, `public_html` / `index.html` e `README.md` com modos e donos corretos; em seguida quota (se ativa), verificação final e metadados.
+4. **Preparar Gopher e Gemini** — `~/public_gopher/` com `gophermap` e `~/public_gemini/` com `index.gmi` (modelos em português); não sobrescreve sem **`--force-gopher`** / **`--force-gemini`**. Se existir **`/var/gemini/users`**, cria o symlink **`/var/gemini/users/<user>` → `~/public_gemini`** (ajustável com `--force-gemini` se o symlink estiver errado). Se essa pasta global não existir, regista **aviso** no log — corra **[`setup_alt_protocols.py`](docs/alt_protocols.md)** no servidor.
+5. **Copiar o skel** — o Debian **copia `/etc/skel` para a home no passo 1**. Depois, o script acrescenta `~/README.md` runv em português (runv.club, URL `~/username/`, permissões, comandos, aviso sobre arquivos públicos, Gopher/Gemini); não sobrescreve sem **`--force-readme`**. Se o skel do sistema já tiver um `README.md`, ele permanece até usar `--force-readme`. Para padronizar o skel do servidor, use **`tools/tools.py`** (ou `admin/skel.py`, conforme a política do servidor) antes de criar contas.
+6. **Aplicar permissões** — `apply_runv_permissions` reforça home `755`, `.ssh` / `authorized_keys`, `public_html`, `public_gopher`, `public_gemini` e `README.md` com modos e donos corretos; em seguida quota (se ativa), verificação final e metadados.
 
 **Log** em arquivo (e stderr com `--verbose`) com estas fases numeradas, quota, metadados e verificação final.
 
@@ -91,11 +92,13 @@ Fluxo típico:
 3. Chave SSH: colar **uma linha** OpenSSH ou indicar **caminho** de um arquivo `.pub`  
 4. Dry-run (só validar, sem criar usuário) — sim/não  
 5. Se for criar de verdade: sobrescrever `index.html` existente — sim/não  
-6. Se for criar de verdade: sobrescrever `README.md` existente — sim/não  
-7. Log verboso — sim/não  
-8. Criar **sem** quota (`--no-quota`) — sim/não (padrão não)  
-9. Se for com quota: exigir sistema pronto **antes** de criar (`--require-quota`) — sim/não (padrão não)  
-10. Confirmação final antes de executar  
+6. Se for criar de verdade: sobrescrever `gophermap` existente (`--force-gopher`) — sim/não  
+7. Se for criar de verdade: sobrescrever `index.gmi` existente (`--force-gemini`) — sim/não  
+8. Se for criar de verdade: sobrescrever `README.md` existente — sim/não  
+9. Log verboso — sim/não  
+10. Criar **sem** quota (`--no-quota`) — sim/não (padrão não)  
+11. Se for com quota: exigir sistema pronto **antes** de criar (`--require-quota`) — sim/não (padrão não)  
+12. Confirmação final antes de executar  
 
 `Ctrl+C` cancela. Se responder “não” na confirmação final, o script encerra sem alterar o sistema.
 
@@ -197,6 +200,8 @@ Metadados: `/var/lib/runv/users.json`
 - `--dry-run` — valida tudo e mostra o plano sem criar usuário
 - `--verbose` — mais detalhes no stderr
 - `--force-index` — sobrescreve `~/public_html/index.html` se já existir
+- `--force-gopher` — sobrescreve `~/public_gopher/gophermap` se já existir
+- `--force-gemini` — sobrescreve `~/public_gemini/index.gmi` se já existir e corrige o symlink em `/var/gemini/users/<user>` se estiver errado
 - `--force-readme` — sobrescreve `~/README.md` se já existir (útil se o skel do sistema já criou um README)
 - `--no-quota` — não aplica `setquota`
 - `--require-quota` — falha antes de `adduser` se quota não estiver disponível
