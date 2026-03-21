@@ -26,17 +26,31 @@ Script em **`scripts/admin/setup_alt_protocols.py`**: instala e configura **goph
 
 O **molly-brown** trata `AccessLog` e `ErrorLog` como **caminhos de ficheiro**. Valores como `"-"` (estilo «stdout» noutros programas) são interpretados de forma errada e o processo tenta abrir `/-`, falhando de imediato.
 
-- **Comportamento actual do script (v0.05+):** instala o drop-in systemd **`/etc/systemd/system/molly-brown@.service.d/50-runv-logs.conf`** com `LogsDirectory=molly-brown`, para o systemd criar/ajustar **`/var/log/molly-brown`** com o dono correcto em cada arranque (necessário porque o pacote Debian usa **`DynamicUser=yes`** — um `chown` baseado em `getpwnam` ou no nome `User=` **não** coincide com o UID dinâmico real). Cria também os ficheiros `runv.club-access.log` e `runv.club-error.log` se faltarem, e grava os caminhos absolutos em `/etc/molly-brown/runv.club.conf`.
-- **Servidor já provisionado com conf antiga:** o script só reescreve o `.conf` (e o drop-in, se já existir com outro conteúdo) se correr com **`--force`** (faz backup com timestamp onde aplicável). Exemplo:  
+- **Comportamento actual do script (v0.06+):** grava `AccessLog` / `ErrorLog` em **`/var/lib/molly-brown/`** (`runv.club-access.log`, `runv.club-error.log`). Esse caminho coincide com **`StateDirectory=molly-brown`** do unit Debian: o systemd cria o directório com o dono correcto (**`DynamicUser=yes`**) **antes** do `ExecStart`, sem `chown` manual. **Não** pré-cria pastas nem ficheiros de log (evita conflitos com `LogsDirectory` em `/var/log`).
+- **Versões antigas (v0.05):** usavam o drop-in `50-runv-logs.conf` com `LogsDirectory=molly-brown`. Se `/var/log/molly-brown` já existia como root, o systemd podia **migrar** para `/var/log/private/molly-brown` e o serviço falhava. O **v0.06+** **remove** esse drop-in e muda os caminhos no `.conf` para `/var/lib/molly-brown/`.
+- **Servidor já provisionado:** correr com **`--force`** para regravar o `.conf` e remover o drop-in obsoleto (com backup do drop-in se usar `--force`). Exemplo:  
   `sudo python3 scripts/admin/setup_alt_protocols.py --verbose --force`
-- **Correcção manual rápida (só `.conf`):** editar `AccessLog` / `ErrorLog` para caminhos absolutos sob `/var/log/molly-brown/`; garantir o drop-in `LogsDirectory=molly-brown` como acima; `sudo systemctl daemon-reload`; `sudo systemctl reset-failed molly-brown@runv.club.service` e `sudo systemctl start molly-brown@runv.club.service`.
+- **Correcção manual rápida (só `.conf`):** `AccessLog` / `ErrorLog` com caminhos absolutos sob **`/var/lib/molly-brown/`**; **sem** `LogsDirectory` extra em drop-in; `sudo systemctl daemon-reload`; `sudo systemctl reset-failed molly-brown@runv.club.service` e `start`.
 
-## Erro `permission denied` em `/var/log/molly-brown/…-error.log`
+## Erro `permission denied` em `/var/log/molly-brown/…` ou migração para `/var/log/private/molly-brown`
 
-Aparece quando os ficheiros de log ficaram com dono **root** ou outro UID que **não** é o do processo molly-brown. No Debian, o unit **`molly-brown@.service`** usa **`DynamicUser=yes`**: o utilizador de runtime é gerido pelo systemd, por isso **`sudo chown molly-brown:molly-brown`** (utilizador estático em `/etc/passwd`, se existir) **não** resolve de forma fiável.
+No Debian, **`DynamicUser=yes`** faz o UID de runtime ser dinâmico; `chown` estático não bate. Se viu **`migrating to /var/log/private/molly-brown`** ou **`permission denied`** em `/var/log/molly-brown`, actualize para **v0.06+** com **`--force`**.
 
-- **Solução suportada:** o script **v0.05+** instala o drop-in com **`LogsDirectory=molly-brown`**; no arranque, o systemd corrige a propriedade de `/var/log/molly-brown`. Depois de actualizar o repo: `sudo python3 scripts/admin/setup_alt_protocols.py --verbose --force`, `sudo systemctl daemon-reload`, `sudo systemctl reset-failed molly-brown@runv.club.service`, `sudo systemctl start molly-brown@runv.club.service`.
-- **Verificação:** `systemctl cat molly-brown@runv.club.service` deve mostrar o fragmento `50-runv-logs.conf` com `LogsDirectory=molly-brown`.
+**Limpeza recomendada (serviço parado):**
+
+```bash
+sudo systemctl stop 'molly-brown@runv.club.service'
+sudo rm -f /etc/systemd/system/molly-brown@.service.d/50-runv-logs.conf
+sudo rm -rf /var/log/molly-brown /var/log/private/molly-brown
+sudo systemctl daemon-reload
+sudo python3 /opt/runv/src/scripts/admin/setup_alt_protocols.py --verbose --force
+```
+
+(ajuste o caminho do script ao seu clone). Os logs passam a ficar só em **`/var/lib/molly-brown/`** (legível com `sudo`).
+
+## Erro `permission denied` em `/var/lib/molly-brown/…`
+
+Raro se o `.conf` aponta para `/var/lib/molly-brown/` e não há override que desactive `StateDirectory`. Confirme `grep StateDirectory /lib/systemd/system/molly-brown@.service` e caminhos no `.conf`; veja também **TLS** (`privkey` legível pelo grupo `ssl-cert`).
 
 ## Checklist rápido (conf antiga, UFW, «activating»)
 
@@ -74,7 +88,7 @@ sudo python3 scripts/admin/setup_alt_protocols.py --verbose
 |------|--------|
 | `--dry-run` | Simula; não grava (validação de root ignorada em alguns passos só se documentado). |
 | `--verbose` | Log detalhado. |
-| `--force` | Sobrescreve configs de sistema (com backup com timestamp) e ficheiros modelo no backfill. Necessário para **regravar** `/etc/molly-brown/runv.club.conf` ou o drop-in **`50-runv-logs.conf`** após correcções (ex. logs Molly / `DynamicUser`). |
+| `--force` | Sobrescreve configs de sistema (com backup com timestamp) e ficheiros modelo no backfill. Necessário para **regravar** `/etc/molly-brown/runv.club.conf` e remover o drop-in obsoleto **`50-runv-logs.conf`** (v0.05) ao migrar logs para `/var/lib/molly-brown/`. |
 | `--skip-install` | Não corre `apt-get`. |
 | `--skip-gopher` / `--skip-gemini` | Ignora pacote, config e serviço desse protocolo. |
 | `--skip-firewall` | Não altera UFW. |
