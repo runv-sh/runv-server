@@ -476,16 +476,11 @@ iDocumentação: man gophermap (no pacote gophernicus).	fake	NULL	0
 
 
 def default_gemini_index_gmi(username: str) -> str:
-    return f"""# ~{username} — runv.club (Gemini)
+    return f"""# ~{username} — runv.club
 
-Bem-vindo ao teu capsule em `gemini://{DEFAULT_GEMINI_HOST_PUBLIC}/~{username}/` (canónica Molly: segmento **`~{username}`**). `gemini://{DEFAULT_GEMINI_HOST_PUBLIC}/~/{username}/` redirecciona. `gemini://{DEFAULT_GEMINI_HOST_PUBLIC}/{username}` não aponta para aqui.
+Bem-vindo ao runv.club no **Gemini**. Este é o teu espaço — escreve em `.gmi`, cria subpáginas e liga-as como quiseres.
 
-Edita este ficheiro em `~/public_gemini/index.gmi`. Mantém pastas **755** e ficheiros **644**.
-
-## Dicas
-
-* Ficheiros `.gmi` são Texto Gemini.
-* Não coloques segredos em diretórios públicos.
+`gemini://{DEFAULT_GEMINI_HOST_PUBLIC}/~{username}/`
 """
 
 

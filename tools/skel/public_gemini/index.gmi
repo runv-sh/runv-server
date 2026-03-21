@@ -1,10 +1,5 @@
 # Capsule Gemini — runv.club
 
-O endereço canónico é `gemini://runv.club/~NOME_UTILIZADOR/` (tilde **colado** ao username Unix; **barra final**). `gemini://runv.club/~/NOME_UTILIZADOR/` redirecciona no servidor (setup_alt_protocols v0.11+). `gemini://runv.club/NOME_UTILIZADOR` **não** é este capsule. Gopher usa selector `~NOME` — ver documentação do projeto.
+Bem-vindo ao runv.club no **Gemini**. Este é o teu espaço — escreve em `.gmi`, cria subpáginas e liga-as como quiseres.
 
-Edita este ficheiro em `~/public_gemini/index.gmi`. Ficheiros `.gmi` são Texto Gemini; mantém pastas 755 e ficheiros 644 para o servidor conseguir ler.
-
-## Dicas
-
-* Podes criar subpáginas com extensão `.gmi`.
-* Evita colocar segredos em pastas públicas.
+`gemini://runv.club/~NOME_UTILIZADOR/`

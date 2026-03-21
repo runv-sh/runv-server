@@ -78,16 +78,11 @@ DEFAULT_USER_GOPHERMAP: Final[str] = """iBem-vindo ao teu espaço Gopher no runv
 iEdita este ficheiro em ~/public_gopher/gophermap.	fake	NULL	0
 """
 
-DEFAULT_USER_INDEX_GMI: Final[str] = """# ~{username} — runv.club (Gemini)
+DEFAULT_USER_INDEX_GMI: Final[str] = """# ~{username} — runv.club
 
-Bem-vindo ao teu capsule em `gemini://runv.club/~{username}/` (canónico Molly: um só segmento de path **`/~{username}/`**, tilde **colado** ao nome). O formato `gemini://runv.club/~/{username}/` (slash extra) redirecciona para o canónico. **Não** uses `gemini://runv.club/{username}` — não é capsule.
+Bem-vindo ao runv.club no **Gemini**. Este é o teu espaço — escreve em `.gmi`, cria subpáginas e liga-as como quiseres.
 
-Edita este ficheiro em `~/public_gemini/index.gmi`. Mantém pastas **755** e ficheiros **644** para o servidor ler o conteúdo (se usares **ACL** POSIX, garante leitura efectiva para o serviço — `getfacl`).
-
-## Dicas
-
-* Ficheiros `.gmi` são Texto Gemini.
-* Não coloques segredos em diretórios públicos.
+`gemini://runv.club/~{username}/`
 """
 
 
