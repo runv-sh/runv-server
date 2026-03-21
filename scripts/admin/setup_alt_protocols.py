@@ -494,9 +494,8 @@ def ensure_user_public_dirs(
     else:
         log.debug("gophermap já existe, mantido: %s", gmap)
 
-    if not xidx.exists() or force:
-        if xidx.exists() and force:
-            backup_if_exists(xidx, log, dry_run=False)
+    # index.gmi: nunca sobrescrever se já existir (--force não aplica ao modelo Gemini).
+    if not xidx.exists():
         xidx.write_text(
             DEFAULT_USER_INDEX_GMI.format(username=username),
             encoding="utf-8",
@@ -750,7 +749,11 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     )
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--verbose", action="store_true")
-    p.add_argument("--force", action="store_true", help="sobrescreve configs e ficheiros modelo com backup")
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="sobrescreve configs e ficheiros modelo com backup (index.gmi existente nunca é substituído)",
+    )
     p.add_argument("--skip-install", action="store_true")
     p.add_argument("--skip-gopher", action="store_true")
     p.add_argument("--skip-gemini", action="store_true")

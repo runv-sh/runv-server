@@ -7,9 +7,10 @@ Contrato de provisionamento (ordem garantida após validação):
 1. **Criar o usuário** — ``adduser --disabled-password``.
 2. **Instalar a chave** — ``~/.ssh/authorized_keys`` com modos ``700`` / ``600``.
 3. **Preparar public_html** — diretório ``755``, ``index.html`` estático ``644``.
-4. **Preparar public_gopher / public_gemini** — ``gophermap`` e ``index.gmi`` modelo (não
-   sobrescreve sem ``--force-gopher`` / ``--force-gemini``); symlink Gemini em
-   ``/var/gemini/users/<user>`` quando o diretório existir.
+4. **Preparar public_gopher / public_gemini** — ``gophermap`` modelo (não sobrescreve sem
+   ``--force-gopher``); ``index.gmi`` só é criado se ainda não existir (nunca substituído);
+   symlink em ``/var/gemini/users/<user>`` quando o diretório existir (``--force-gemini`` só
+   força reparação do symlink / conflitos).
 5. **Copiar o skel** — o Debian copia ``/etc/skel`` para a home **durante** o passo 1; depois,
    após os diretórios públicos, o script acrescenta ``README.md`` runv (português), sem apagar o que
    veio do skel (use ``--force-readme`` para substituir). Prepare ``/etc/skel`` com ``tools.py``
@@ -522,7 +523,6 @@ def prepare_public_gemini(
     username: str,
     uid: int,
     gid: int,
-    force_gemini: bool,
     log: logging.Logger,
 ) -> None:
     d = home / "public_gemini"
@@ -533,11 +533,9 @@ def prepare_public_gemini(
     except PermissionError as e:
         raise SystemProvisionError(f"não foi possível ajustar dono de {d}: {e}") from e
     idx = d / "index.gmi"
-    if idx.exists() and not force_gemini:
-        log.info("%s já existe; não sobrescrevendo (use --force-gemini)", idx)
+    if idx.exists():
+        log.info("%s já existe; modelo não aplicado", idx)
         return
-    if idx.exists() and force_gemini:
-        log.warning("sobrescrevendo %s (--force-gemini)", idx)
     idx.write_text(default_gemini_index_gmi(username), encoding="utf-8")
     os.chmod(idx, 0o644)
     try:
@@ -1172,7 +1170,7 @@ def interactive_fill(args: argparse.Namespace) -> None:
             default_no=True,
         )
         args.force_gemini = prompt_yes_no(
-            "Se já existir ~/public_gemini/index.gmi, sobrescrever (--force-gemini)?",
+            "Forçar correção do symlink Gemini (/var/gemini/users) se estiver errado ou em conflito (--force-gemini)?",
             default_no=True,
         )
         args.force_readme = prompt_yes_no(
@@ -1270,7 +1268,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument(
         "--force-gemini",
         action="store_true",
-        help="sobrescrever ~/public_gemini/index.gmi e corrigir symlink em /var/gemini/users se necessário",
+        help="corrigir symlink em /var/gemini/users (e destinos em conflito); não sobrescreve index.gmi existente",
     )
     p.add_argument(
         "--metadata-file",
@@ -1477,7 +1475,7 @@ def main(argv: list[str] | None = None) -> int:
 
         log.info("=== fase 3b: public_gopher (gophermap) e public_gemini (index.gmi)")
         prepare_public_gopher(home, user, uid, gid, args.force_gopher, log)
-        prepare_public_gemini(home, user, uid, gid, args.force_gemini, log)
+        prepare_public_gemini(home, user, uid, gid, log)
         ensure_gemini_user_symlink(user, home, log, force=args.force_gemini)
 
         log.info("=== fase 4: README.md runv (após skel /etc/skel do adduser; texto em português)")

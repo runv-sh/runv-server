@@ -329,15 +329,19 @@ def install_skel(
             log=log,
             summary=summary,
         )
-        copy_one(
-            gemini_src,
-            gemini_dst,
-            0o644,
-            force=force,
-            dry_run=dry_run,
-            log=log,
-            summary=summary,
-        )
+        if gemini_dst.is_file():
+            log.info("Destino já existe, mantido (index.gmi em skel): %s", gemini_dst)
+            summary.skipped.append(str(gemini_dst))
+        else:
+            copy_one(
+                gemini_src,
+                gemini_dst,
+                0o644,
+                force=force,
+                dry_run=dry_run,
+                log=log,
+                summary=summary,
+            )
 
         if not dry_run:
             if gopher_dir.is_dir():

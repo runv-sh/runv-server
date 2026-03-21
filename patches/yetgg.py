@@ -83,7 +83,11 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     )
     p.add_argument("--dry-run", action="store_true", help="só simular")
     p.add_argument("--verbose", action="store_true", help="log detalhado")
-    p.add_argument("--force", action="store_true", help="sobrescrever modelos / symlinks (como setup_alt_protocols)")
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="sobrescrever gophermap / symlinks (como setup_alt_protocols); index.gmi existente mantém-se",
+    )
     p.add_argument(
         "--users-json",
         type=Path,
