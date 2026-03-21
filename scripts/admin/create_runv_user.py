@@ -418,7 +418,7 @@ Tudo o que colocares em **`public_html`** pode ser lido pelo mundo via HTTP no e
 
 - **Gopher:** edita `~/public_gopher/gophermap` (e outros ficheiros nessa pasta). URL típica:
   `gopher://{DEFAULT_GEMINI_HOST_PUBLIC}/1/~{username}` (o caminho exacto depende do servidor).
-- **Gemini:** edita `~/public_gemini/index.gmi`. URL canónica: `gemini://{DEFAULT_GEMINI_HOST_PUBLIC}/~/{username}/`; `gemini://{DEFAULT_GEMINI_HOST_PUBLIC}/~{username}/` também funciona (redirect no servidor).
+- **Gemini:** edita `~/public_gemini/index.gmi`. URL canónica: `gemini://{DEFAULT_GEMINI_HOST_PUBLIC}/~/{username}/` (path `/~/{username}/`, **com barra final**); `gemini://{DEFAULT_GEMINI_HOST_PUBLIC}/~{username}/` também funciona (redirect). `gemini://{DEFAULT_GEMINI_HOST_PUBLIC}/{username}` **não** é o teu capsule.
 - Mantém **755** nas pastas públicas e **644** nos ficheiros, para o servidor conseguir ler.
 
 ## Comandos úteis na shell
@@ -478,7 +478,7 @@ iDocumentação: man gophermap (no pacote gophernicus).	fake	NULL	0
 def default_gemini_index_gmi(username: str) -> str:
     return f"""# ~{username} — runv.club (Gemini)
 
-Bem-vindo ao teu capsule em `gemini://{DEFAULT_GEMINI_HOST_PUBLIC}/~/{username}/` (canónica). `gemini://{DEFAULT_GEMINI_HOST_PUBLIC}/~{username}/` também funciona.
+Bem-vindo ao teu capsule em `gemini://{DEFAULT_GEMINI_HOST_PUBLIC}/~/{username}/` (canónica; barra final). `gemini://{DEFAULT_GEMINI_HOST_PUBLIC}/~{username}/` também funciona. `gemini://{DEFAULT_GEMINI_HOST_PUBLIC}/{username}` não aponta para aqui.
 
 Edita este ficheiro em `~/public_gemini/index.gmi`. Mantém pastas **755** e ficheiros **644**.
 

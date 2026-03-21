@@ -17,12 +17,16 @@ Script em **`scripts/admin/setup_alt_protocols.py`**: instala e configura **goph
 - **Gopher (gophernicus):** selectors **`~username/…`** (tilde **colado** ao nome), alinhado com URLs como **`gopher://runv.club/1/~user`**. Não há o mesmo «split» de path que no Molly.
 - **Gemini (Molly Brown):** o servidor resolve caps em **`/~/username/…`**. URLs estilo Apache **`/~username/…`** são aceites graças a **`[TempRedirects]`** no `.conf` gerado pelo script (**v0.09+**). Pode usar indistintamente **`gemini://runv.club/~/user/`** (canónico) ou **`gemini://runv.club/~user/`** (compatível).
 
+### URLs Gemini que *não* são capsules de utilizador
+
+O Molly **não** espelha o HTTP `mod_userdir` no mesmo path: **`gemini://runv.club/pmurad`** (path **`/pmurad`**) **não** aponta para a home — não existe ficheiro em `/var/gemini/pmurad`. O capsule está em **`gemini://runv.club/~/pmurad/`** (path **`/~/pmurad/`**, com **`~/`** e **barra final**). Sem a barra final, **`gemini://runv.club/~/pmurad`** era comum falhar com **51 Not found**; a partir do **v0.10** o `.conf` inclui redirect **`/~/user` → `/~/user/`**.
+
 ## Travessia da home (`755` na política runv)
 
 Apache (`mod_userdir`), **gophernicus** e **molly-brown** precisam de **execução para «others»** (`o+x`, mínimo) em **cada** componente do caminho até a pasta pública (`~/public_html`, `~/public_gopher`, `~/public_gemini`). O utilizador de runtime **não é o mesmo** em todos: no Debian o Molly costuma correr como **`www-data`**; o **gophernicus** usa o **`User=`** do unit (tipicamente `gophernicus`) — veja `/lib/systemd/system/gophernicus@.service`. Uma home em **`700`** impede a travessia: **HTTP, Gopher e Gemini** deixam de servir conteúdo (p.ex. Gemini **«Not found»** com `index.gmi` presente).
 
 - **Novas contas:** [`create_runv_user.py`](../admin/create_runv_user.py) aplica **`755`** na home em `apply_runv_permissions`.
-- **Backfill:** a partir do **v0.07**, [`setup_alt_protocols.py`](../admin/setup_alt_protocols.py) repõe a home do utilizador para **`755`** quando o modo actual é outro (com registo em log). O **v0.08** corrige a detecção de caminhos Let's Encrypt quando `live`/`archive` são **symlinks** (o bloco LE deixa de saltar incorrectamente). O **v0.09** adiciona redirects Molly `~user` → `~/user` e validação **`test -r`** do `gophermap` com o utilizador do serviço gophernicus.
+- **Backfill:** a partir do **v0.07**, [`setup_alt_protocols.py`](../admin/setup_alt_protocols.py) repõe a home do utilizador para **`755`** quando o modo actual é outro (com registo em log). O **v0.08** corrige a detecção de caminhos Let's Encrypt quando `live`/`archive` são **symlinks** (o bloco LE deixa de saltar incorrectamente). O **v0.09** adiciona redirects Molly `~user` → `~/user` e validação **`test -r`** do `gophermap` com o utilizador do serviço gophernicus. O **v0.10** adiciona redirect **`/~/user` → `/~/user/`** (barra final exigida pelo Molly para `HomeDocBase`).
 - **Conflito:** [`patches/patch_permissions.py`](../../patches/patch_permissions.py) pode aplicar **`chmod 700`** em cada `/home/<user>` por política de privacidade — isso **quebra** a hospedagem em `public_*` até voltar a alinhar permissões (provisionamento ou `chmod` manual).
 
 ## Let's Encrypt e chave TLS (v0.07+; symlinks v0.08+)
@@ -129,7 +133,7 @@ sudo python3 scripts/admin/setup_alt_protocols.py --verbose
 |------|--------|
 | `--dry-run` | Simula; não grava (validação de root ignorada em alguns passos só se documentado). |
 | `--verbose` | Log detalhado. |
-| `--force` | Sobrescreve configs de sistema (com backup com timestamp) e ficheiros modelo no backfill (exceto **`~/public_gemini/index.gmi`** se já existir). Necessário para **regravar** `/etc/molly-brown/runv.club.conf` (incl. **`[TempRedirects]`** v0.09+) e remover o drop-in obsoleto **`50-runv-logs.conf`** (v0.05) ao migrar logs para `/var/lib/molly-brown/`. |
+| `--force` | Sobrescreve configs de sistema (com backup com timestamp) e ficheiros modelo no backfill (exceto **`~/public_gemini/index.gmi`** se já existir). Necessário para **regravar** `/etc/molly-brown/runv.club.conf` (incl. **`[TempRedirects]`** v0.09+ e redirect **`/~/user/`** v0.10) e remover o drop-in obsoleto **`50-runv-logs.conf`** (v0.05) ao migrar logs para `/var/lib/molly-brown/`. |
 | `--skip-install` | Não corre `apt-get`. |
 | `--skip-gopher` / `--skip-gemini` | Ignora pacote, config e serviço desse protocolo. |
 | `--skip-firewall` | Não altera UFW. |
