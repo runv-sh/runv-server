@@ -54,7 +54,7 @@ except ModuleNotFoundError:
 
 DEFAULT_QUOTA_PROBE: Final[Path] = Path("/home")
 
-VERSION: Final[str] = "0.01"
+VERSION: Final[str] = "0.02"
 
 FSTAB = Path("/etc/fstab")
 BACKUP_DIR = Path("/root/runv-fstab-backups")

@@ -7,7 +7,7 @@ Infraestrutura Gopher (gophernicus) e Gemini (molly-brown) para runv.club.
 
 Idempotente, dry-run, subprocess sem shell. Executar como root no Debian.
 
-Versão 0.02 — runv.club
+Versão 0.03 — runv.club
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ from typing import Any, Final
 # Constantes
 # ---------------------------------------------------------------------------
 
-VERSION: Final[str] = "0.02"
+VERSION: Final[str] = "0.03"
 
 DEFAULT_USERS_JSON: Final[Path] = Path("/var/lib/runv/users.json")
 DEFAULT_HOMES_ROOT: Final[Path] = Path("/home")
@@ -46,6 +46,8 @@ GOPHER_DEFAULT_PATH: Final[Path] = Path("/etc/default/gophernicus")
 GOPHER_SYSTEMD_SERVICE: Final[Path] = Path("/lib/systemd/system/gophernicus@.service")
 MOLLY_CONF_DIR: Final[Path] = Path("/etc/molly-brown")
 MOLLY_INSTANCE: Final[str] = "runv.club"  # molly-brown@runv.club.service
+MOLLY_LOG_DIR: Final[Path] = Path("/var/log/molly-brown")
+MOLLY_SERVICE_USER_FALLBACK: Final[str] = "molly-brown"
 
 PACKAGES_GOPHER: Final[tuple[str, ...]] = ("gophernicus",)
 PACKAGES_GEMINI: Final[tuple[str, ...]] = ("molly-brown",)
@@ -168,11 +170,88 @@ def write_gophernicus_default(
     log.info("atualizado: %s", path)
 
 
+def molly_log_paths(instance: str) -> tuple[Path, Path]:
+    """Caminhos de access / error log para a instância (ex. runv.club)."""
+    return (
+        MOLLY_LOG_DIR / f"{instance}-access.log",
+        MOLLY_LOG_DIR / f"{instance}-error.log",
+    )
+
+
+def molly_service_user(instance: str, log: logging.Logger) -> str:
+    """User= do unit systemd molly-brown@instance (fallback Debian: molly-brown)."""
+    unit = f"molly-brown@{instance}.service"
+    try:
+        r = subprocess.run(
+            ["systemctl", "show", "-p", "User", "--value", unit],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if r.returncode == 0:
+            name = (r.stdout or "").strip()
+            if name and name != "(null)":
+                return name
+    except (OSError, subprocess.TimeoutExpired) as e:
+        log.debug("systemctl User para %s: %s", unit, e)
+    return MOLLY_SERVICE_USER_FALLBACK
+
+
+def ensure_molly_log_files(
+    instance: str,
+    *,
+    dry_run: bool,
+    log: logging.Logger,
+) -> tuple[Path, Path]:
+    """
+    Cria /var/log/molly-brown e ficheiros de log com dono = User do serviço.
+    Molly-brown não aceita AccessLog/ErrorLog = \"-\" (interpreta como path /- e falha).
+    """
+    access_p, error_p = molly_log_paths(instance)
+    user_name = molly_service_user(instance, log)
+    if dry_run:
+        log.info(
+            "[dry-run] criaria %s e %s, %s (dono: %s)",
+            MOLLY_LOG_DIR,
+            access_p,
+            error_p,
+            user_name,
+        )
+        return access_p, error_p
+
+    MOLLY_LOG_DIR.mkdir(parents=True, exist_ok=True)
+    os.chmod(MOLLY_LOG_DIR, 0o755)
+
+    try:
+        pw = pwd.getpwnam(user_name)
+        uid, gid = pw.pw_uid, pw.pw_gid
+    except KeyError:
+        log.warning(
+            "Utilizador «%s» inexistente — logs com dono root; o serviço pode falhar ao escrever",
+            user_name,
+        )
+        uid, gid = 0, 0
+
+    for p in (access_p, error_p):
+        if not p.exists():
+            p.touch(exist_ok=True)
+        try:
+            os.chown(p, uid, gid)
+            os.chmod(p, 0o644)
+        except OSError as e:
+            log.warning("chown/chmod %s: %s", p, e)
+
+    log.info("logs Molly: %s, %s (dono %s)", access_p, error_p, user_name)
+    return access_p, error_p
+
+
 def molly_brown_conf_text(
     *,
     hostname: str,
     cert: Path,
     key: Path,
+    access_log: Path,
+    error_log: Path,
 ) -> str:
     return f"""# runv.club — gerido por setup_alt_protocols.py
 Hostname = "{hostname}"
@@ -181,8 +260,8 @@ DocBase = "{GEMINI_ROOT.as_posix()}"
 HomeDocBase = "users"
 CertPath = "{cert.as_posix()}"
 KeyPath = "{key.as_posix()}"
-AccessLog = "-"
-ErrorLog = "-"
+AccessLog = "{access_log.as_posix()}"
+ErrorLog = "{error_log.as_posix()}"
 GeminiExt = "gmi"
 ReadMollyFiles = true
 """
@@ -551,8 +630,19 @@ def main(argv: list[str] | None = None) -> int:
                     key,
                 )
             else:
+                access_p, error_p = ensure_molly_log_files(
+                    MOLLY_INSTANCE,
+                    dry_run=args.dry_run,
+                    log=log,
+                )
                 conf_path = MOLLY_CONF_DIR / f"{MOLLY_INSTANCE}.conf"
-                body = molly_brown_conf_text(hostname=args.gemini_hostname, cert=cert, key=key)
+                body = molly_brown_conf_text(
+                    hostname=args.gemini_hostname,
+                    cert=cert,
+                    key=key,
+                    access_log=access_p,
+                    error_log=error_p,
+                )
                 if args.dry_run:
                     log.info("[dry-run] gravaria %s", conf_path)
                 else:

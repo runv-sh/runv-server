@@ -22,6 +22,15 @@ Script em **`scripts/admin/setup_alt_protocols.py`**: instala e configura **goph
 - **TLS obrigatório** (certificado + chave PEM). Por defeito o script tenta Let's Encrypt em `/etc/letsencrypt/live/runv.club/`; use **`--gemini-cert`** e **`--gemini-key`** se forem noutro sítio.
 - Sem certificados válidos, o script **não** ativa o serviço `molly-brown@`, mas pode criar `/var/gemini` e symlinks.
 
+## Erro `Error opening error log file: open /-` (read-only file system)
+
+O **molly-brown** trata `AccessLog` e `ErrorLog` como **caminhos de ficheiro**. Valores como `"-"` (estilo «stdout» noutros programas) são interpretados de forma errada e o processo tenta abrir `/-`, falhando de imediato.
+
+- **Comportamento actual do script (v0.03+):** cria `/var/log/molly-brown/`, ficheiros `runv.club-access.log` e `runv.club-error.log`, ajusta o dono ao `User=` do unit (`systemctl show`, fallback `molly-brown`), e grava esses caminhos em `/etc/molly-brown/runv.club.conf`.
+- **Servidor já provisionado com conf antiga:** o script só reescreve o `.conf` se o ficheiro não existir ou se correr com **`--force`** (faz backup com timestamp). Exemplo:  
+  `sudo python3 scripts/admin/setup_alt_protocols.py --verbose --force`
+- **Correcção manual rápida:** `sudo mkdir -p /var/log/molly-brown`; criar os dois `.log`; `sudo chown` para o utilizador do serviço (`systemctl show -p User --value molly-brown@runv.club.service`); editar o `.conf` e substituir `AccessLog` / `ErrorLog` pelos caminhos absolutos; depois `sudo systemctl reset-failed molly-brown@runv.club.service` e `sudo systemctl start molly-brown@runv.club.service`.
+
 ## Molly não sobe ou fica em «activating»
 
 - **`journalctl` sem mensagens:** os logs do serviço do sistema exigem **root** — use `sudo journalctl -u molly-brown@runv.club.service -b --no-pager -n 80`.
@@ -46,7 +55,7 @@ sudo python3 scripts/admin/setup_alt_protocols.py --verbose
 |------|--------|
 | `--dry-run` | Simula; não grava (validação de root ignorada em alguns passos só se documentado). |
 | `--verbose` | Log detalhado. |
-| `--force` | Sobrescreve configs de sistema (com backup com timestamp) e ficheiros modelo no backfill. |
+| `--force` | Sobrescreve configs de sistema (com backup com timestamp) e ficheiros modelo no backfill. Necessário para **regravar** `/etc/molly-brown/runv.club.conf` após correcções (ex. logs Molly). |
 | `--skip-install` | Não corre `apt-get`. |
 | `--skip-gopher` / `--skip-gemini` | Ignora pacote, config e serviço desse protocolo. |
 | `--skip-firewall` | Não altera UFW. |

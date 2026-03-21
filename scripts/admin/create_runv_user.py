@@ -25,7 +25,7 @@ Quota ext4, metadados JSON e logging seguem após estes passos.
 Não é signup público: executar manualmente como root/sudo no servidor.
 Requer Linux (Debian). Quota: ext4 com ``usrquota``/``usrjquota`` via ``setquota`` (não altera fstab).
 
-Versão 0.01 — desenvolvido por pmurad, 2026.
+Versão 0.02 — desenvolvido por pmurad, 2026.
 """
 
 from __future__ import annotations
@@ -115,7 +115,7 @@ DEFAULT_QUOTA_HARD_MIB: Final[int] = 500
 DEFAULT_QUOTA_INODE_SOFT: Final[int] = 10_000
 DEFAULT_QUOTA_INODE_HARD: Final[int] = 12_000
 
-VERSION: Final[str] = "0.01"
+VERSION: Final[str] = "0.02"
 AUTHOR: Final[str] = "pmurad"
 COPYRIGHT_YEAR: Final[str] = "2026"
 

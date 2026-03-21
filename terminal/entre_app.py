@@ -5,7 +5,7 @@ Experiência SSH guiada para pedidos de entrada na runv.club (utilizador «entre
 Executado via ForceCommand no OpenSSH. Não cria contas Linux; apenas fila + log
 + notificação opcional.
 
-Versão 0.01 — runv.club
+Versão 0.02 — runv.club
 """
 
 from __future__ import annotations

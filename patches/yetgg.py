@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 from typing import Any, Final
 
-VERSION: Final[str] = "0.01"
+VERSION: Final[str] = "0.02"
 
 GEMINI_ROOT: Final[Path] = Path("/var/gemini")
 GEMINI_USERS: Final[Path] = GEMINI_ROOT / "users"

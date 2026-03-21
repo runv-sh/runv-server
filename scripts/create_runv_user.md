@@ -1,6 +1,6 @@
 # create_runv_user — provisionamento interno (runv.club)
 
-**Versão 0.01** · **Desenvolvido por pmurad — 2026**
+**Versão 0.02** · **Desenvolvido por pmurad — 2026**
 
 Ferramenta de linha de comando para **administradores** criarem contas Unix no servidor **Debian/Linux** (runv.club). Não é cadastro público.
 

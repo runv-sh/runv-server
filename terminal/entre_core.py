@@ -6,7 +6,7 @@ Mantido alinhado com as regras de ``scripts/admin/create_runv_user.py`` (usernam
 email, tipos de chave). Campo ``online_presence`` é texto livre na fila (não duplicado
 em ``create_runv_user``). Sem dependências PyPI.
 
-Versão 0.01 — runv.club
+Versão 0.02 — runv.club
 """
 
 from __future__ import annotations
@@ -91,7 +91,7 @@ MAX_PUBKEY_LEN: Final[int] = 16_384
 MIN_ONLINE_PRESENCE_LEN: Final[int] = 16
 MAX_ONLINE_PRESENCE_LEN: Final[int] = 4000
 
-APP_VERSION: Final[str] = "0.01"
+APP_VERSION: Final[str] = "0.02"
 SOURCE_TAG: Final[str] = "entre-ssh"
 # Remetente por omissão das notificações sendmail do fluxo «entre» (cabeçalho From).
 DEFAULT_MAIL_FROM: Final[str] = "entre@runv.club"

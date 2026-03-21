@@ -2,7 +2,7 @@
 
 Bootstrap **conservador** para preparar um servidor **Debian**: pacotes úteis ao runv.club e **quotas de utilizador** (`usrquota`) no **mesmo filesystem ext4 onde vivem as homes** (detetado automaticamente — tipicamente `/` se `/home` está na raiz, ou `/home` se é um volume dedicado). A lógica de descoberta é a de [`runv_mount.py`](admin/runv_mount.py), alinhada a [`create_runv_user.py`](create_runv_user.md).
 
-Versão do script: **0.01** (use `python3 admin/starthere.py --version` a partir do diretório `scripts/` do repositório).
+Versão do script: **0.02** (use `python3 admin/starthere.py --version` a partir do diretório `scripts/` do repositório).
 
 ### Comportamento de `--dry-run`
 

@@ -1,6 +1,6 @@
 # del-user.py — banimento / remoção de conta (runv.club)
 
-**Versão 0.01** · runv.club
+**Versão 0.02** · runv.club
 
 Ferramenta para **administradores** removerem **permanentemente** um utilizador Unix no Debian (banimento no runv.club): apaga a conta e, por defeito, a home com `deluser --remove-home`.
 

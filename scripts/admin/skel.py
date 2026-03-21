@@ -3,7 +3,7 @@
 Prepara /etc/skel para novos usuários do runv.club (Debian).
 Executar como root. Não cria usuários, não altera Apache nem SSH.
 
-Versão 0.01 — runv.club
+Versão 0.02 — runv.club
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ PUBLIC_HTML_DIR: Final[Path] = SKEL_ROOT / "public_html"
 INDEX_HTML: Final[Path] = PUBLIC_HTML_DIR / "index.html"
 README_MD: Final[Path] = SKEL_ROOT / "README.md"
 
-VERSION: Final[str] = "0.01"
+VERSION: Final[str] = "0.02"
 
 EXIT_OK: Final[int] = 0
 EXIT_ERROR: Final[int] = 1

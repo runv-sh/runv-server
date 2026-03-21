@@ -7,7 +7,7 @@ Executar como root. Alinha-se a create_runv_user / del-user / runv_mount.
 
 Modo interativo no terminal (sem argumentos ou -i) ou flags CLI.
 
-Versão 0.01 — runv.club
+Versão 0.02 — runv.club
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ DEFAULT_QUOTA_HARD_MIB: Final[int] = 500
 DEFAULT_QUOTA_INODE_SOFT: Final[int] = 10_000
 DEFAULT_QUOTA_INODE_HARD: Final[int] = 12_000
 
-VERSION: Final[str] = "0.01"
+VERSION: Final[str] = "0.02"
 EXIT_OK: Final[int] = 0
 EXIT_VALIDATION: Final[int] = 1
 EXIT_SYSTEM: Final[int] = 2

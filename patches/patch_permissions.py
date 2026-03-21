@@ -30,7 +30,7 @@ import time
 from pathlib import Path
 from typing import Final
 
-VERSION: Final[str] = "0.01"
+VERSION: Final[str] = "0.02"
 
 GROUP_NAME: Final[str] = "runv-jailed"
 SSHD_DROPIN: Final[str] = "/etc/ssh/sshd_config.d/runv-jailed.conf"

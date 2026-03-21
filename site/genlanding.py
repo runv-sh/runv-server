@@ -6,7 +6,7 @@ www → apex em HTTP. Produção ou modo --dev para testes locais.
 
 Executar como root (excepto --dry-run). Apenas biblioteca padrão Python 3.
 
-Versão 0.01 — runv.club
+Versão 0.02 — runv.club
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 from typing import Final
 
-VERSION: Final[str] = "0.01"
+VERSION: Final[str] = "0.02"
 EXIT_OK: Final[int] = 0
 EXIT_USAGE: Final[int] = 1
 EXIT_ERROR: Final[int] = 2

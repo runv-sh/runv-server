@@ -7,7 +7,7 @@ Usa ``deluser`` com remoção da home. Opcionalmente remove o registro em
 
 Executar como root. Não altera Apache nem SSH diretamente.
 
-Versão 0.01 — runv.club
+Versão 0.02 — runv.club
 """
 
 from __future__ import annotations
@@ -63,7 +63,7 @@ RESERVED_USERNAMES: Final[frozenset[str]] = frozenset(
 DEFAULT_METADATA_PATH: Final[Path] = Path("/var/lib/runv/users.json")
 DEFAULT_LOCK_PATH: Final[Path] = Path("/var/lib/runv/users.lock")
 
-VERSION: Final[str] = "0.01"
+VERSION: Final[str] = "0.02"
 
 EXIT_OK: Final[int] = 0
 EXIT_VALIDATION: Final[int] = 1

@@ -1,6 +1,6 @@
 # skel.py — preparar `/etc/skel` (runv.club)
 
-**Versão 0.01** · runv.club
+**Versão 0.02** · runv.club
 
 Script para **administradores** prepararem o diretório `/etc/skel` no **Debian** (ex.: Debian 13), de modo que `adduser` copie automaticamente uma home inicial com `public_html`, página de boas-vindas e README para novos usuários.
 
