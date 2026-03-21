@@ -63,7 +63,16 @@ Opções úteis:
 
 ## 4. Configuração (`config.toml`)
 
-Edite **`/opt/runv/terminal/config.toml`**:
+O **`config.toml`** não deve ser versionado no repositório (está em **`.gitignore`** em `terminal/config.toml` no clone). Gere-o a partir do modelo:
+
+```bash
+sudo python3 /opt/runv/src/terminal/gen_config_toml.py --install-root /opt/runv/terminal
+```
+
+- **`--force`** — sobrescreve um `config.toml` já existente (perde edições locais nesse ficheiro).
+- O **`setup_entre.py`** chama a mesma lógica na primeira instalação (ou com **`--force-config`**).
+
+Edite **`/opt/runv/terminal/config.toml`** quando precisar de valores que não vêm do example:
 
 - **`admin_email`** — endereço para notificações. Pode ficar vazio no TOML se **`admin_email`** estiver definido em **`/etc/runv-email.json`** (fallback usado pelo `entre_app.py`). Se ambos estiverem vazios, só fila + log.
 - **`mail_from`** — remetente do email (cabeçalho `From`); por omissão **`noreply@runv.club`** (não use **`entre@runv.club`**: essa conta é só SSH). Valores antigos `entre@runv.club` no TOML são normalizados para noreply. Para outro remetente verificado no Mailgun, defina explicitamente no TOML.

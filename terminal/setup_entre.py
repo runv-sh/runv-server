@@ -59,6 +59,8 @@ import time
 from pathlib import Path
 from typing import Final
 
+from gen_config_toml import write_terminal_config_toml
+
 VERSION: Final[str] = "0.11"
 ENTRE_USER: Final[str] = "entre"
 INSTALL_ROOT: Final[Path] = Path("/opt/runv/terminal")
@@ -634,6 +636,7 @@ def copy_module(dest: Path, *, dry_run: bool) -> None:
         "entre_app.py",
         "entre_core.py",
         "config.example.toml",
+        "gen_config_toml.py",
         "README.md",
     ]
     subdirs = ["templates", "docs", "systemd", "scripts", "data", "examples"]
@@ -659,16 +662,22 @@ def install_config(dest: Path, *, dry_run: bool, force: bool) -> None:
     cfg = dest / "config.toml"
     example = dest / "config.example.toml"
     if dry_run:
-        print(f"[dry-run] config em {cfg}")
+        print(f"[dry-run] config em {cfg} (gen_config_toml)")
         return
-    if cfg.is_file() and not force:
-        print(f"Mantido {cfg} existente (use --force-config para sobrescrever do example).")
-        return
-    if example.is_file():
-        shutil.copy2(example, cfg)
-        print(f"Instalado {cfg} a partir do example.")
-    else:
+    if not example.is_file():
         eprint(f"Aviso: {example} não encontrado.")
+        return
+    try:
+        result = write_terminal_config_toml(
+            example=example, out=cfg, force=force, dry_run=False
+        )
+    except FileNotFoundError as e:
+        eprint(str(e))
+        return
+    if result == "skipped":
+        print(f"Mantido {cfg} existente (use --force-config para regenerar do example).")
+    else:
+        print(f"Instalado {cfg} (gen_config_toml a partir do example).")
 
 
 def chmod_tree_templates(root: Path) -> None:
@@ -690,7 +699,11 @@ def print_final_instructions(
 ) -> None:
     print()
     print("== Concluído ==")
-    print(f"1. Editar {install_root / 'config.toml'} (admin_email, etc.).")
+    print(
+        f"1. Opcional: {install_root / 'config.toml'} — regenere com "
+        f"python3 {install_root / 'gen_config_toml.py'} --install-root {install_root} "
+        "(ou --force para repor o example). Com /etc/runv-email.json, admin_email pode ficar vazio no TOML."
+    )
 
     if auth_mode == AUTH_SHARED:
         print("2. Acesso por palavra-passe Unix partilhada (definida só pelo root):")

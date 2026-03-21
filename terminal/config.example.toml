@@ -1,4 +1,5 @@
-# Copie para config.toml ao instalar (ex.: /opt/runv/terminal/config.toml).
+# Não edite como config.toml em produção: gere com gen_config_toml.py ou setup_entre.py.
+# Ex.: python3 gen_config_toml.py --install-root /opt/runv/terminal
 # Valores por omissão da fila e log alinham com setup_entre.py.
 
 queue_dir = "/var/lib/runv/entre-queue"

@@ -8,6 +8,9 @@ venv/
 .env.local
 guide.md
 
+# config do módulo entre: gerar com terminal/gen_config_toml.py (não versionar)
+terminal/config.toml
+
 # Gerados no servidor / localmente (evita conflitos em git pull)
 site/public/news/data/news.json
 site/public/news/feed.rss

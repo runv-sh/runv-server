@@ -11,7 +11,8 @@ Módulo **runv.club** para quem se liga por SSH ao utilizador Unix **`entre`**: 
 | `entre_app.py` | Programa principal (ForceCommand SSH). |
 | `entre_core.py` | Validação, fila JSON, log, email. |
 | `setup_entre.py` | Instalação no servidor (root): utilizador `entre`, shell `/bin/sh`, `--auth-mode` (`shared-password` \| `key-only` \| `empty-password` estilo tilde.town), PAM opcional, drop-in SSH, `sshd -t` + `sshd -T -C`, reload. |
-| `config.example.toml` | Modelo de configuração → copiar para `config.toml`. |
+| `config.example.toml` | Modelo versionado; **não** editar como `config.toml` no git. |
+| `gen_config_toml.py` | Gera `config.toml` a partir do example (evita conflitos em `git pull`). |
 | `templates/*.txt` | Textos da experiência e do email ao admin. |
 | `docs/USO.md` | **Instalação + uso** (admin, visitante, testes, checklist). |
 | `docs/INSTALL.md` | Guia de instalação detalhado (Debian 13). |
@@ -26,7 +27,7 @@ Em linhas:
 
 1. Como root: `python3 setup_entre.py` (ou `scripts/install.sh`) — por omissão `--auth-mode shared-password`, shell `/bin/sh`, validação `sshd -T -C …`.
 2. **Onboarding sem senha (estilo tilde.town):** `sudo python3 setup_entre.py --auth-mode empty-password` — **PAM** por omissão; SSH por omissão **keyboard-interactive** (melhor no **OpenSSH do Windows**). Teste: `ssh entre@runv.club`. Se a sessão fechar, veja PAM e logs em [INSTALL.md](docs/INSTALL.md). Para o modo README tilde (**password** + senha vazia), use **`--empty-password-tilde-password-auth`** (Linux/Git Bash).
-3. Editar `/opt/runv/terminal/config.toml` (`admin_email`, etc.).
+3. Gerar ou ajustar `/opt/runv/terminal/config.toml` com `python3 gen_config_toml.py --install-root /opt/runv/terminal` (ou `--force` para repor o example). O ficheiro está em `.gitignore` no clone; só o **example** é versionado.
 4. Modo default: `sudo passwd entre`. Modo `key-only`: `authorized_keys`.
 5. Visitante: `ssh entre@runv.club` e seguir o fluxo até à despedida.
 
