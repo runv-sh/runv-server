@@ -1,7 +1,8 @@
 /**
  * Landing runv.club — carrega members.json (só dados públicos) e coloca
  * pontos clicáveis (links) fora da coluna de texto; brilho ligado à data since.
- * Posições fixas no viewport (não recalculam ao scroll); zona central alinhada à .wrap.
+ * Pontos com position:fixed no viewport (filhos de body); zona central sintética como .wrap.
+ * Não recalculam ao scroll — só em resize.
  * Array vazio: sem estrelas até build_directory.py gerar o JSON a partir de users.json.
  */
 
@@ -130,10 +131,8 @@ function isStarfieldMobileViewport() {
   return window.matchMedia("(max-width: 768px)").matches;
 }
 
-function renderStarLinks(container, members) {
-  if (!container) return;
-
-  container.replaceChildren();
+function renderStarLinks(members) {
+  document.querySelectorAll("a.star-member").forEach((el) => el.remove());
 
   if (isStarfieldMobileViewport()) {
     return;
@@ -162,13 +161,11 @@ function renderStarLinks(container, members) {
     const scale = 0.78 + bright * 0.42;
     a.style.setProperty("--star-scale", String(scale));
 
-    container.appendChild(a);
+    document.body.appendChild(a);
   }
 }
 
 async function main() {
-  const starRoot = document.getElementById("starfield");
-
   let members = [];
 
   try {
@@ -182,10 +179,9 @@ async function main() {
 
   let starRaf = 0;
   const scheduleStars = () => {
-    if (!starRoot) return;
     cancelAnimationFrame(starRaf);
     starRaf = requestAnimationFrame(() => {
-      renderStarLinks(starRoot, members);
+      renderStarLinks(members);
     });
   };
 

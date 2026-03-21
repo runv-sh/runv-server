@@ -17,7 +17,6 @@
 
 html {
   scroll-behavior: smooth;
-  overflow-x: hidden;
   max-width: 100%;
 }
 
@@ -25,7 +24,6 @@ body {
   margin: 0;
   min-height: 100vh;
   max-width: 100%;
-  overflow-x: hidden;
   font-family: "Atkinson Hyperlegible", Georgia, serif;
   font-size: 1.05rem;
   line-height: 1.6;
@@ -35,6 +33,20 @@ body {
     linear-gradient(var(--grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid) 1px, transparent 1px);
   background-size: 24px 24px;
+}
+
+/* Overflow horizontal só no fluxo da página — evita interferir com camadas fixed no body. */
+.page-root {
+  position: relative;
+  z-index: 1;
+  overflow-x: clip;
+  max-width: 100%;
+}
+
+@supports not (overflow: clip) {
+  .page-root {
+    overflow-x: hidden;
+  }
 }
 
 .visually-hidden {
@@ -52,9 +64,12 @@ body {
 .starfield-root {
   position: fixed;
   inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
   z-index: 0;
   pointer-events: none;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Membros como pontos: só em ecrãs largos (em mobile o texto ocupa o viewport). */
@@ -66,16 +81,18 @@ body {
 
 .star-member {
   --star-scale: 1;
-  position: absolute;
+  position: fixed;
+  z-index: 0;
   width: 10px;
   height: 10px;
-  margin: 0;
+  margin: -5px 0 0 -5px;
   padding: 0;
   border: none;
   border-radius: 50%;
   pointer-events: auto;
   cursor: pointer;
-  transform: translate(-50%, -50%) scale(var(--star-scale));
+  transform: scale(var(--star-scale));
+  transform-origin: center;
   text-indent: -9999px;
   overflow: hidden;
   white-space: nowrap;
@@ -88,7 +105,7 @@ body {
 .star-member:focus-visible {
   opacity: 1;
   outline: none;
-  transform: translate(-50%, -50%) scale(calc(var(--star-scale) * 1.1));
+  transform: scale(calc(var(--star-scale) * 1.1));
 }
 
 .star-member:focus-visible {
