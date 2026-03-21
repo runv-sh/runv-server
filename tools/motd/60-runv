@@ -27,7 +27,8 @@ print_runv_art() {
 RUNV_ART
 }
 
-# Últimas 9 sessões em last(1) → grelha 3×3 (primeiro campo = utilizador)
+# MOTD: "Últimos usuários online" — até 9 nomes únicos (last(1)) → grelha 3×3
+# Cada nome aparece só uma vez: ordem = mais recente primeiro (primeira ocorrência em last).
 # update-motd.d costuma ter PATH mínimo: tentar /usr/bin/last e /bin/last.
 print_last_sessions_3x3() {
   LAST_CMD=$(command -v last 2>/dev/null) || LAST_CMD=
@@ -39,11 +40,18 @@ print_last_sessions_3x3() {
   fi
   tf=$(mktemp -t runvmotd.XXXXXX 2>/dev/null) || tf=/tmp/runvmotd.$$
   trap 'rm -f "$tf"' EXIT HUP INT
-  # Ignora reboot, wtmp e linhas vazias; até 9 utilizadores (sessões recentes)
-  "$LAST_CMD" -n 200 2>/dev/null | awk '
+  # Ignora reboot, wtmp e linhas vazias; até 9 nomes distintos (mais recentes primeiro)
+  "$LAST_CMD" -n 500 2>/dev/null | awk '
     /^reboot/ || /^wtmp/ || /^$/ { next }
     NF < 1 { next }
-    { print $1; if (++n >= 9) exit }
+    {
+      u = $1
+      if (!(u in seen)) {
+        seen[u] = 1
+        print u
+        if (++n >= 9) exit
+      }
+    }
   ' > "$tf" || true
 
   if ! [ -s "$tf" ]; then
@@ -53,7 +61,7 @@ print_last_sessions_3x3() {
     return
   fi
 
-  printf '\n%bÚltimas sessões%b %b(9 entradas recentes de last)%b\n' "${B}" "${R}" "${D}" "${R}"
+  printf '\n%bÚltimos usuários online%b %b(até 9 nomes únicos, por atividade recente)%b\n' "${B}" "${R}" "${D}" "${R}"
   row=1
   while [ "$row" -le 3 ]; do
     read -r c1 || c1=''
