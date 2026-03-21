@@ -46,11 +46,11 @@ Com **Mailgun**, `sendmail` é ignorado para o transporte (usa API). Com **legad
 
 | Evento | Template(s) | Onde disparar |
 |--------|-------------|----------------|
-| Novo pedido na fila `entre` | `admin_new_request` → admin; opcional `user_request_received` → visitante | Após `save_request_json` em [`terminal/entre_core.py`](../../terminal/entre_core.py) / [`entre_app.py`](../../terminal/entre_app.py). **Hoje** email admin via `sendmail_notify` + `admin_mail.txt` — com Mailgun, `sendmail_notify` tenta **primeiro** a API se o estado global o indicar. |
-| Pedido aprovado (manual) | `user_approved` | Processo admin. |
+| Novo pedido na fila `entre` | Corpo do email: [`terminal/templates/admin_mail.txt`](../../terminal/templates/admin_mail.txt) (não `email/templates/admin_new_request.txt`). Opcional: `user_request_received` existe em `email/templates/` mas **não** está ligado ao `entre`. | Após `save_request_json` em [`terminal/entre_core.py`](../../terminal/entre_core.py) / [`entre_app.py`](../../terminal/entre_app.py). Email admin via `sendmail_notify`; com Mailgun, tenta **primeiro** `lib.mailer.send_mail` se `/etc/runv-email.json` e `email_package_root` / `RUNV_EMAIL_ROOT` forem válidos. |
+| Pedido aprovado (manual) | `user_approved` | Processo admin (manual / futuro). |
 | Pedido rejeitado | `user_rejected` (+ `reason`) | Idem. |
-| Conta criada | `admin_user_created`, `user_account_created` | [`scripts/admin/create_runv_user.py`](../../scripts/admin/create_runv_user.py). |
-| Conta removida | `admin_user_deleted`, `user_account_removed` | [`scripts/admin/del-user.py`](../../scripts/admin/del-user.py). |
+| Conta criada | `admin_user_created` → admin; `user_account_created` → utilizador | [`scripts/admin/create_runv_user.py`](../../scripts/admin/create_runv_user.py): `--no-welcome-email` / `--no-admin-create-email` para desactivar cada ramo. |
+| Conta removida | `admin_user_deleted`, `user_account_removed` | Templates em `email/templates/`; [`scripts/admin/del-user.py`](../../scripts/admin/del-user.py) **ainda não** envia estes emails (processo manual ou extensão futura). |
 | Erro operacional | `admin_error` | Scripts admin / cron. |
 | Quota | `user_quota_warning` | Monitorização / quotas. |
 | Teste | `system_test` | `configure_mailgun.py --test` (API) ou legado. |
@@ -71,11 +71,14 @@ Recomenda-se o **mesmo** `admin_email` e remetente coerente com o Mailgun/domín
 
 ## `create_runv_user.py` / `del-user.py`
 
-O **`create_runv_user.py`** envia por omissão um email de **boas-vindas** ao utilizador (`user_account_created`), com instruções para aceder por SSH com a **chave privada** correspondente à chave pública registada. Requer `/etc/runv-email.json` e módulo `email/` acessível; `--no-welcome-email` para desactivar; `--welcome-ssh-host` ou `RUNV_WELCOME_SSH_HOST` para um comando `ssh` explícito.
+O **`create_runv_user.py`** envia por omissão:
+
+1. **Boas-vindas** ao utilizador (`user_account_created`), com instruções SSH; `--no-welcome-email` desactiva.
+2. **Aviso ao admin** (`admin_user_created` para `admin_email` no JSON); `--no-admin-create-email` desactiva.
+
+Requer `/etc/runv-email.json` (com `default_from`, `admin_email` para o ramo admin), segredos Mailgun se aplicável, e pasta `email/` acessível (`email_package_root` ou `RUNV_EMAIL_ROOT`). Para o texto de boas-vindas, `--welcome-ssh-host` ou `RUNV_WELCOME_SSH_HOST` define o hostname SSH sugerido.
 
 Obtenha `admin_email` / `default_from` de `/etc/runv-email.json` — **não** hardcodar.
-
-Ver exemplos na versão anterior deste documento para `send_admin_notice` / `send_user_notice` adicionais.
 
 ## Checklist de integração
 
@@ -83,3 +86,5 @@ Ver exemplos na versão anterior deste documento para `send_admin_notice` / `sen
 - [ ] `sudo python3 configure_mailgun.py --test` (ou legado) com sucesso.
 - [ ] Templates revistos (português, placeholders).
 - [ ] Nenhum segredo em logs ou `print()` (API key só em ficheiro 0600 ou env).
+
+Roteiro passo a passo no servidor: [VERIFICATION_CHECKLIST.md](VERIFICATION_CHECKLIST.md).

@@ -1330,6 +1330,7 @@ def try_send_welcome_email(
             user_email,
             subject="[runv.club] Bem-vindo(a) — a sua conta foi criada",
             from_addr=from_addr,
+            _state=state,
             username=username,
             email=user_email,
             fingerprint=fingerprint,
@@ -1340,6 +1341,91 @@ def try_send_welcome_email(
         print(f"  boas-vindas:        email enviado para {user_email}")
     except Exception as e:
         log.warning("email de boas-vindas falhou (conta já criada): %s", e)
+
+
+def try_send_admin_user_created_email(
+    *,
+    username: str,
+    user_email: str,
+    operator_info: str,
+    timestamp: str,
+    no_admin_create_email: bool,
+    dry_run: bool,
+    log: logging.Logger,
+) -> None:
+    """
+    Envia ``admin_user_created`` para ``admin_email`` em ``/etc/runv-email.json``.
+    Falhas só em log — a conta já foi criada.
+    """
+    if no_admin_create_email:
+        log.info("email admin (conta criada): omitido (--no-admin-create-email)")
+        return
+    if dry_run:
+        log.info("email admin (conta criada): omitido (--dry-run)")
+        return
+
+    state_file = Path("/etc/runv-email.json")
+    if not state_file.is_file():
+        log.info(
+            "email admin (conta criada): %s ausente — omitido",
+            state_file,
+        )
+        return
+    try:
+        state = json.loads(state_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        log.warning("email admin (conta criada): estado inválido (%s): %s", state_file, e)
+        return
+
+    admin = str(state.get("admin_email", "")).strip()
+    if not admin:
+        log.info(
+            "email admin (conta criada): admin_email vazio em %s — omitido",
+            state_file,
+        )
+        return
+
+    email_root = _resolve_email_package_root(state)
+    if email_root is None:
+        log.warning(
+            "email admin (conta criada): pasta email/ não encontrada "
+            "(RUNV_EMAIL_ROOT, email_package_root no JSON ou repositório em %s)",
+            _REPO_ROOT / "email",
+        )
+        return
+
+    root_s = str(email_root.resolve())
+    if root_s not in sys.path:
+        sys.path.insert(0, root_s)
+
+    try:
+        from lib.mailer import send_admin_notice
+        from lib.templates import ADMIN_USER_CREATED
+    except ImportError as e:
+        log.warning("email admin (conta criada): import lib.mailer falhou: %s", e)
+        return
+
+    from_addr = str(state.get("default_from", "")).strip()
+    if not from_addr:
+        log.warning("email admin (conta criada): default_from ausente em %s", state_file)
+        return
+
+    try:
+        send_admin_notice(
+            ADMIN_USER_CREATED,
+            admin,
+            subject=f"[runv.club] Conta criada — {username}",
+            from_addr=from_addr,
+            _state=state,
+            username=username,
+            email=user_email,
+            operator_info=operator_info,
+            timestamp=timestamp,
+        )
+        log.info("email admin (conta criada) enviado para %s", admin)
+        print(f"  admin (conta):     email enviado para {admin}")
+    except Exception as e:
+        log.warning("email admin (conta criada) falhou (conta já criada): %s", e)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -1493,6 +1579,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--no-welcome-email",
         action="store_true",
         help="não enviar email de boas-vindas ao utilizador após criar a conta",
+    )
+    p.add_argument(
+        "--no-admin-create-email",
+        action="store_true",
+        help="não enviar email ao admin (template admin_user_created) após criar a conta",
     )
     p.add_argument(
         "--welcome-ssh-host",
@@ -1801,6 +1892,15 @@ def main(argv: list[str] | None = None) -> int:
             base_url=args.base_url,
             welcome_ssh_host=welcome_host_opt,
             no_welcome_email=bool(args.no_welcome_email),
+            dry_run=bool(args.dry_run),
+            log=log,
+        )
+        try_send_admin_user_created_email(
+            username=user,
+            user_email=email,
+            operator_info=record.created_by,
+            timestamp=record.created_at,
+            no_admin_create_email=bool(args.no_admin_create_email),
             dry_run=bool(args.dry_run),
             log=log,
         )

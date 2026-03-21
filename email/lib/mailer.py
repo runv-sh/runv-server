@@ -181,6 +181,7 @@ def send_admin_notice(
     from_addr: str,
     sendmail: str | None = None,
     html_body: str | None = None,
+    _state: dict | None = None,
     **kwargs: object,
 ) -> None:
     """Renderiza template administrativo e envia para admin_email."""
@@ -192,6 +193,7 @@ def send_admin_notice(
         from_addr=from_addr,
         sendmail=sendmail,
         html=html_body,
+        _state=_state,
     )
 
 
@@ -203,6 +205,7 @@ def send_user_notice(
     from_addr: str,
     sendmail: str | None = None,
     html_body: str | None = None,
+    _state: dict | None = None,
     **kwargs: object,
 ) -> None:
     """Renderiza template para utilizador e envia para user_email."""
@@ -214,6 +217,7 @@ def send_user_notice(
         from_addr=from_addr,
         sendmail=sendmail,
         html=html_body,
+        _state=_state,
     )
 
 

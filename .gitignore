@@ -14,3 +14,11 @@ site/public/news/feed.rss
 
 # Wiki: bytecode do gerador local
 site/wiki/__pycache__/
+
+# Diagnóstico local Mailgun (pode conter chaves / não subir)
+email/testmail.py
+email/testmail*.py
+
+# Cópias locais de segredos de email (nunca versionar)
+runv-email.secrets.json
+**/runv-email.secrets.json
