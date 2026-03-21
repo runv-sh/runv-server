@@ -7,7 +7,7 @@ Infraestrutura Gopher (gophernicus) e Gemini (molly-brown) para runv.club.
 
 Idempotente, dry-run, subprocess sem shell. Executar como root no Debian.
 
-Versão 0.04 — runv.club
+Versão 0.05 — runv.club
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ from typing import Any, Final
 # Constantes
 # ---------------------------------------------------------------------------
 
-VERSION: Final[str] = "0.04"
+VERSION: Final[str] = "0.05"
 
 DEFAULT_USERS_JSON: Final[Path] = Path("/var/lib/runv/users.json")
 DEFAULT_HOMES_ROOT: Final[Path] = Path("/home")
@@ -47,7 +47,17 @@ GOPHER_SYSTEMD_SERVICE: Final[Path] = Path("/lib/systemd/system/gophernicus@.ser
 MOLLY_CONF_DIR: Final[Path] = Path("/etc/molly-brown")
 MOLLY_INSTANCE: Final[str] = "runv.club"  # molly-brown@runv.club.service
 MOLLY_LOG_DIR: Final[Path] = Path("/var/log/molly-brown")
-MOLLY_SERVICE_USER_FALLBACK: Final[str] = "molly-brown"
+MOLLY_SYSTEMD_DROPIN_DIR: Final[Path] = Path(
+    "/etc/systemd/system/molly-brown@.service.d"
+)
+MOLLY_LOGS_DROPIN_PATH: Final[Path] = (
+    MOLLY_SYSTEMD_DROPIN_DIR / "50-runv-logs.conf"
+)
+MOLLY_LOGS_DROPIN_BODY: Final[str] = (
+    "# runv.club — gerido por setup_alt_protocols.py\n"
+    "[Service]\n"
+    "LogsDirectory=molly-brown\n"
+)
 
 PACKAGES_GOPHER: Final[tuple[str, ...]] = ("gophernicus",)
 PACKAGES_GEMINI: Final[tuple[str, ...]] = ("molly-brown",)
@@ -178,23 +188,37 @@ def molly_log_paths(instance: str) -> tuple[Path, Path]:
     )
 
 
-def molly_service_user(instance: str, log: logging.Logger) -> str:
-    """User= do unit systemd molly-brown@instance (fallback Debian: molly-brown)."""
-    unit = f"molly-brown@{instance}.service"
-    try:
-        r = subprocess.run(
-            ["systemctl", "show", "-p", "User", "--value", unit],
-            capture_output=True,
-            text=True,
-            timeout=30,
+def write_molly_brown_logs_dropin(
+    *,
+    dry_run: bool,
+    log: logging.Logger,
+    force: bool,
+) -> None:
+    """
+    Garante LogsDirectory=molly-brown no unit molly-brown@.
+
+    O pacote Debian usa DynamicUser=yes; o systemd cria /var/log/molly-brown com
+    o dono correcto em cada arranque — não usar chown estático nos logs.
+    """
+    if dry_run:
+        log.info(
+            "[dry-run] gravaria %s (LogsDirectory=molly-brown)",
+            MOLLY_LOGS_DROPIN_PATH,
         )
-        if r.returncode == 0:
-            name = (r.stdout or "").strip()
-            if name and name != "(null)":
-                return name
-    except (OSError, subprocess.TimeoutExpired) as e:
-        log.debug("systemctl User para %s: %s", unit, e)
-    return MOLLY_SERVICE_USER_FALLBACK
+        return
+    if MOLLY_LOGS_DROPIN_PATH.is_file() and not force:
+        existing = MOLLY_LOGS_DROPIN_PATH.read_text(encoding="utf-8", errors="replace")
+        if existing.strip() == MOLLY_LOGS_DROPIN_BODY.strip():
+            log.debug("drop-in Molly logs já presente: %s", MOLLY_LOGS_DROPIN_PATH)
+            return
+        log.info("drop-in Molly logs existe com conteúdo diferente — use --force")
+        return
+    if MOLLY_LOGS_DROPIN_PATH.is_file() and force:
+        backup_if_exists(MOLLY_LOGS_DROPIN_PATH, log, dry_run=False)
+    MOLLY_SYSTEMD_DROPIN_DIR.mkdir(parents=True, exist_ok=True)
+    MOLLY_LOGS_DROPIN_PATH.write_text(MOLLY_LOGS_DROPIN_BODY, encoding="utf-8")
+    os.chmod(MOLLY_LOGS_DROPIN_PATH, 0o644)
+    log.info("systemd drop-in Molly: %s", MOLLY_LOGS_DROPIN_PATH)
 
 
 def ensure_molly_log_files(
@@ -204,44 +228,31 @@ def ensure_molly_log_files(
     log: logging.Logger,
 ) -> tuple[Path, Path]:
     """
-    Cria /var/log/molly-brown e ficheiros de log com dono = User do serviço.
-    Molly-brown não aceita AccessLog/ErrorLog = \"-\" (interpreta como path /- e falha).
+    Garante caminhos de log sob /var/log/molly-brown/ (criados vazios se faltarem).
+
+    O dono correcto fica a cargo do systemd via drop-in LogsDirectory=molly-brown
+    (DynamicUser no Debian). Molly-brown não aceita AccessLog/ErrorLog = \"-\"
+    (interpreta como path /- e falha).
     """
     access_p, error_p = molly_log_paths(instance)
-    user_name = molly_service_user(instance, log)
     if dry_run:
         log.info(
-            "[dry-run] criaria %s e %s, %s (dono: %s)",
+            "[dry-run] criaria %s, %s, %s (dono ajustado pelo systemd no arranque)",
             MOLLY_LOG_DIR,
             access_p,
             error_p,
-            user_name,
         )
         return access_p, error_p
 
     MOLLY_LOG_DIR.mkdir(parents=True, exist_ok=True)
-    os.chmod(MOLLY_LOG_DIR, 0o755)
-
-    try:
-        pw = pwd.getpwnam(user_name)
-        uid, gid = pw.pw_uid, pw.pw_gid
-    except KeyError:
-        log.warning(
-            "Utilizador «%s» inexistente — logs com dono root; o serviço pode falhar ao escrever",
-            user_name,
-        )
-        uid, gid = 0, 0
-
     for p in (access_p, error_p):
         if not p.exists():
             p.touch(exist_ok=True)
-        try:
-            os.chown(p, uid, gid)
-            os.chmod(p, 0o644)
-        except OSError as e:
-            log.warning("chown/chmod %s: %s", p, e)
-
-    log.info("logs Molly: %s, %s (dono %s)", access_p, error_p, user_name)
+    log.info(
+        "logs Molly: %s, %s (requer drop-in LogsDirectory; systemd ajusta dono)",
+        access_p,
+        error_p,
+    )
     return access_p, error_p
 
 
@@ -671,6 +682,11 @@ def main(argv: list[str] | None = None) -> int:
                     key,
                 )
             else:
+                write_molly_brown_logs_dropin(
+                    dry_run=args.dry_run,
+                    log=log,
+                    force=args.force,
+                )
                 access_p, error_p = ensure_molly_log_files(
                     MOLLY_INSTANCE,
                     dry_run=args.dry_run,

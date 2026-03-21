@@ -26,10 +26,17 @@ Script em **`scripts/admin/setup_alt_protocols.py`**: instala e configura **goph
 
 O **molly-brown** trata `AccessLog` e `ErrorLog` como **caminhos de ficheiro**. Valores como `"-"` (estilo «stdout» noutros programas) são interpretados de forma errada e o processo tenta abrir `/-`, falhando de imediato.
 
-- **Comportamento actual do script (v0.03+):** cria `/var/log/molly-brown/`, ficheiros `runv.club-access.log` e `runv.club-error.log`, ajusta o dono ao `User=` do unit (`systemctl show`, fallback `molly-brown`), e grava esses caminhos em `/etc/molly-brown/runv.club.conf`.
-- **Servidor já provisionado com conf antiga:** o script só reescreve o `.conf` se o ficheiro não existir ou se correr com **`--force`** (faz backup com timestamp). Exemplo:  
+- **Comportamento actual do script (v0.05+):** instala o drop-in systemd **`/etc/systemd/system/molly-brown@.service.d/50-runv-logs.conf`** com `LogsDirectory=molly-brown`, para o systemd criar/ajustar **`/var/log/molly-brown`** com o dono correcto em cada arranque (necessário porque o pacote Debian usa **`DynamicUser=yes`** — um `chown` baseado em `getpwnam` ou no nome `User=` **não** coincide com o UID dinâmico real). Cria também os ficheiros `runv.club-access.log` e `runv.club-error.log` se faltarem, e grava os caminhos absolutos em `/etc/molly-brown/runv.club.conf`.
+- **Servidor já provisionado com conf antiga:** o script só reescreve o `.conf` (e o drop-in, se já existir com outro conteúdo) se correr com **`--force`** (faz backup com timestamp onde aplicável). Exemplo:  
   `sudo python3 scripts/admin/setup_alt_protocols.py --verbose --force`
-- **Correcção manual rápida:** `sudo mkdir -p /var/log/molly-brown`; criar os dois `.log`; `sudo chown` para o utilizador do serviço (`systemctl show -p User --value molly-brown@runv.club.service`); editar o `.conf` e substituir `AccessLog` / `ErrorLog` pelos caminhos absolutos; depois `sudo systemctl reset-failed molly-brown@runv.club.service` e `sudo systemctl start molly-brown@runv.club.service`.
+- **Correcção manual rápida (só `.conf`):** editar `AccessLog` / `ErrorLog` para caminhos absolutos sob `/var/log/molly-brown/`; garantir o drop-in `LogsDirectory=molly-brown` como acima; `sudo systemctl daemon-reload`; `sudo systemctl reset-failed molly-brown@runv.club.service` e `sudo systemctl start molly-brown@runv.club.service`.
+
+## Erro `permission denied` em `/var/log/molly-brown/…-error.log`
+
+Aparece quando os ficheiros de log ficaram com dono **root** ou outro UID que **não** é o do processo molly-brown. No Debian, o unit **`molly-brown@.service`** usa **`DynamicUser=yes`**: o utilizador de runtime é gerido pelo systemd, por isso **`sudo chown molly-brown:molly-brown`** (utilizador estático em `/etc/passwd`, se existir) **não** resolve de forma fiável.
+
+- **Solução suportada:** o script **v0.05+** instala o drop-in com **`LogsDirectory=molly-brown`**; no arranque, o systemd corrige a propriedade de `/var/log/molly-brown`. Depois de actualizar o repo: `sudo python3 scripts/admin/setup_alt_protocols.py --verbose --force`, `sudo systemctl daemon-reload`, `sudo systemctl reset-failed molly-brown@runv.club.service`, `sudo systemctl start molly-brown@runv.club.service`.
+- **Verificação:** `systemctl cat molly-brown@runv.club.service` deve mostrar o fragmento `50-runv-logs.conf` com `LogsDirectory=molly-brown`.
 
 ## Checklist rápido (conf antiga, UFW, «activating»)
 
@@ -67,7 +74,7 @@ sudo python3 scripts/admin/setup_alt_protocols.py --verbose
 |------|--------|
 | `--dry-run` | Simula; não grava (validação de root ignorada em alguns passos só se documentado). |
 | `--verbose` | Log detalhado. |
-| `--force` | Sobrescreve configs de sistema (com backup com timestamp) e ficheiros modelo no backfill. Necessário para **regravar** `/etc/molly-brown/runv.club.conf` após correcções (ex. logs Molly). |
+| `--force` | Sobrescreve configs de sistema (com backup com timestamp) e ficheiros modelo no backfill. Necessário para **regravar** `/etc/molly-brown/runv.club.conf` ou o drop-in **`50-runv-logs.conf`** após correcções (ex. logs Molly / `DynamicUser`). |
 | `--skip-install` | Não corre `apt-get`. |
 | `--skip-gopher` / `--skip-gemini` | Ignora pacote, config e serviço desse protocolo. |
 | `--skip-firewall` | Não altera UFW. |
