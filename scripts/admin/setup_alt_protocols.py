@@ -7,7 +7,7 @@ Infraestrutura Gopher (gophernicus) e Gemini (molly-brown) para runv.club.
 
 Idempotente, dry-run, subprocess sem shell. Executar como root no Debian.
 
-Versão 0.11 — runv.club
+Versão 0.12 — runv.club
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from typing import Any, Final
 # Constantes
 # ---------------------------------------------------------------------------
 
-VERSION: Final[str] = "0.11"
+VERSION: Final[str] = "0.12"
 
 LETSENCRYPT_LIVE: Final[Path] = Path("/etc/letsencrypt/live")
 LETSENCRYPT_ARCHIVE: Final[Path] = Path("/etc/letsencrypt/archive")
@@ -75,7 +75,7 @@ DEFAULT_USER_INDEX_GMI: Final[str] = """# ~{username} — runv.club (Gemini)
 
 Bem-vindo ao teu capsule em `gemini://runv.club/~{username}/` (canónico Molly: um só segmento de path **`/~{username}/`**, tilde **colado** ao nome). O formato `gemini://runv.club/~/{username}/` (slash extra) redirecciona para o canónico. **Não** uses `gemini://runv.club/{username}` — não é capsule.
 
-Edita este ficheiro em `~/public_gemini/index.gmi`. Mantém pastas **755** e ficheiros **644** para o servidor ler o conteúdo.
+Edita este ficheiro em `~/public_gemini/index.gmi`. Mantém pastas **755** e ficheiros **644** para o servidor ler o conteúdo (se usares **ACL** POSIX, garante leitura efectiva para o serviço — `getfacl`).
 
 ## Dicas
 
@@ -709,7 +709,7 @@ def _runuser_can_read(
 
 
 def _www_data_can_read(path: Path, *, dry_run: bool, log: logging.Logger) -> bool | None:
-    """Compatível com Molly Brown (utilizador típico ``www-data`` no Debian)."""
+    """Heurística de leitura como ``www-data`` (ACL POSIX pode afectar o UID real do Molly)."""
     return _runuser_can_read(path, "www-data", dry_run=dry_run, log=log)
 
 
@@ -790,7 +790,8 @@ def validate_final(
                 if can is False:
                     log.warning(
                         "amostra %s: www-data não consegue ler %s (runuser … test -r falhou). "
-                        "Confirme home 755 (ou o+x), public_gemini 755, index.gmi 644 e symlink %s.",
+                        "Confirme home 755 (ou o+x), public_gemini 755, index.gmi 644, symlink %s; "
+                        "se `ls -l` mostrar +, veja getfacl no path (ACL).",
                         sample,
                         index_gmi,
                         sl,
