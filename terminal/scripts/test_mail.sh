@@ -6,7 +6,7 @@ set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REQUEST_ID="00000000-0000-0000-0000-000000000001"
 export REQUEST_ID
-printf '%s\n' "From: entre@runv.club
+printf '%s\n' "From: noreply@runv.club
 To: admin@example.com
 Subject: [runv] teste de notificação
 

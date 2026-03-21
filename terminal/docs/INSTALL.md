@@ -66,7 +66,7 @@ Opções úteis:
 Edite **`/opt/runv/terminal/config.toml`**:
 
 - **`admin_email`** — endereço para notificações. Pode ficar vazio no TOML se **`admin_email`** estiver definido em **`/etc/runv-email.json`** (fallback usado pelo `entre_app.py`). Se ambos estiverem vazios, só fila + log.
-- **`mail_from`** — remetente do email (cabeçalho `From`); por omissão **`entre@runv.club`**. Se a chave existir mas estiver vazia, o programa usa o mesmo endereço. Com Mailgun, se o remetente continuar no default e o JSON tiver `default_from`, o código alinha o *From* a `default_from`.
+- **`mail_from`** — remetente do email (cabeçalho `From`); por omissão **`noreply@runv.club`** (não use **`entre@runv.club`**: essa conta é só SSH). Valores antigos `entre@runv.club` no TOML são normalizados para noreply. Para outro remetente verificado no Mailgun, defina explicitamente no TOML.
 - **`sendmail_path`** — normalmente `/usr/sbin/sendmail` (ramo legado; com Mailgun configurado, o envio pode ser pela API sem precisar de MTA).
 
 ## 5. Autenticação SSH para o utilizador `entre`

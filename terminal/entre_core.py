@@ -94,7 +94,9 @@ MAX_ONLINE_PRESENCE_LEN: Final[int] = 4000
 APP_VERSION: Final[str] = "0.02"
 SOURCE_TAG: Final[str] = "entre-ssh"
 # Remetente por omissão das notificações sendmail do fluxo «entre» (cabeçalho From).
-DEFAULT_MAIL_FROM: Final[str] = "entre@runv.club"
+DEFAULT_MAIL_FROM: Final[str] = "noreply@runv.club"
+# Antigo default em config.toml antigo — normalizado para noreply@runv.club
+LEGACY_MAIL_FROM_ENTRE: Final[str] = "entre@runv.club"
 
 
 class ValidationError(ValueError):
@@ -321,14 +323,26 @@ def resolve_entre_notify_recipients(
     """
     Destinatário e remetente para o email de novo pedido (fluxo entre).
 
-    Ordem: ``admin_email`` / ``mail_from`` no TOML; se ``admin_email`` vazio,
-    usa ``admin_email`` de :file:`/etc/runv-email.json`. Se o remetente efectivo
-    ainda for o default ``entre@runv.club`` e o JSON tiver ``default_from``,
-    alinha o *From* ao domínio Mailgun.
+    ``admin_email``: primeiro ``config.toml``; se vazio, ``admin_email`` em
+    :file:`/etc/runv-email.json` (setup Mailgun/msmtp). Assim não é obrigatório
+    repetir o admin no TOML.
+
+    ``mail_from``: TOML ou constante ``DEFAULT_MAIL_FROM`` (``noreply@runv.club``).
+    Valores antigos ``entre@runv.club`` no TOML são normalizados para noreply.
+    Para outro remetente (ex.: domínio Mailgun alternativo), defina ``mail_from``
+    explicitamente no TOML.
     """
     admin = str(cfg.get("admin_email", "")).strip()
     mail_raw = str(cfg.get("mail_from", DEFAULT_MAIL_FROM)).strip()
     mail_from = mail_raw or DEFAULT_MAIL_FROM
+    if mail_from.strip().lower() == LEGACY_MAIL_FROM_ENTRE.lower():
+        mail_from = DEFAULT_MAIL_FROM
+        if logger is not None:
+            logger.info(
+                "notificação: mail_from legado %s substituído por %s",
+                LEGACY_MAIL_FROM_ENTRE,
+                DEFAULT_MAIL_FROM,
+            )
 
     data: dict[str, Any] | None = None
     if RUNV_EMAIL_STATE_PATH.is_file():
@@ -346,16 +360,6 @@ def resolve_entre_notify_recipients(
             if logger is not None:
                 logger.info(
                     "notificação: admin_email obtido de %s (config.toml vazio)",
-                    RUNV_EMAIL_STATE_PATH,
-                )
-
-    if data is not None:
-        df = str(data.get("default_from", "")).strip()
-        if df and mail_from == DEFAULT_MAIL_FROM:
-            mail_from = df
-            if logger is not None:
-                logger.info(
-                    "notificação: mail_from alinhado a default_from em %s",
                     RUNV_EMAIL_STATE_PATH,
                 )
 

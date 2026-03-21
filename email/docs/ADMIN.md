@@ -13,7 +13,7 @@
 ## Mailgun — alterar email do administrador
 
 1. Edite `admin_email` em `/etc/runv-email.json`.
-2. Actualize também `admin_email` em `/opt/runv/terminal/config.toml` se usar o fluxo **entre**.
+2. Fluxo **entre:** com `admin_email` vazio no `/opt/runv/terminal/config.toml`, o `entre_app` usa o mesmo `admin_email` do JSON — não precisa duplicar. Os avisos do entre usam *From* **`noreply@runv.club`** por omissão (ou `mail_from` no TOML).
 
 ## Mailgun — rodar API key ou região
 

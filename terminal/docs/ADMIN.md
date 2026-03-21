@@ -73,7 +73,7 @@ Sugestão mínima: manter o ficheiro no sítio e só alterar `status` para audit
    - **Prioridade:** `admin_email` em `config.toml`.
    - **Fallback:** se `admin_email` no TOML estiver vazio, usa `admin_email` de `/etc/runv-email.json` (o mesmo ficheiro do Mailgun / `configure_mailgun.py`).
    - **Transporte:** [`entre_core.sendmail_notify`](../entre_core.py) tenta **primeiro** a API **Mailgun** via `lib.mailer.send_mail` quando o JSON global indica Mailgun; caso contrário usa `sendmail_path` (por omissão `/usr/sbin/sendmail`). Requisitos Mailgun: `email_package_root` ou variável `RUNV_EMAIL_ROOT` a apontar para a pasta `email/` do repositório.
-   - **Remetente:** se `mail_from` no TOML for o default `entre@runv.club` e o JSON tiver `default_from`, o *From* alinha-se a `default_from` (útil com domínio verificado no Mailgun).
+   - **Remetente:** por omissão **`noreply@runv.club`** (`mail_from` no TOML ou constante no código). Não usar `entre@runv.club` no *From* (conta SSH). Outro endereço: defina `mail_from` no `config.toml`.
 
 ### Reenviar notificação
 

@@ -65,9 +65,9 @@ Com **Mailgun**, `sendmail` é ignorado para o transporte (usa API). Com **legad
 | Ficheiro | Campos |
 |----------|--------|
 | `/etc/runv-email.json` | `backend`, `admin_email`, `default_from`, Mailgun (`mailgun_domain`, …) ou SMTP (`smtp_host`, …), `email_package_root`. |
-| `/opt/runv/terminal/config.toml` | `admin_email`, `mail_from`, `sendmail_path` — fluxo entre. |
+| `/opt/runv/terminal/config.toml` | `admin_email` (opcional se o JSON já tiver), `mail_from` (omissão **noreply@runv.club**), `sendmail_path`. |
 
-Recomenda-se o **mesmo** `admin_email` e remetente coerente com o Mailgun/domínio verificado.
+O destinatário dos avisos do **entre** pode vir só do JSON (`admin_email` vazio no TOML). O *From* dos mesmos avisos é **noreply@runv.club** por omissão (não `entre@runv.club`). Garanta esse endereço autorizado no Mailgun se usar API.
 
 ## `create_runv_user.py` / `del-user.py`
 

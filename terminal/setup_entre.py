@@ -541,7 +541,11 @@ def apply_sshd_configuration(
     if skip_sshd:
         print()
         print("== Modo --skip-sshd: configure o SSH manualmente ==")
-        print("1. Editar", install_root / "config.toml", "— especialmente admin_email.")
+        print(
+            "1. Opcional: editar",
+            install_root / "config.toml",
+            "— admin_email pode ficar vazio se /etc/runv-email.json já tiver admin_email; From padrão noreply@runv.club.",
+        )
         print("2. Criar /etc/ssh/sshd_config.d/… com o bloco abaixo.")
         print("3. sshd -t && systemctl reload ssh")
         print("4. empty-password: regra PAM por omissão (ou --skip-pam-empty-password-rule).")
@@ -860,7 +864,7 @@ def main() -> int:
         ):
             if prompt_yes(
                 f"Manter {cfg_path} com as suas definições (recomendado) ou substituir "
-                f"por config.example.toml (perde admin_email e outros valores)? Substituir? ",
+                f"por config.example.toml (repor mail_from noreply@runv.club, etc.)? Substituir? ",
                 default=False,
             ):
                 force_cfg = True
