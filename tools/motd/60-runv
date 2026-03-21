@@ -40,12 +40,13 @@ print_last_sessions_3x3() {
   fi
   tf=$(mktemp -t runvmotd.XXXXXX 2>/dev/null) || tf=/tmp/runvmotd.$$
   trap 'rm -f "$tf"' EXIT HUP INT
-  # Ignora reboot, wtmp e linhas vazias; até 9 nomes distintos (mais recentes primeiro)
+  # Ignora reboot, wtmp, entre/root (conta de pedido / admin); até 9 nomes distintos
   "$LAST_CMD" -n 500 2>/dev/null | awk '
     /^reboot/ || /^wtmp/ || /^$/ { next }
     NF < 1 { next }
     {
       u = $1
+      if (u == "entre" || u == "root") next
       if (!(u in seen)) {
         seen[u] = 1
         print u
