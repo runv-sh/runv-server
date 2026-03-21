@@ -117,6 +117,7 @@ def page_shell(
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
@@ -237,18 +238,11 @@ def main() -> int:
         article = txt_to_article_body(raw)
 
         if slug == "index":
-            toc = ['<nav class="wiki-toc" aria-label="Nesta wiki"><p class="wiki-toc-title">Páginas</p><ul>']
-            for s, lab in nav_pages:
-                if s == "index":
-                    continue
-                toc.append(
-                    f'<li><a href="/wiki/{html.escape(s, quote=True)}.html">{html.escape(lab)}</a></li>'
-                )
-            toc.append("</ul></nav>")
-            body_main = "\n".join(toc) + "\n" + article
+            # Navegação já está em hero-nav; o corpo vem só de 01_index.txt.
+            body_main = article
             out_name = "index.html"
             current = "index"
-            desc = "Mapa e índice da wiki runv.club."
+            desc = "Início da wiki runv.club: regras, contas, privacidade e FAQ."
         else:
             body_main = article
             out_name = f"{slug}.html"

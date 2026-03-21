@@ -2,17 +2,19 @@ RUNV.CLUB - CONTAS E ACESSO
 
 CADASTRO
 
+O pedido de conta segue o fluxo oficial do runv.club (por exemplo ligação SSH a entre@runv.club com a sua chave pública, conforme a página “Junte-se”); a equipa revê a fila e a conta Unix é criada pela administração — não há registo instantâneo automático na web.
+
 O cadastro deve ser feito com informações verdadeiras e minimamente consistentes.
 Criar conta com identidade falsa para enganar terceiros, burlar punição, cometer fraude ou simular legitimidade é motivo para ação da moderação.
 
 LOGIN
 
-O acesso ao sistema é individual. Cada usuário é responsável por proteger seu e-mail, senha e meios de autenticação vinculados à conta.
+O acesso ao sistema é individual e, na pubnix, baseia-se em SSH com chave pública (conta Unix sem senha de login SSH). Cada usuário é responsável por proteger seu e-mail, a chave privada SSH e quaisquer outros meios de autenticação vinculados à conta.
 
-RECUPERAÇÃO DE SENHA
+RECUPERAÇÃO DE ACESSO
 
-Se o usuário perder acesso à conta, deve usar os meios oficiais de recuperação disponíveis no sistema.
-Se ainda assim não resolver, deve contatar:
+Não há “esqueci a senha” no SSH: quem perde a chave privada, deixa de conseguir autenticar com o par que estava registado.
+Nesse caso (ou se precisar substituir a chave pública no servidor), contacte:
 admin@runv.club
 
 COMPARTILHAMENTO DE CONTA
@@ -31,11 +33,11 @@ Tudo o que for feito pela conta poderá ser atribuído ao titular até que exist
 
 BOAS PRÁTICAS DE SEGURANÇA
 
-- usar senha forte;
-- não reutilizar senha vazada em outros serviços;
-- não enviar senha por mensagem;
+- proteger a chave privada SSH (permissões restritas, sem cópias em pastas partilhadas ou repositórios);
+- não reutilizar a mesma chave privada em serviços em que não confia ou que possam vazar o material;
+- nunca enviar chave privada por mensagem (só a chave pública, quando for pedida por canal oficial);
 - não clicar em links suspeitos;
-- sair da conta em dispositivos públicos;
+- em dispositivos partilhados, encerrar a sessão SSH e não deixar a chave privada ou o agente SSH expostos sem critério;
 - reportar acesso estranho imediatamente.
 
 ACESSO SUSPENSO OU BLOQUEADO

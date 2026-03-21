@@ -1,12 +1,24 @@
-runv.club — a sua conta foi criada
+runv.club — bem-vindo(a)
 
 Olá {username},
 
 A sua conta no runv.club foi criada.
 
-Email associado (metadado administrativo): {email}
+O endereço {email} é o contacto que temos em registo (metadado administrativo).
 
-Instruções de acesso (SSH, palavra-passe inicial, etc.) seguem a política do servidor — consulte a documentação ou a mensagem que lhe foi enviada separadamente.
+Acesso por SSH
+----------------
+Para entrar no servidor, utilize a **chave privada OpenSSH** que corresponde à chave pública que registou.
+Nunca envie nem partilhe essa chave privada com terceiros.
+
+Impressão digital da chave pública no nosso sistema: {fingerprint}
+
+{ssh_instructions}
+
+Espaço web
+----------
+A sua página de membro deverá estar disponível em:
+{member_url}
 
 Cumprimentos,
 Equipa runv.club

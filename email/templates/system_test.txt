@@ -4,7 +4,8 @@ Este é um email automático de verificação do subsistema de envio.
 
 Administrador: {admin_email}
 Remetente configurado: {default_from}
-Host SMTP registado: {host}
+Domínio / host registado: {host}
+URL base API (se Mailgun): {api_base_url}
 Timestamp UNIX: {timestamp}
 
-Se recebeu esta mensagem, msmtp/sendmail e a biblioteca estão operacionais.
+Se recebeu esta mensagem, o backend configurado (Mailgun API ou SMTP legado) e a biblioteca estão operacionais.

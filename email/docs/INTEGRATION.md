@@ -1,5 +1,7 @@
 # Integração — email com o resto do runv-server
 
+**Predefinição:** envio via **Mailgun HTTP API** quando `/etc/runv-email.json` indica `backend: mailgun` (ou contém `mailgun_domain` + `mailgun_region` sem `backend: sendmail`). Caso contrário, `lib.mailer` usa **sendmail** (msmtp legado).
+
 ## Variável de ambiente
 
 Defina **`RUNV_EMAIL_ROOT`** como caminho absoluto para a pasta **`email/`** do repositório (a que contém `lib/` e `templates/`).
@@ -7,6 +9,8 @@ Defina **`RUNV_EMAIL_ROOT`** como caminho absoluto para a pasta **`email/`** do 
 ```bash
 export RUNV_EMAIL_ROOT=/srv/runv-server/email
 ```
+
+O configurador Mailgun grava também **`email_package_root`** em `/etc/runv-email.json`. O fluxo **`entre`** usa esse campo (ou `RUNV_EMAIL_ROOT`) para importar `lib.mailer` e enviar via API quando Mailgun está activo.
 
 Em Python, antes de importar:
 
@@ -25,103 +29,57 @@ from lib.mailer import (
 from lib import templates as T
 ```
 
-**Nunca** use `shell=True` em `subprocess` para envio; a biblioteca já invoca `sendmail` com lista de argumentos.
+**Nunca** use `shell=True` em `subprocess` para envio; a biblioteca usa urllib (Mailgun) ou `sendmail` com lista de argumentos.
 
 ## API resumida (`lib/mailer.py`)
 
 | Função | Uso |
 |--------|-----|
 | `render_template(nome, **kwargs)` | Lê `templates/<nome>.txt` e substitui `{placeholders}`. |
-| `send_mail(to, subject, body, from_addr=..., sendmail=..., headers=...)` | Mensagem texto; `to` pode ser string ou lista. |
-| `send_admin_notice(template, admin_email, subject=..., from_addr=..., **kwargs)` | Template → admin. |
-| `send_user_notice(template, user_email, subject=..., from_addr=..., **kwargs)` | Template → utilizador. |
+| `send_mail(to, subject, body, from_addr=..., html=..., sendmail=..., headers=..., _state=...)` | Texto; `html` opcional (Mailgun). `to` string ou lista. `_state` evita reler disco (testes / entre). |
+| `send_admin_notice(..., html_body=...)` | Template → admin. |
+| `send_user_notice(..., html_body=...)` | Template → utilizador. |
 
-`sendmail` por defeito: `/usr/sbin/sendmail` (msmtp-mta).
+Com **Mailgun**, `sendmail` é ignorado para o transporte (usa API). Com **legado**, `sendmail` por defeito: `/usr/sbin/sendmail`.
 
 ## Mapa evento → template → script
 
 | Evento | Template(s) | Onde disparar |
 |--------|-------------|----------------|
-| Novo pedido na fila `entre` | `admin_new_request` → admin; opcional `user_request_received` → email do visitante | Após `save_request_json` em [`terminal/entre_core.py`](../../terminal/entre_core.py) / [`entre_app.py`](../../terminal/entre_app.py). **Hoje** só há email admin via `sendmail_notify` + `admin_mail.txt` — manter compatível ou migrar para templates deste módulo. |
-| Pedido aprovado (manual) | `user_approved` | Processo admin / script que marca pedido aprovado. |
+| Novo pedido na fila `entre` | `admin_new_request` → admin; opcional `user_request_received` → visitante | Após `save_request_json` em [`terminal/entre_core.py`](../../terminal/entre_core.py) / [`entre_app.py`](../../terminal/entre_app.py). **Hoje** email admin via `sendmail_notify` + `admin_mail.txt` — com Mailgun, `sendmail_notify` tenta **primeiro** a API se o estado global o indicar. |
+| Pedido aprovado (manual) | `user_approved` | Processo admin. |
 | Pedido rejeitado | `user_rejected` (+ `reason`) | Idem. |
-| Conta criada | `admin_user_created`, `user_account_created` | Final com sucesso de [`scripts/admin/create_runv_user.py`](../../scripts/admin/create_runv_user.py). |
-| Conta removida | `admin_user_deleted`, `user_account_removed` | Final de [`scripts/admin/del-user.py`](../../scripts/admin/del-user.py) (se tiver email em metadados para o utilizador). |
-| Erro operacional | `admin_error` | Blocos `except` em scripts admin ou cron. |
-| Quota | `user_quota_warning` | Monitorização de disco / `update_user` / quotas. |
-| Teste | `system_test` | `configure_msmtp.py --test` ou scripts de CI manual. |
+| Conta criada | `admin_user_created`, `user_account_created` | [`scripts/admin/create_runv_user.py`](../../scripts/admin/create_runv_user.py). |
+| Conta removida | `admin_user_deleted`, `user_account_removed` | [`scripts/admin/del-user.py`](../../scripts/admin/del-user.py). |
+| Erro operacional | `admin_error` | Scripts admin / cron. |
+| Quota | `user_quota_warning` | Monitorização / quotas. |
+| Teste | `system_test` | `configure_mailgun.py --test` (API) ou legado. |
 
 ## Fluxo **entre** (terminal)
 
-- **Comportamento actual:** [`entre_core.sendmail_notify`](../../terminal/entre_core.py) envia corpo já montado a partir de `templates/admin_mail.txt`, via `sendmail -t -i`.
-- **Compatibilidade:** Depois de configurar este módulo, `/usr/sbin/sendmail` passa a ser o msmtp — **nenhuma alteração obrigatória** no código `entre` se `sendmail_path` em `config.toml` for `/usr/sbin/sendmail`.
-- **Opcional:** Unificar com `send_admin_notice(T.ADMIN_NEW_REQUEST, ...)` e placeholders alinhados ao JSON do pedido — exige refactor pequeno em `entre_app.py` e testes.
+- **`entre_core.sendmail_notify`** tenta primeiro envio **Mailgun** se `/etc/runv-email.json` for compatível e se `email_package_root` ou `RUNV_EMAIL_ROOT` permitir importar `lib.mailer`.
+- Se Mailgun não aplicável ou falhar o ramo API, usa **`sendmail -t -i`** como antes (requer msmtp-mta no modo legado).
 
-### Exemplo (opcional) — notificação admin com template do módulo
-
-```python
-# Pseudocódigo: após gravação do pedido
-send_admin_notice(
-    T.ADMIN_NEW_REQUEST,
-    admin_email,
-    subject="[runv.club] Novo pedido",
-    from_addr=mail_from,
-    request_id=request_id,
-    timestamp=...,
-    username=username,
-    email=email,
-    fingerprint=fingerprint,
-)
-```
-
-Para email ao **visitante** (`user_request_received`), é preciso endereço válido do utilizador (já recolhido no fluxo).
-
-## `create_runv_user.py`
-
-Após criação bem-sucedida da conta (e sabendo `email` metadado e `admin_email` de config ou estado):
-
-```python
-send_admin_notice(
-    T.ADMIN_USER_CREATED,
-    admin_email,
-    subject="[runv.club] Conta criada",
-    from_addr=default_from,
-    username=username,
-    email=user_email,
-    operator_info="create_runv_user.py",
-    timestamp=str(int(time.time())),
-)
-send_user_notice(
-    T.USER_ACCOUNT_CREATED,
-    user_email,
-    subject="[runv.club] A sua conta",
-    from_addr=default_from,
-    username=username,
-    email=user_email,
-)
-```
-
-Obtenha `admin_email` / `default_from` de `/etc/runv-email.json` ou de variáveis de ambiente definidas pelo operador — **não** hardcodar.
-
-## `del-user.py`
-
-Após remoção bem-sucedida:
-
-- `send_admin_notice(T.ADMIN_USER_DELETED, ...)`
-- Se existir email de contacto em metadados: `send_user_notice(T.USER_ACCOUNT_REMOVED, ...)`.
-
-## Configuração paralela com `entre`
+### Coerência de configuração
 
 | Ficheiro | Campos |
 |----------|--------|
-| `/etc/runv-email.json` | `admin_email`, `default_from` — estado global runv. |
+| `/etc/runv-email.json` | `backend`, `admin_email`, `default_from`, Mailgun (`mailgun_domain`, …) ou SMTP (`smtp_host`, …), `email_package_root`. |
 | `/opt/runv/terminal/config.toml` | `admin_email`, `mail_from`, `sendmail_path` — fluxo entre. |
 
-Recomenda-se manter **o mesmo** `admin_email` e remetente coerente entre ambos.
+Recomenda-se o **mesmo** `admin_email` e remetente coerente com o Mailgun/domínio verificado.
+
+## `create_runv_user.py` / `del-user.py`
+
+O **`create_runv_user.py`** envia por omissão um email de **boas-vindas** ao utilizador (`user_account_created`), com instruções para aceder por SSH com a **chave privada** correspondente à chave pública registada. Requer `/etc/runv-email.json` e módulo `email/` acessível; `--no-welcome-email` para desactivar; `--welcome-ssh-host` ou `RUNV_WELCOME_SSH_HOST` para um comando `ssh` explícito.
+
+Obtenha `admin_email` / `default_from` de `/etc/runv-email.json` — **não** hardcodar.
+
+Ver exemplos na versão anterior deste documento para `send_admin_notice` / `send_user_notice` adicionais.
 
 ## Checklist de integração
 
-- [ ] `RUNV_EMAIL_ROOT` definido em cron/systemd que invoque scripts Python.
-- [ ] `sendmail` = msmtp testado com `configure_msmtp.py --test`.
+- [ ] `RUNV_EMAIL_ROOT` ou `email_package_root` correcto para serviços Python e **entre**.
+- [ ] `sudo python3 configure_mailgun.py --test` (ou legado) com sucesso.
 - [ ] Templates revistos (português, placeholders).
-- [ ] Nenhum segredo em logs ou `print()`.
+- [ ] Nenhum segredo em logs ou `print()` (API key só em ficheiro 0600 ou env).

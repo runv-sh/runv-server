@@ -8,7 +8,7 @@ Visão para **quem entra no servidor** pela primeira vez (e para quem documenta 
    - logótipo **RUNV** (mesmo desenho UTF-8 da landing) **só nesse bloco** em verde;
    - tagline `.club — um computador para compartilhar` (sem estatísticas no MOTD; o comando **`runv-status`** existe mas **não** é listado aqui e só o utilizador **`pmurad-admin`** pode executá-lo);
    - **Comandos úteis** em lista, com nome a verde e descrição a cinza (ANSI), alinhada ao texto do `runv-help`;
-   - grelha **3×3** com os **primeiros campos** das **9** sessões mais recentes de **`last`** (wtmp; ignora linhas `reboot` / `wtmp`). O script tenta **`/usr/bin/last`** se o PATH de `update-motd.d` não incluir `last` (pacote **util-linux**). Se aparecer *sem registos recentes em wtmp*, o ficheiro de logins ainda não tem entradas (ex.: sem logins SSH registados).
+   - grelha **3×3** com os **primeiros campos** das **9** sessões mais recentes de **`last`** (wtmp; ignora linhas `reboot` / `wtmp`). Em **Debian 13+**, o binário **`last`** vem do pacote **`wtmpdb`** (o `tools.py` instala-o). O fragmento tenta **`/usr/bin/last`** se o PATH de `update-motd.d` não incluir `last`. Se aparecer *sem registos recentes em wtmp*, o ficheiro de logins ainda não tem entradas (ex.: sem logins SSH registados).
    - linha final: **digite `runv-help` para começar**.
 
 2. **Prompt da shell** — Depende do shell padrão (geralmente Bash no Debian). O que o usuário **herda** da home vem do **`/etc/skel`** no momento em que a conta foi criada.
@@ -25,11 +25,12 @@ Todos são **shell scripts** em **`/usr/local/bin`**, com cores ANSI simples, te
 
 ## O que o usuário recebe na home (contas novas)
 
-Quando um administrador cria a conta com **`adduser`**, o Debian copia **`/etc/skel`** para a home. Depois de rodar o módulo **`tools/`**, o skel inclui:
+Quando um administrador cria a conta com **`adduser`**, o Debian copia **`/etc/skel`** para a home. Depois de rodar o módulo **`tools/`**, o skel inclui (entre o que o Debian já traz, como `.bashrc` quando aplicável):
 
-- **`README.md`** — explicação acolhedora: site em `~/public_html`, permissões, `runv-help`, aviso sobre arquivos públicos.
 - **`.bash_aliases`** — atalhos (`ll`, `la`, `l`, `help-runv`).
 - **`public_html/index.html`** — página inicial mínima em HTML estático (sem JS, sem CDN), em português.
+
+**Não** há **`README.md`** no skel runv: orientação inicial está no **MOTD** e no comando **`runv-help`**. Quem quiser um README na home pode criar manualmente ou o admin pode usar **`create_runv_user.py --with-readme`** ao provisionar.
 
 **Observação:** no Bash do Debian, o arquivo **`~/.bashrc`** costuma ter (por padrão) um bloco que carrega **`~/.bash_aliases`** se existir. Se o usuário remover esse trecho do `.bashrc`, os aliases deixam de carregar — isso é comportamento padrão do Debian, não do runv.
 
@@ -50,8 +51,7 @@ Pacotes listados em **`manifests/apt_packages.txt`** (incluindo ferramentas de t
 ## Como isso ajuda iniciantes
 
 - **MOTD** orienta na hora do login (**`runv-help`**).
-- **`README.md`** na home repete conceitos com calma (site, permissões).
-- **`runv-links`** centraliza URLs oficiais.
+- **`runv-help`** e **`runv-links`** explicam o pubnix, permissões e URLs oficiais.
 - Administradores com a conta **`pmurad-admin`** podem usar **`runv-status`** para contexto do servidor (outros utilizadores recebem recusa explícita).
 
 Juntos, reduzem fricção para quem nunca usou pubnix ou SSH no dia a dia.

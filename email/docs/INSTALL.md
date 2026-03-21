@@ -1,95 +1,112 @@
 # Instalação — módulo email runv.club
 
-Debian 13 (ou próximo). **Apenas envio** — SMTP externo via **msmtp**; interface **`/usr/sbin/sendmail`**.
+**Aviso: o configurador predefinido foi feito para Mailgun.** Não embute credenciais, domínios nem chaves — tudo é pedido em tempo de configuração.
 
-## Dependências
+Debian 13 (ou próximo). **Apenas envio** — caminho predefinido **Mailgun HTTP API** (Basic Auth: utilizador `api`, palavra-passe = API key). O modo **SMTP/msmtp + sendmail** permanece disponível como **legado**, desativado por predefinição.
 
-Instaladas automaticamente por `configure_msmtp.py`:
+## O que o predefinido faz (Mailgun)
 
-- `msmtp`, `msmtp-mta`, `ca-certificates`, `bsd-mailx`
+- Grava metadados em **`/etc/runv-email.json`** (0600, root): domínio Mailgun, região `us` ou `eu`, URL base da API, remetente padrão, email do admin, tipo de chave, caminho da pasta `email/` do repositório (`email_package_root`), etc. **Sem API key neste ficheiro.**
+- Grava segredos em **`/etc/runv-email.secrets.json`** (0600, root): apenas `mailgun_api_key`. **Não partilhar nem fazer backup deste ficheiro para repositórios públicos.**
 
-**Porque `bsd-mailx` e não `mailutils`?** O meta-pacote `mailutils` no Debian **recomenda** `default-mta`, o que em instalações interativas pode puxar **Postfix ou Exim**. O objetivo aqui é **não** ter servidor de correio local — só um cliente que invoque `sendmail` (na prática msmtp).
+### API key em variável de ambiente (opcional)
 
-## Pré-requisitos
+Em tempo de execução, **`RUNV_MAILGUN_API_KEY`** (se definida) **tem prioridade** sobre o ficheiro de segredos. Útil para systemd ou contentores; o estado público pode continuar a referir `api_key_source: file` — o runtime usa na mesma a env quando presente.
 
-- Acesso **root** ao servidor.
-- Conta SMTP relay (qualquer fornecedor — não é assumido no código).
-- Firewall a permitir saída TCP para o host/porta SMTP.
+### Mailgun: SMTP vs HTTP API
 
-## Executar o instalador
+- **Credenciais SMTP** do painel Mailgun são para clientes SMTP (ex.: msmtp); **não** são o mesmo fluxo que a API HTTP.
+- A **HTTP API** usa autenticação **HTTP Basic**: username fixo **`api`**, password = **API key** (primary ou domain sending key).
+- **US:** `https://api.mailgun.net/v3/<domínio>/messages`
+- **EU:** `https://api.eu.mailgun.net/v3/<domínio>/messages`
+
+Escolha a região no painel Mailgun (conta EU vs US); o script **pergunta explicitamente** `us` ou `eu` — não adivinha em silêncio.
+
+### Obter uma API key
+
+1. Painel Mailgun → domínio → **Domain settings** / **Sending API keys**.
+2. Preferir **domain sending key** (menor privilégio) se só precisar de enviar desse domínio; **primary API key** também funciona se tiver permissão de envio.
+
+## Executar o configurador (predefinido)
 
 ```bash
 cd /caminho/para/runv-server/email
-sudo python3 configure_msmtp.py
+sudo python3 configure_mailgun.py
 ```
 
-O script pergunta (de forma genérica):
+No arranque é mostrado o aviso de que o script foi feito para Mailgun e **não** pré-configura credenciais.
 
-- host e porta SMTP;
-- TLS e STARTTLS (sim/não);
-- autenticação (sim/não), utilizador e senha/token (**não ecoa**);
+O script pergunta:
+
+- tipo de chave (domain sending vs primary);
+- domínio de envio Mailgun (ex.: `mg.exemplo.com`);
+- região da API: **`us`** ou **`eu`**;
+- API key (**não ecoa**);
 - remetente padrão (From);
-- email do administrador.
+- email do administrador (notificações / teste);
+- caminho da pasta **`email/`** do repositório (para importações, ex. fluxo `entre` — por omissão é a pasta onde está o script).
 
-Gera (com backup se já existir):
+## Ficheiros criados (Mailgun)
 
 | Ficheiro | Descrição |
 |----------|-----------|
-| `/etc/msmtprc` | Conta `runv`, `default : runv`, log, aliases. **0600** root. |
-| `/root/.netrc` | Entrada `machine <host>` com `login` e `password`. **0600** root. |
-| `/etc/msmtp_aliases` | `root`, `cron`, `default` → email do admin. **0644** root. |
-| `/etc/runv-email.json` | Metadados **sem segredos** (`admin_email`, `default_from`, host) para `--test`. **0600** root. |
-| `/usr/local/lib/runv-email/netrc_password.py` | Helper para `passwordeval` ler a senha do `.netrc`. |
+| `/etc/runv-email.json` | Metadados **sem** API key. **0600** root. |
+| `/etc/runv-email.secrets.json` | `mailgun_api_key`. **0600** root. **World-readable proibido.** |
 
-## Flags
+## Flags (`configure_mailgun.py`)
 
 | Flag | Efeito |
 |------|--------|
-| `--dry-run` | Mostra acções; não grava ficheiros nem apt (exceto prompts interactivos). |
-| `--verbose` / `-v` | Log DEBUG. |
-| `--force` / `-f` | Sobrescreve sem confirmar. |
-| `--test` | Só envia [system_test.txt](../templates/system_test.txt) usando estado existente. |
-| `--skip-apt` | Não corre `apt-get` (útil se pacotes já instalados). |
+| `--dry-run` | Não grava ficheiros; mostra acções. |
+| `--verbose` / `-v` | Log DEBUG (nunca inclui a API key). |
+| `--force` / `-f` | Sobrescreve estado/segredos sem confirmar. |
+| `--test` | Só envia `templates/system_test.txt` via **Mailgun API** (requer estado existente). |
+| `--legacy-smtp` | Delega no configurador **SMTP/msmtp** (`configure_msmtp_legacy.py`). |
 
-Exemplo de teste após configuração:
-
-```bash
-sudo python3 configure_msmtp.py --test
-```
-
-## Verificar `/etc/msmtprc`
+## Teste de envio (API)
 
 ```bash
-sudo ls -l /etc/msmtprc
-sudo msmtp --version
-# Conteúdo (sem partilhar publicamente):
-# sudo cat /etc/msmtprc
+sudo python3 configure_mailgun.py --test
 ```
 
-Deve conter `tls_trust_file`, `account runv`, `account default : runv`, e se usar auth, `passwordeval` apontando para `/usr/local/lib/runv-email/netrc_password.py HOST`.
+Em caso de falha, mensagens típicas:
 
-## Verificar `/root/.netrc`
+- **401 / 403** — API key inválida ou sem permissão para o domínio/região.
+- **400** — payload inválido; From não autorizado no domínio; campos em falta.
+- **404** — domínio errado ou URL/região incorreta (US vs EU).
+- **Timeout / erro de rede** — DNS, firewall ou TLS.
+
+## Modo legado: SMTP + msmtp + sendmail
+
+Apenas se precisar de relay SMTP clássico:
 
 ```bash
-sudo ls -l /root/.netrc   # deve ser -rw------- root root
+sudo python3 configure_mailgun.py --legacy-smtp
+# ou directamente:
+sudo python3 configure_msmtp_legacy.py
 ```
 
-A linha `machine` deve ser **exactamente** o mesmo hostname que o campo `host` no msmtprc (o helper recebe esse host como argumento).
+Instala `msmtp`, `msmtp-mta`, `ca-certificates`, `bsd-mailx`, gera `/etc/msmtprc`, `/root/.netrc`, `/etc/msmtp_aliases`, e grava `/etc/runv-email.json` com **`backend: sendmail`**.
 
-## Verificar `sendmail`
+**`configure_msmtp.py`** (sem `_legacy`) é apenas um **encaminhamento** com mensagem a indicar os comandos correctos.
+
+## Verificação rápida (Mailgun)
 
 ```bash
-ls -l /usr/sbin/sendmail
-readlink -f /usr/sbin/sendmail
+sudo ls -l /etc/runv-email.json /etc/runv-email.secrets.json
+# Ambos devem ser -rw------- root root
+sudo python3 configure_mailgun.py --test
 ```
 
-Deve resolver para o binário **msmtp** (pacote `msmtp-mta`).
+Nunca imprima o conteúdo de `runv-email.secrets.json` em chats ou logs públicos.
 
-## Testar envio
+## Biblioteca Python (`lib/mailer.py`)
 
-1. `sudo python3 configure_msmtp.py --test`
-2. Ou: `sudo sh scripts/send_test_mail.sh admin@seu-dominio`
-3. Ou linha directa (Python), com `RUNV_EMAIL_ROOT`:
+Com **`backend: mailgun`** no estado, `send_mail` usa a API Mailgun (urllib, stdlib). Com **`backend: sendmail`** ou estado antigo só com `smtp_host`, usa `sendmail -t -i`.
+
+Defina **`RUNV_EMAIL_ROOT`** para a pasta `email/` ao importar em scripts (ou use `email_package_root` em `/etc/runv-email.json` — o fluxo `entre` tenta ambos).
+
+Exemplo:
 
 ```bash
 sudo RUNV_EMAIL_ROOT=/caminho/runv-server/email python3 -c "
@@ -100,16 +117,13 @@ send_mail('voce@exemplo.com', 'Teste', 'Corpo.', from_addr='noreply@exemplo.com'
 "
 ```
 
-## Aliases msmtp
+## Variáveis de ambiente úteis
 
-O ficheiro `/etc/msmtp_aliases` usa o formato **msmtp** (`local: email@externo`). **Não** é o mesmo que aliases Sendmail; **`newaliases` não aplica** aqui. Qualquer alteração: editar o ficheiro e manter coerência com a directiva `aliases` no `msmtprc`.
-
-## Checklist pós-instalação
-
-- [ ] Pacotes `msmtp`, `msmtp-mta`, `ca-certificates`, `bsd-mailx` instalados.
-- [ ] `/usr/sbin/sendmail` → msmtp.
-- [ ] Permissões 600 em `/etc/msmtprc` e `/root/.netrc`.
-- [ ] Email de teste recebido.
-- [ ] [INTEGRATION.md](INTEGRATION.md) lido se for integrar com `entre` ou scripts admin.
+| Variável | Uso |
+|----------|-----|
+| `RUNV_EMAIL_ROOT` | Caminho da pasta `email/` (import `lib.*`). |
+| `RUNV_EMAIL_STATE_PATH` | Alternativa a `/etc/runv-email.json` (testes). |
+| `RUNV_EMAIL_SECRETS_PATH` | Alternativa ao caminho de segredos indicado no estado. |
+| `RUNV_MAILGUN_API_KEY` | API key em memória/ambiente (sobrepor ficheiro de segredos). |
 
 Próximo: [ADMIN.md](ADMIN.md) para operação corrente.

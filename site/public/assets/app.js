@@ -1,8 +1,8 @@
 /**
  * Landing runv.club — carrega members.json (só dados públicos) e coloca
  * pontos clicáveis (links) fora da coluna de texto; brilho ligado à data since.
- * Pontos dentro de #starfield (fixed fullscreen); cada um position:absolute — sem transform no CSS.
- * Não recalculam ao scroll — só em resize.
+ * Pontos no fundo do documento: #starfield é absolute dentro de .page-root (rolam com a página).
+ * Recalculam em resize e quando a altura do .page-root muda (ResizeObserver).
  * Array vazio: sem estrelas até build_directory.py gerar o JSON a partir de users.json.
  */
 
@@ -52,12 +52,11 @@ function pointInRect(x, y, rect) {
 }
 
 /**
- * Rect da coluna de conteúdo fixo no viewport (mesma ideia que .wrap: 46rem + padding).
- * Independente do scroll — evita que as bolinhas «saltem» ao rolar a página.
+ * Faixa central de texto (como .wrap) em coordenadas do contentor da página — altura total do documento.
  */
-function viewportFixedContentExcludeRect() {
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
+function documentColumnExcludeRect(hostEl) {
+  const vw = hostEl ? hostEl.offsetWidth : window.innerWidth;
+  const h = hostEl ? hostEl.offsetHeight : window.innerHeight;
   const rootFs = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
   const maxBlock = 46 * rootFs;
   const pad = Math.min(Math.max(rootFs, vw * 0.04), 1.35 * rootFs);
@@ -67,13 +66,13 @@ function viewportFixedContentExcludeRect() {
     left,
     top: 0,
     right: left + contentW,
-    bottom: vh,
+    bottom: h,
   };
 }
 
 /**
- * Posição para um ponto: fora da coluna central (viewport), com fallback para
- * faixas laterais ou cantos quando o ecrã é estreito.
+ * Posição para um ponto: fora da coluna central (área w×h do contentor), com fallback
+ * para faixas laterais ou cantos quando o ecrã é estreito.
  */
 function findStarPosition(w, h, seed, exclude) {
   const edge = 14;
@@ -141,12 +140,13 @@ function renderStarLinks(container, members) {
 
   if (!container) return;
 
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  const host = container.parentElement;
+  const w = host ? host.offsetWidth : window.innerWidth;
+  const h = host ? host.offsetHeight : window.innerHeight;
   if (w < 32 || h < 32) return;
 
   const pad = 36;
-  const exclude = inflateRect(viewportFixedContentExcludeRect(), pad);
+  const exclude = inflateRect(documentColumnExcludeRect(host), pad);
 
   for (const m of validMembers(members)) {
     const seed = hashUsername(m.username);
@@ -193,6 +193,12 @@ async function main() {
   scheduleStars();
 
   window.addEventListener("resize", scheduleStars, { passive: true });
+
+  const host = starRoot?.parentElement;
+  if (host && typeof ResizeObserver !== "undefined") {
+    const ro = new ResizeObserver(() => scheduleStars());
+    ro.observe(host);
+  }
 }
 
 document.addEventListener("DOMContentLoaded", main);

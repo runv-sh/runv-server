@@ -31,10 +31,7 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
-# ---------------------------------------------------------------------------
-# Constantes
-# ---------------------------------------------------------------------------
-
+# constantes
 USERNAME_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[a-z][a-z0-9_-]{1,31}$")
 
 # Contas de sistema / serviço — nunca remover por engano
@@ -73,11 +70,7 @@ EXIT_SYSTEM: Final[int] = 2
 MIN_UID_NORMAL_USER: Final[int] = 1000
 
 
-# ---------------------------------------------------------------------------
-# Validação e privilégios
-# ---------------------------------------------------------------------------
-
-
+# validação / root
 def validate_privileges() -> None:
     if os.geteuid() != 0:
         print(
@@ -152,10 +145,7 @@ def confirm_interactive(username: str) -> bool:
     return typed == username
 
 
-# ---------------------------------------------------------------------------
-# Gemini (bind mount / symlink legado em /var/gemini/users)
-# ---------------------------------------------------------------------------
-
+# Gemini (bind em /var/gemini/users)
 GEMINI_USERS_DIR: Final[Path] = Path("/var/gemini/users")
 FSTAB_PATH: Final[Path] = Path("/etc/fstab")
 _GEMINI_BIND_FSTAB_RE: Final[re.Pattern[str]] = re.compile(
@@ -251,11 +241,7 @@ def remove_gemini_user_symlink(username: str, *, dry_run: bool, verbose: bool) -
         )
 
 
-# ---------------------------------------------------------------------------
-# deluser
-# ---------------------------------------------------------------------------
-
-
+# deluser / quota
 def clear_user_quota_before_removal(
     username: str,
     home: Path,
@@ -359,11 +345,7 @@ def run_deluser(
         print(r.stdout.rstrip())
 
 
-# ---------------------------------------------------------------------------
-# Metadados runv (users.json)
-# ---------------------------------------------------------------------------
-
-
+# users.json
 def remove_user_metadata(
     metadata_path: Path,
     lock_path: Path,
@@ -445,11 +427,7 @@ def remove_user_metadata(
         lock_f.close()
 
 
-# ---------------------------------------------------------------------------
 # CLI
-# ---------------------------------------------------------------------------
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Remove permanentemente um utilizador Unix (banimento, runv.club).",

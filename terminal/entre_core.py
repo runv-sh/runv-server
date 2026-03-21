@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-Lógica partilhada do fluxo SSH «entre» (runv.club): validação, fila, log, email.
+Coisas comuns ao login «entre»: validar username/email/chave, escrever JSON na fila, log, mail.
 
-Mantido alinhado com as regras de ``scripts/admin/create_runv_user.py`` (username,
-email, tipos de chave). Campo ``online_presence`` é texto livre na fila (não duplicado
-em ``create_runv_user``). Sem dependências PyPI.
+Regras de nome e chave batem com o que ``create_runv_user.py`` aceita; o texto ``online_presence``
+só existe aqui na fila. PyPI não entra.
 
-Versão 0.02 — runv.club
+v0.02 — runv.club
 """
 
 from __future__ import annotations
@@ -14,6 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys
 import time
 import pwd
 import re
@@ -310,6 +310,66 @@ def log_session(logger: logging.Logger, msg: str, *, level: int = logging.INFO) 
     logger.log(level, msg)
 
 
+def _try_runv_mailgun_notify(
+    *,
+    admin_email: str,
+    mail_from: str,
+    subject: str,
+    body: str,
+    logger: logging.Logger,
+) -> bool:
+    """
+    Se ``/etc/runv-email.json`` indicar Mailgun, envia via ``lib.mailer.send_mail``.
+    Requer ``RUNV_EMAIL_ROOT`` ou ``email_package_root`` no JSON apontando à pasta ``email/``.
+    """
+    state_path = Path("/etc/runv-email.json")
+    if not state_path.is_file():
+        return False
+    try:
+        data = json.loads(state_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    be = str(data.get("backend", "")).lower()
+    mailgun = be == "mailgun" or (
+        bool(data.get("mailgun_domain"))
+        and bool(data.get("mailgun_region"))
+        and be != "sendmail"
+    )
+    if not mailgun:
+        return False
+    root = os.environ.get("RUNV_EMAIL_ROOT", "").strip()
+    if not root:
+        root = str(data.get("email_package_root", "")).strip()
+    if not root:
+        logger.warning(
+            "notificação Mailgun: defina email_package_root em %s ou a variável RUNV_EMAIL_ROOT.",
+            state_path,
+        )
+        return False
+    email_root = str(Path(root).resolve())
+    if email_root not in sys.path:
+        sys.path.insert(0, email_root)
+    try:
+        from lib.mailer import send_mail
+    except ImportError as e:
+        logger.warning("notificação Mailgun: import lib.mailer falhou: %s", e)
+        return False
+    from_addr = mail_from.strip() or DEFAULT_MAIL_FROM
+    try:
+        send_mail(
+            admin_email.strip(),
+            subject,
+            body,
+            from_addr=from_addr,
+            _state=data,
+        )
+    except Exception as e:
+        logger.warning("notificação Mailgun falhou: %s", e)
+        return False
+    logger.info("notificação por email (Mailgun API) enviada para %s", admin_email)
+    return True
+
+
 def sendmail_notify(
     *,
     admin_email: str,
@@ -321,6 +381,14 @@ def sendmail_notify(
 ) -> None:
     if not admin_email.strip():
         logger.info("notificação por email: admin_email vazio, ignorado.")
+        return
+    if _try_runv_mailgun_notify(
+        admin_email=admin_email,
+        mail_from=mail_from,
+        subject=subject,
+        body=body,
+        logger=logger,
+    ):
         return
     if not Path(sendmail_path).is_file():
         logger.warning(

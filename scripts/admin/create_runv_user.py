@@ -11,12 +11,13 @@ Contrato de provisionamento (ordem garantida após validação):
    ``--force-gopher``); ``index.gmi`` só é criado se ainda não existir (nunca substituído);
    bind mount ``/var/gemini/users/<user>`` <- ``~/public_gemini`` quando o directório global existir
    (``--force-gemini`` força migração de symlink / remount).
-5. **Copiar o skel** — o Debian copia ``/etc/skel`` para a home **durante** o passo 1; depois,
-   após os diretórios públicos, o script acrescenta ``README.md`` runv (português), sem apagar o que
-   veio do skel (use ``--force-readme`` para substituir). Prepare ``/etc/skel`` com ``tools.py``
-   antes das contas, se for política do servidor.
-6. **Aplicar permissões** — ``apply_runv_permissions``: home, ``.ssh``, sites públicos e README com modos
-   e donos corretos, antes da quota e da verificação final.
+5. **Skel Debian** — copiado no passo 1; o skel runv (``tools.py``) **não** inclui ``README.md`` por
+   política. Opcionalmente ``--with-readme`` cria ``~/README.md`` (``--force-readme`` substitui se existir).
+6. **Aplicar permissões** — ``apply_runv_permissions``: home, ``.ssh``, sites públicos e, se existir,
+   ``README.md``, antes da **jail** (grupo ``runv-jailed``, Jailkit, bind, fstab), quota e verificação final.
+7. **Jail SSH** — por omissão: ``usermod -aG runv-jailed``, ``/srv/jail/<user>``, ``jk_init``,
+   bind de ``/home/<user>`` em ``/srv/jail/<user>/home/<user>``, fstab. Exclui ``entre`` e
+   ``pmurad-admin``. ``--no-jail`` desliga.
 
 Quota ext4, metadados JSON e logging seguem após estes passos.
 
@@ -64,10 +65,9 @@ _REPO_ROOT = _SCRIPT_DIR.parent.parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
-# ---------------------------------------------------------------------------
-# Constantes
-# ---------------------------------------------------------------------------
+import runv_jail
 
+# constantes
 USERNAME_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[a-z][a-z0-9_-]{1,31}$")
 
 # Email pragmático (não RFC completo)
@@ -151,11 +151,7 @@ class QuotaNotAvailableError(ValidationError):
     """Sistema de quotas não preparado (ext4 usrquota ausente, ferramentas, etc.)."""
 
 
-# ---------------------------------------------------------------------------
-# Validação de username / email
-# ---------------------------------------------------------------------------
-
-
+# validação username / email
 def validate_username(username: str) -> str:
     """
     Valida username conservador; rejeita vazio, reservados e contas existentes.
@@ -200,11 +196,7 @@ def validate_email(email: str) -> str:
     return e
 
 
-# ---------------------------------------------------------------------------
-# Chave pública OpenSSH
-# ---------------------------------------------------------------------------
-
-
+# chave pública OpenSSH
 def normalize_public_key(raw: str) -> str:
     """
     Aceita uma única linha OpenSSH authorized_keys.
@@ -296,11 +288,7 @@ def read_public_key_from_args(pub: str | None, pub_file: Path | None) -> str:
     raise ValidationError("forneça --public-key ou --public-key-file")
 
 
-# ---------------------------------------------------------------------------
-# Caminhos seguros sob /home
-# ---------------------------------------------------------------------------
-
-
+# caminhos sob /home (sem sair da árvore)
 def home_directory(username: str) -> Path:
     p = Path(f"/home/{username}").resolve()
     home_root = Path("/home").resolve()
@@ -313,11 +301,7 @@ def home_directory(username: str) -> Path:
     return p
 
 
-# ---------------------------------------------------------------------------
-# SSH authorized_keys
-# ---------------------------------------------------------------------------
-
-
+# authorized_keys
 def install_authorized_keys(
     home: Path,
     uid: int,
@@ -354,11 +338,7 @@ def install_authorized_keys(
         raise SystemProvisionError(f"não foi possível ajustar dono de {auth}: {e}") from e
 
 
-# ---------------------------------------------------------------------------
 # public_html
-# ---------------------------------------------------------------------------
-
-
 def default_index_html(username: str) -> str:
     """HTML estático mínimo: sem JavaScript, sem CDN, sem conteúdo dinâmico."""
     return f"""<!DOCTYPE html>
@@ -372,7 +352,7 @@ def default_index_html(username: str) -> str:
   <h1>Olá, ~{username}</h1>
   <p>Bem-vindo(a) ao runv.club — espaço pubnix com shell e site pessoal.</p>
   <p>Edite este ficheiro em <code>~/public_html/index.html</code> (ficheiros estáticos apenas).</p>
-  <p>Leia também <code>~/README.md</code> na shell para instruções e permissões.</p>
+  <p>Na shell, use <code>runv-help</code> para instruções e boas práticas do runv.club.</p>
 </body>
 </html>
 """
@@ -596,11 +576,7 @@ def prepare_user_readme(
         raise SystemProvisionError(f"não foi possível ajustar dono de {readme}: {e}") from e
 
 
-# ---------------------------------------------------------------------------
-# Metadados JSON
-# ---------------------------------------------------------------------------
-
-
+# metadados JSON
 @dataclass
 class UserRecord:
     username: str
@@ -693,11 +669,7 @@ def append_user_metadata(
         lock_f.close()
 
 
-# ---------------------------------------------------------------------------
-# adduser / rollback
-# ---------------------------------------------------------------------------
-
-
+# adduser e rollback
 def run_adduser(username: str, log: logging.Logger) -> None:
     env = os.environ.copy()
     env["DEBIAN_FRONTEND"] = "noninteractive"
@@ -741,9 +713,9 @@ def run_deluser_remove_home(username: str, log: logging.Logger) -> bool:
 
 def apply_runv_permissions(home: Path, uid: int, gid: int) -> None:
     """
-    Aplica modos e donos esperados na home e nos artefactos runv (passo 5 do contrato).
+    Aplica modos e donos esperados na home e nos artefactos runv.
 
-    Deve ser chamado após criar o utilizador, chave SSH, ``public_html`` e ``README.md``,
+    Deve ser chamado após criar o utilizador, chave SSH, ``public_html`` e opcionalmente ``README.md``,
     para garantir home ``755`` (Apache, Gophernicus e Molly-Brown atravessam até
     ``public_html`` / ``public_gopher`` / ``public_gemini``), ``.ssh`` ``700``,
     ``authorized_keys`` ``600``, site ``755``/``644``.
@@ -818,10 +790,13 @@ def apply_runv_permissions(home: Path, uid: int, gid: int) -> None:
             raise SystemProvisionError(f"não foi possível ajustar permissões de {gmi}: {e}") from e
 
 
-def verify_user_artifact_permissions(home: Path, uid: int, gid: int) -> None:
-    """
-    Confirma existência, dono e modos esperados após o provisionamento (falha explícita se algo estiver errado).
-    """
+def verify_user_artifact_permissions(
+    home: Path,
+    uid: int,
+    gid: int,
+    *,
+    expect_readme: bool,
+) -> None:
     checks: list[tuple[Path, int, str]] = [
         (home, 0o755, "home"),
         (home / ".ssh", 0o700, ".ssh"),
@@ -832,8 +807,9 @@ def verify_user_artifact_permissions(home: Path, uid: int, gid: int) -> None:
         (home / "public_gopher" / "gophermap", 0o644, "gophermap"),
         (home / "public_gemini", 0o755, "public_gemini"),
         (home / "public_gemini" / "index.gmi", 0o644, "index.gmi"),
-        (home / "README.md", 0o644, "README.md"),
     ]
+    if expect_readme:
+        checks.append((home / "README.md", 0o644, "README.md"))
     for path, want_mode, label in checks:
         if not path.exists():
             raise SystemProvisionError(f"em falta após provisionamento ({label}): {path}")
@@ -850,11 +826,7 @@ def verify_user_artifact_permissions(home: Path, uid: int, gid: int) -> None:
             )
 
 
-# ---------------------------------------------------------------------------
-# Quota ext4 (setquota, usrquota)
-# ---------------------------------------------------------------------------
-
-
+# quota ext4 (setquota / usrquota)
 def quota_probe_path(home: Path) -> Path:
     """
     Caminho existente no disco para descobrir o mount (antes de adduser, /home/user pode não existir).
@@ -1075,11 +1047,7 @@ def try_apply_quota(
     )
 
 
-# ---------------------------------------------------------------------------
-# CLI e main
-# ---------------------------------------------------------------------------
-
-
+# CLI
 def try_refresh_landing_members_json(
     *,
     document_root: Path,
@@ -1204,8 +1172,19 @@ def interactive_fill(args: argparse.Namespace) -> None:
             "Forçar correção do bind mount Gemini (/var/gemini/users) se estiver errado ou em conflito (--force-gemini)?",
             default_no=True,
         )
-        args.force_readme = prompt_yes_no(
-            "Se já existir ~/README.md, sobrescrever (--force-readme)?",
+        args.with_readme = prompt_yes_no(
+            "Criar ~/README.md com texto runv (--with-readme)?",
+            default_no=True,
+        )
+        if args.with_readme:
+            args.force_readme = prompt_yes_no(
+                "Se já existir ~/README.md, sobrescrever (--force-readme)?",
+                default_no=True,
+            )
+        else:
+            args.force_readme = False
+        args.no_jail = prompt_yes_no(
+            "Omitir jail SSH (runv-jailed /srv/jail) (--no-jail)?",
             default_no=True,
         )
     else:
@@ -1253,6 +1232,116 @@ def setup_logging(log_path: Path, verbose: bool) -> logging.Logger:
     return logger
 
 
+def _resolve_email_package_root(state: dict[str, Any] | None) -> Path | None:
+    """Pasta ``email/`` do repositório para importar ``lib.mailer``."""
+    env = os.environ.get("RUNV_EMAIL_ROOT", "").strip()
+    if env:
+        p = Path(env)
+        return p if p.is_dir() else None
+    if state:
+        er = str(state.get("email_package_root", "")).strip()
+        if er:
+            p = Path(er)
+            if p.is_dir():
+                return p
+    cand = _REPO_ROOT / "email"
+    return cand if cand.is_dir() else None
+
+
+def try_send_welcome_email(
+    *,
+    username: str,
+    user_email: str,
+    fingerprint: str,
+    base_url: str,
+    welcome_ssh_host: str | None,
+    no_welcome_email: bool,
+    dry_run: bool,
+    log: logging.Logger,
+) -> None:
+    """
+    Envia ``user_account_created`` ao email do utilizador se existir configuração global
+    (``/etc/runv-email.json``) e módulo ``email/`` acessível. Falhas são só registadas
+    em log — a conta já foi criada.
+    """
+    if no_welcome_email:
+        log.info("email de boas-vindas: omitido (--no-welcome-email)")
+        return
+    if dry_run:
+        log.info("email de boas-vindas: omitido (--dry-run)")
+        return
+
+    state_file = Path("/etc/runv-email.json")
+    if not state_file.is_file():
+        log.info(
+            "email de boas-vindas: %s ausente — defina email ou use --no-welcome-email",
+            state_file,
+        )
+        return
+    try:
+        state = json.loads(state_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        log.warning("email de boas-vindas: estado inválido (%s): %s", state_file, e)
+        return
+
+    email_root = _resolve_email_package_root(state)
+    if email_root is None:
+        log.warning(
+            "email de boas-vindas: pasta email/ não encontrada "
+            "(RUNV_EMAIL_ROOT, email_package_root no JSON ou repositório em %s)",
+            _REPO_ROOT / "email",
+        )
+        return
+
+    root_s = str(email_root.resolve())
+    if root_s not in sys.path:
+        sys.path.insert(0, root_s)
+
+    try:
+        from lib.mailer import send_user_notice
+        from lib.templates import USER_ACCOUNT_CREATED
+    except ImportError as e:
+        log.warning("email de boas-vindas: import lib.mailer falhou: %s", e)
+        return
+
+    from_addr = str(state.get("default_from", "")).strip()
+    if not from_addr:
+        log.warning("email de boas-vindas: default_from ausente em %s", state_file)
+        return
+
+    member_url = f"{base_url.rstrip('/')}/~{username}/"
+    host = (welcome_ssh_host or "").strip()
+    if host:
+        ssh_instructions = (
+            f"Comando sugerido: ssh {username}@{host}\n"
+            "Confirme no cliente SSH que está a usar a chave privada correta "
+            "(a que corresponde à impressão digital acima)."
+        )
+    else:
+        ssh_instructions = (
+            f"Comando típico: ssh {username}@<hostname>\n"
+            "Substitua <hostname> pelo endereço do servidor que o administrador lhe indicar. "
+            "No cliente SSH, seleccione a **chave privada** que corresponde à chave pública registada."
+        )
+
+    try:
+        send_user_notice(
+            USER_ACCOUNT_CREATED,
+            user_email,
+            subject="[runv.club] Bem-vindo(a) — a sua conta foi criada",
+            from_addr=from_addr,
+            username=username,
+            email=user_email,
+            fingerprint=fingerprint,
+            member_url=member_url,
+            ssh_instructions=ssh_instructions,
+        )
+        log.info("email de boas-vindas enviado para %s", user_email)
+        print(f"  boas-vindas:        email enviado para {user_email}")
+    except Exception as e:
+        log.warning("email de boas-vindas falhou (conta já criada): %s", e)
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description=(
@@ -1287,9 +1376,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="sobrescrever ~/public_html/index.html se já existir",
     )
     p.add_argument(
+        "--with-readme",
+        action="store_true",
+        help="criar ~/README.md com texto runv (por omissão não cria)",
+    )
+    p.add_argument(
         "--force-readme",
         action="store_true",
-        help="sobrescrever ~/README.md se já existir",
+        help="com --with-readme: sobrescrever ~/README.md se já existir",
+    )
+    p.add_argument(
+        "--no-jail",
+        action="store_true",
+        help="não adicionar a runv-jailed nem criar jail em /srv/jail",
     )
     p.add_argument(
         "--force-gopher",
@@ -1390,6 +1489,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="version",
         version=f"%(prog)s {VERSION} — desenvolvido por {AUTHOR}, {COPYRIGHT_YEAR}",
     )
+    p.add_argument(
+        "--no-welcome-email",
+        action="store_true",
+        help="não enviar email de boas-vindas ao utilizador após criar a conta",
+    )
+    p.add_argument(
+        "--welcome-ssh-host",
+        default=None,
+        metavar="HOST",
+        help=(
+            "hostname SSH para incluir no email de boas-vindas (ex.: runv.club); "
+            "alternativa: variável de ambiente RUNV_WELCOME_SSH_HOST"
+        ),
+    )
     return p.parse_args(argv)
 
 
@@ -1485,10 +1598,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  home:         {home}")
         print(f"  fingerprint:  {fingerprint}")
         print(
-            "  ações: (1) adduser + /etc/skel  (2) authorized_keys  (3) public_html  "
-            "(4) public_gopher + public_gemini + bind Gemini  (5) README.md  "
-            "(6) permissões consolidadas  + quota (se ativa) + metadados JSON"
+            "  ações: (1) adduser + skel  (2) authorized_keys  (3) public_html  "
+            "(4) public_gopher + public_gemini + bind Gemini  (5) README só com --with-readme  "
+            "(6) permissões  (7) jail runv-jailed salvo --no-jail  "
+            "(8) quota  (9) verificação + metadados JSON"
         )
+        print(f"  with-readme: {getattr(args, 'with_readme', False)}  no-jail: {getattr(args, 'no_jail', False)}")
         if args.no_quota:
             print("  quota:        desativada (--no-quota)")
         else:
@@ -1529,11 +1644,25 @@ def main(argv: list[str] | None = None) -> int:
         prepare_public_gemini(home, user, uid, gid, log)
         ensure_gemini_user_symlink(user, home, log, force=args.force_gemini)
 
-        log.info("=== fase 4: README.md runv (após skel /etc/skel do adduser; texto em português)")
-        prepare_user_readme(home, user, uid, gid, args.base_url, args.force_readme, log)
+        if args.with_readme:
+            log.info("=== fase 4: README.md runv (--with-readme)")
+            prepare_user_readme(home, user, uid, gid, args.base_url, args.force_readme, log)
+        else:
+            log.info("=== fase 4: README.md omitido (use --with-readme para criar)")
 
-        log.info("=== fase 5: permissões consolidadas (home, .ssh, sites públicos, README)")
+        log.info("=== fase 5: permissões consolidadas (home, .ssh, sites públicos, README se existir)")
         apply_runv_permissions(home, uid, gid)
+
+        log.info("=== fase 6: jail SSH (runv-jailed) salvo --no-jail")
+        try:
+            runv_jail.ensure_runv_jail_for_user(
+                user,
+                home,
+                no_jail=bool(args.no_jail),
+                log=log,
+            )
+        except RuntimeError as e:
+            raise SystemProvisionError(str(e)) from e
 
         log.info("=== fase: quota (setquota em ext4 com usrquota)")
         if args.no_quota:
@@ -1571,7 +1700,12 @@ def main(argv: list[str] | None = None) -> int:
             overall_status = "partial_quota"
 
         log.info("=== fase: verificação final de permissões e artefactos")
-        verify_user_artifact_permissions(home, uid, gid)
+        verify_user_artifact_permissions(
+            home,
+            uid,
+            gid,
+            expect_readme=bool(args.with_readme),
+        )
 
         record = UserRecord(
             username=user,
@@ -1625,7 +1759,14 @@ def main(argv: list[str] | None = None) -> int:
         print("  public_gopher:     pronto (gophermap)")
         print("  public_gemini:     pronto (index.gmi)")
         print("  bind Gemini:       /var/gemini/users/<user> <- ~/public_gemini (se o diretório existir)")
-        print("  README.md:         criado em ~/README.md (pt-BR)")
+        if args.with_readme:
+            print("  README.md:         criado em ~/README.md (pt-BR)")
+        else:
+            print("  README.md:         omitido (use --with-readme para criar)")
+        if args.no_jail:
+            print("  jail SSH:          omitido (--no-jail)")
+        else:
+            print("  jail SSH:          runv-jailed + /srv/jail/<user> (bind home)")
         print(f"  URL prevista:      {args.base_url.rstrip('/')}/~{user}/")
         print(f"  fingerprint:       {fingerprint}")
         print(f"  metadados:         {args.metadata_file}")
@@ -1650,6 +1791,19 @@ def main(argv: list[str] | None = None) -> int:
             )
             if qr.mountpoint:
                 print(f"  quota mount:       {qr.mountpoint} ({qr.filesystem or '?'})")
+
+        welcome_host = (args.welcome_ssh_host or os.environ.get("RUNV_WELCOME_SSH_HOST") or "").strip()
+        welcome_host_opt: str | None = welcome_host if welcome_host else None
+        try_send_welcome_email(
+            username=user,
+            user_email=email,
+            fingerprint=fingerprint,
+            base_url=args.base_url,
+            welcome_ssh_host=welcome_host_opt,
+            no_welcome_email=bool(args.no_welcome_email),
+            dry_run=bool(args.dry_run),
+            log=log,
+        )
 
         if not args.no_quota and qr.status in ("failed", "not_configured"):
             print(

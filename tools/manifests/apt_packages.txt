@@ -2,6 +2,11 @@
 # Um pacote por linha; linhas vazias e # são ignoradas.
 # Instalados para todo o sistema; não passam pelo /etc/skel.
 
+# Debian 13+ (Trixie): o binário /usr/bin/last vem de wtmpdb, não de util-linux.
+wtmpdb
+# Chroot SSH por utilizador (jk_init, etc.)
+jailkit
+
 byobu
 tmux
 lynx

@@ -61,17 +61,13 @@ body {
   border: 0;
 }
 
+/* Camada de pontos: acompanha o scroll (absolute dentro de .page-root, não fixed ao viewport). */
 .starfield-root {
-  position: fixed;
+  position: absolute;
   inset: 0;
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
   z-index: 0;
   pointer-events: none;
   overflow: visible;
-  transform: none;
-  isolation: isolate;
 }
 
 /* Membros como pontos: só em ecrãs largos (em mobile o texto ocupa o viewport). */
@@ -81,7 +77,6 @@ body {
   }
 }
 
-/* Sem transform nas bolinhas: fixed + transform falha em alguns WebKit ao rolar. */
 .star-member {
   --star-scale: 1;
   position: absolute;

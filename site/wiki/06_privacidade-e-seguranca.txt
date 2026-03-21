@@ -12,16 +12,16 @@ A administração deve tratar os dados com cuidado, limitar acessos internos e r
 
 O USUÁRIO TAMBÉM TEM RESPONSABILIDADE
 
-Não adianta exigir segurança da plataforma e depois usar senha fraca, compartilhar conta, clicar em golpe e ignorar alertas.
+Não adianta exigir segurança da plataforma e depois tratar a chave privada com descuido, compartilhar conta, clicar em golpe e ignorar alertas.
 Segurança é responsabilidade dividida.
 
 O QUE O USUÁRIO DEVE EVITAR
 
-- compartilhar credenciais;
+- compartilhar chaves ou credenciais;
 - publicar dados pessoais de terceiros;
 - usar dispositivos inseguros para acesso sensível;
 - ignorar indícios de invasão ou comprometimento;
-- instalar extensões suspeitas ou software duvidoso no dispositivo usado para login.
+- instalar extensões suspeitas ou software duvidoso no dispositivo usado para SSH ou e-mail.
 
 INCIDENTES DE SEGURANÇA
 

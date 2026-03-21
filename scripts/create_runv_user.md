@@ -4,7 +4,7 @@
 
 Ferramenta de linha de comando para **administradores** criarem contas Unix no servidor **Debian/Linux** (runv.club). Não é cadastro público.
 
-É a **fonte principal** da política de provisionamento: usa `adduser`, mas o fluxo completo (SSH, `public_html`, `README.md`, permissões, quota, metadados, log) está centralizado aqui — sem depender de `adduser.local`, `QUOTAUSER` ou regras em `/etc/adduser.conf`.
+É a **fonte principal** da política de provisionamento: usa `adduser`, mas o fluxo completo (SSH, `public_html`, jail `runv-jailed`, `README.md` opcional, permissões, quota, metadados, log) está centralizado aqui — sem depender de `adduser.local`, `QUOTAUSER` ou regras em `/etc/adduser.conf`.
 
 **Ambiente:** execute apenas no servidor (ou VM Debian). O script usa `pwd`, `fcntl`, `adduser`, `ssh-keygen`, `findmnt`/`setquota` — **não é suportado no Windows.**
 
@@ -14,10 +14,21 @@ Ferramenta de linha de comando para **administradores** criarem contas Unix no s
 2. **Instalar a chave** — `~/.ssh/authorized_keys` com chave validada e modos `700` / `600`.
 3. **Preparar `public_html`** — diretório `755` e `~/public_html/index.html` estático (sem JavaScript, sem CDN); não sobrescreve sem `--force-index`.
 4. **Preparar Gopher e Gemini** — `~/public_gopher/` com `gophermap` e `~/public_gemini/` com `index.gmi` (modelos em português); não sobrescreve sem **`--force-gopher`** / **`--force-gemini`**. Se existir **`/var/gemini/users`**, aplica **bind mount** **`/var/gemini/users/<user>`** ← **`~/public_gemini`** (via `setup_alt_protocols`; **`--force-gemini`** migra symlink legado). Se essa pasta global não existir, regista **aviso** no log — corra **[`setup_alt_protocols.py`](docs/alt_protocols.md)** no servidor.
-5. **Copiar o skel** — o Debian **copia `/etc/skel` para a home no passo 1**. Depois, o script acrescenta `~/README.md` runv em português (runv.club, URL `~/username/`, permissões, comandos, aviso sobre arquivos públicos, Gopher/Gemini); não sobrescreve sem **`--force-readme`**. Se o skel do sistema já tiver um `README.md`, ele permanece até usar `--force-readme`. Para padronizar o skel do servidor, use **`tools/tools.py`** (ou `admin/skel.py`, conforme a política do servidor) antes de criar contas.
-6. **Aplicar permissões** — `apply_runv_permissions` reforça home `755`, `.ssh` / `authorized_keys`, `public_html`, `public_gopher`, `public_gemini` e `README.md` com modos e donos corretos; em seguida quota (se ativa), verificação final e metadados.
+5. **Skel** — o Debian **copia `/etc/skel` no passo 1**. O skel instalado por **`tools/tools.py`** **não** inclui `README.md`. Só é criado `~/README.md` com **`--with-readme`**; **`--force-readme`** só faz sentido em conjunto (substituir se já existir).
+6. **Permissões** — `apply_runv_permissions` reforça home `755`, `.ssh`, sites públicos e, se existir, `README.md`.
+7. **Jail SSH** — por omissão: grupo **`runv-jailed`**, **`/srv/jail/<user>`**, `jk_init basicshell`, **bind** de `/home/<user>` em `/srv/jail/<user>/home/<user>`, linha em **`/etc/fstab`** (idempotente). **Não** aplica a **`entre`** nem **`pmurad-admin`**. **`--no-jail`** desliga. Requer **`tools/tools.py`** já aplicado (jailkit + drop-in sshd). Contas **já existentes**: **[`admin/perm1.py`](admin/perm1.md)**.
+8. **Quota** (se ativa), verificação final e metadados JSON.
 
 **Log** em arquivo (e stderr com `--verbose`) com estas fases numeradas, quota, metadados e verificação final.
+
+### Email de boas-vindas ao utilizador
+
+Após criar a conta com sucesso (e antes do aviso de quota parcial, se aplicável), o script tenta enviar o template **`user_account_created`** para o endereço de metadado (`--email`), usando `lib.mailer` e o estado global em **`/etc/runv-email.json`** (Mailgun ou SMTP legado — ver `email/docs/INSTALL.md`).
+
+- Requisitos: configurador de email já executado; pasta `email/` encontrável (`RUNV_EMAIL_ROOT`, `email_package_root` no JSON, ou repositório ao lado de `scripts/`).
+- **`--no-welcome-email`** — não envia.
+- **`--welcome-ssh-host HOST`** ou **`RUNV_WELCOME_SSH_HOST`** — inclui no corpo um comando `ssh usuario@HOST` concreto; sem isso, o texto usa um placeholder `<hostname>` e pede ao utilizador que confirme o endereço com o administrador.
+- Falhas de envio **não** revertem a criação da conta; ficam só no log.
 
 ## Quota ext4
 
@@ -94,11 +105,13 @@ Fluxo típico:
 5. Se for criar de verdade: sobrescrever `index.html` existente — sim/não  
 6. Se for criar de verdade: sobrescrever `gophermap` existente (`--force-gopher`) — sim/não  
 7. Se for criar de verdade: sobrescrever `index.gmi` existente (`--force-gemini`) — sim/não  
-8. Se for criar de verdade: sobrescrever `README.md` existente — sim/não  
-9. Log verboso — sim/não  
-10. Criar **sem** quota (`--no-quota`) — sim/não (padrão não)  
-11. Se for com quota: exigir sistema pronto **antes** de criar (`--require-quota`) — sim/não (padrão não)  
-12. Confirmação final antes de executar  
+8. Se for criar de verdade: criar `~/README.md` (`--with-readme`) — sim/não (padrão não)  
+9. Se criar README: sobrescrever se já existir (`--force-readme`) — sim/não  
+10. Se for criar de verdade: omitir jail SSH (`--no-jail`) — sim/não (padrão não = aplicar jail)  
+11. Log verboso — sim/não  
+12. Criar **sem** quota (`--no-quota`) — sim/não (padrão não)  
+13. Se for com quota: exigir sistema pronto **antes** de criar (`--require-quota`) — sim/não (padrão não)  
+14. Confirmação final antes de executar  
 
 `Ctrl+C` cancela. Se responder “não” na confirmação final, o script encerra sem alterar o sistema.
 
@@ -114,6 +127,8 @@ sudo python3 admin/create_runv_user.py \
   --email alice@example.com \
   --public-key "ssh-ed25519 AAAA... comentario"
 ```
+
+Opcional: **`--with-readme`**, **`--no-jail`** (conta sem chroot SSH).
 
 ### Sem quota
 

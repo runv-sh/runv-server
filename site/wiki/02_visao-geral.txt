@@ -14,7 +14,7 @@ PRINCÍPIOS BÁSICOS
    O usuário precisa entender onde entra, o que faz e onde resolve problemas.
 
 2. Acesso simples
-   Cadastro, login, recuperação de senha e suporte devem ser diretos.
+   Pedido de conta, autenticação por chave SSH e suporte devem ser claros e seguir os canais oficiais (sem depender de cadastro web automático nem de senha SSH).
 
 3. Segurança
    A conta é individual e deve ser protegida.
@@ -31,7 +31,7 @@ O runv.club não deve ser tratado como um ambiente fechado para um único perfil
 
 O QUE O USUÁRIO ENCONTRA NO SISTEMA
 
-- área de acesso;
+- acesso shell e espaço de utilizador na pubnix (tipicamente por SSH com chave);
 - informações operacionais;
 - regras de uso;
 - canais de suporte;

@@ -4,13 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FAQ — runv.club</title>
-  <meta name="description" content="Perguntas frequentes sobre o runv.club: cadastro, acesso, suporte e contato.">
+  <meta name="description" content="Perguntas frequentes sobre o runv.club: acesso SSH, pedido de conta, suporte e contato.">
   <link rel="canonical" href="https://runv.club/faq/">
   <meta name="robots" content="index, follow">
   <meta name="theme-color" content="#0c0b0f">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
@@ -43,57 +44,57 @@
 
       <section class="faq-item" aria-labelledby="faq-3">
         <h2 id="faq-3" class="faq-q">3. Como faço meu cadastro?</h2>
-        <p>Na tela de acesso, basta escolher a opção de cadastro e preencher os dados solicitados. Depois disso, siga as instruções exibidas na plataforma para concluir a criação da sua conta.</p>
+        <p>Não há formulário web automático. Siga a página <a href="/junte-se/">Junte-se</a>: gere um par de chaves SSH (Ed25519), ligue-se com <code>ssh</code> a <span class="ssh-identity">entre@runv.club</span> e envie a sua chave <strong>pública</strong> quando o sistema pedir. A equipa revê a fila e cria a conta Unix no servidor.</p>
       </section>
 
       <section class="faq-item" aria-labelledby="faq-4">
-        <h2 id="faq-4" class="faq-q">4. Já tenho conta. Como faço login?</h2>
-        <p>Acesse a página de entrada do sistema, informe seu e-mail e senha e prossiga com o login. Se a plataforma oferecer outros métodos de entrada, como login social, eles aparecerão na própria tela.</p>
+        <h2 id="faq-4" class="faq-q">4. Já tenho conta. Como entro no servidor?</h2>
+        <p>O acesso à pubnix é por <strong>SSH com chave</strong> (não há login por senha SSH). No seu computador, use algo como <code>ssh -i ~/.ssh/sua_chave_runv <em>seuusuario</em>@runv.club</code> (ajuste o utilizador e o caminho da chave). O site estático (páginas no navegador) é só informação; a shell é no SSH.</p>
       </section>
 
       <section class="faq-item" aria-labelledby="faq-5">
-        <h2 id="faq-5" class="faq-q">5. Esqueci minha senha. O que devo fazer?</h2>
-        <p>Use a opção de recuperação de senha disponível na tela de acesso. Se você não receber a mensagem de redefinição em poucos minutos, verifique a caixa de spam ou lixo eletrônico.</p>
+        <h2 id="faq-5" class="faq-q">5. Perdi a chave SSH ou não consigo entrar. E agora?</h2>
+        <p>Não existe “esqueci a senha” no SSH. Guarde a chave privada em local seguro. Se a perdeu ou precisa substituir a chave pública no servidor, escreva para <a href="mailto:admin@runv.club">admin@runv.club</a> explicando o caso.</p>
       </section>
 
       <section class="faq-item" aria-labelledby="faq-6">
         <h2 id="faq-6" class="faq-q">6. Posso entrar com conta Google?</h2>
-        <p>Se essa opção estiver habilitada na tela de login, sim. O método disponível sempre será o que estiver exibido oficialmente no acesso da plataforma.</p>
+        <p>Não. A autenticação na pubnix é feita com o par de chaves SSH que você gera no seu equipamento, não com login social.</p>
       </section>
 
       <section class="faq-item" aria-labelledby="faq-7">
-        <h2 id="faq-7" class="faq-q">7. Não recebi e-mail de confirmação ou recuperação. E agora?</h2>
-        <p>Primeiro, confira spam, promoções e lixo eletrônico. Depois, confirme se o e-mail informado foi digitado corretamente. Se o problema continuar, entre em contato pelo e-mail <a href="mailto:admin@runv.club">admin@runv.club</a>.</p>
+        <h2 id="faq-7" class="faq-q">7. Não recebi resposta por e-mail. E agora?</h2>
+        <p>Confira spam, promoções e lixo eletrónico. Confirme se o endereço que deixou no pedido está correto. Se continuar sem resposta ou se o assunto for urgente (acesso, chave), contacte <a href="mailto:admin@runv.club">admin@runv.club</a>.</p>
       </section>
 
       <section class="faq-item" aria-labelledby="faq-8">
-        <h2 id="faq-8" class="faq-q">8. O sistema funciona no celular?</h2>
-        <p>Sim. O ideal é que o sistema funcione em navegador atualizado, tanto no celular quanto no computador. Se houver falha de carregamento, atualize a página, teste outro navegador e verifique sua conexão.</p>
+        <h2 id="faq-8" class="faq-q">8. O site e o servidor funcionam no celular?</h2>
+        <p>As páginas do runv.club abrem em navegador atualizado no telemóvel ou no computador. Já a shell na pubnix usa um cliente SSH (no telemóvel existem aplicações para isso). Se uma página não carregar, atualize, teste outra rede ou outro navegador.</p>
       </section>
 
       <section class="faq-item" aria-labelledby="faq-9">
-        <h2 id="faq-9" class="faq-q">9. O que fazer se a plataforma estiver lenta, fora do ar ou com erro?</h2>
-        <p>Antes de assumir que o problema é do sistema, faça o básico: atualize a página, saia e entre novamente, limpe o cache do navegador e teste em outro dispositivo ou rede. Se o erro persistir, envie o máximo de detalhes para <a href="mailto:admin@runv.club">admin@runv.club</a>.</p>
+        <h2 id="faq-9" class="faq-q">9. O que fazer se o site estiver lento, fora do ar ou se o SSH falhar?</h2>
+        <p>Para o <strong>site</strong>: atualize a página, limpe cache, teste outro dispositivo ou rede. Para o <strong>SSH</strong>: confirme utilizador, chave (<code>-i</code>), rede e mensagem de erro completa. Se o problema persistir, envie detalhes (horário, comando, output) para <a href="mailto:admin@runv.club">admin@runv.club</a>.</p>
       </section>
 
       <section class="faq-item" aria-labelledby="faq-10">
         <h2 id="faq-10" class="faq-q">10. Como pedir suporte de forma eficiente?</h2>
-        <p>Envie uma mensagem objetiva com seu nome, e-mail cadastrado, descrição do problema, horário aproximado em que ocorreu e, se possível, captura de tela. Suporte ruim começa com relato ruim.</p>
+        <p>Envie mensagem objetiva com o seu nome de utilizador Unix no runv.club, e-mail de contacto, descrição do problema, horário aproximado e, se for SSH, o texto de erro completo (ou captura). Quanto mais concreto, mais rápido de analisar.</p>
       </section>
 
       <section class="faq-item" aria-labelledby="faq-11">
         <h2 id="faq-11" class="faq-q">11. Meus dados ficam protegidos?</h2>
-        <p>O objetivo da plataforma é operar com segurança e controle de acesso. Mesmo assim, a sua parte importa: use senha forte, não compartilhe credenciais e evite entrar em dispositivos públicos ou redes duvidosas.</p>
+        <p>A operação visa segurança e controlo de acesso. A sua parte importa: proteja a <strong>chave privada</strong> SSH, não a partilhe, não a envie por chat, e evite redes ou dispositivos em que não confie para acesso sensível.</p>
       </section>
 
       <section class="faq-item" aria-labelledby="faq-12">
-        <h2 id="faq-12" class="faq-q">12. Posso acessar o sistema em mais de um dispositivo?</h2>
-        <p>Em geral, sim, desde que o acesso esteja dentro das regras da plataforma. Se houver limitação de sessões simultâneas, isso deve ser tratado pela própria interface ou pelo suporte.</p>
+        <h2 id="faq-12" class="faq-q">12. Posso usar mais de um dispositivo?</h2>
+        <p>Em geral sim: pode usar o mesmo par de chaves em vários equipamentos ou chaves diferentes se a política e a administração o permitirem — o importante é manter as regras da comunidade e não expor a chave privada.</p>
       </section>
 
       <section class="faq-item" aria-labelledby="faq-13">
         <h2 id="faq-13" class="faq-q">13. Onde acompanho avisos, mudanças ou instabilidades?</h2>
-        <p>Sempre verifique os canais oficiais ligados ao sistema, como a própria plataforma, telas de aviso e comunicações de suporte. Quando tiver dúvida real, pare de adivinhar e pergunte em <a href="mailto:admin@runv.club">admin@runv.club</a>.</p>
+        <p>Consulte <a href="/news/">Notícias</a>, a <a href="/wiki/">wiki</a> e o site. Em dúvida, <a href="mailto:admin@runv.club">admin@runv.club</a>.</p>
       </section>
 
       <section class="faq-item" aria-labelledby="faq-14">

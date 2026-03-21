@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
@@ -42,17 +43,19 @@
 
 <h2>CADASTRO</h2>
 
+<p>O pedido de conta segue o fluxo oficial do runv.club (por exemplo ligação SSH a entre@runv.club com a sua chave pública, conforme a página “Junte-se”); a equipa revê a fila e a conta Unix é criada pela administração — não há registo instantâneo automático na web.</p>
+
 <p>O cadastro deve ser feito com informações verdadeiras e minimamente consistentes.<br>
 Criar conta com identidade falsa para enganar terceiros, burlar punição, cometer fraude ou simular legitimidade é motivo para ação da moderação.</p>
 
 <h2>LOGIN</h2>
 
-<p>O acesso ao sistema é individual. Cada usuário é responsável por proteger seu e-mail, senha e meios de autenticação vinculados à conta.</p>
+<p>O acesso ao sistema é individual e, na pubnix, baseia-se em SSH com chave pública (conta Unix sem senha de login SSH). Cada usuário é responsável por proteger seu e-mail, a chave privada SSH e quaisquer outros meios de autenticação vinculados à conta.</p>
 
-<h2>RECUPERAÇÃO DE SENHA</h2>
+<h2>RECUPERAÇÃO DE ACESSO</h2>
 
-<p>Se o usuário perder acesso à conta, deve usar os meios oficiais de recuperação disponíveis no sistema.<br>
-Se ainda assim não resolver, deve contatar:<br>
+<p>Não há “esqueci a senha” no SSH: quem perde a chave privada, deixa de conseguir autenticar com o par que estava registado.<br>
+Nesse caso (ou se precisar substituir a chave pública no servidor), contacte:<br>
 admin@runv.club</p>
 
 <h2>COMPARTILHAMENTO DE CONTA</h2>
@@ -71,7 +74,7 @@ admin@runv.club</p>
 
 <h2>BOAS PRÁTICAS DE SEGURANÇA</h2>
 
-<ul><li>usar senha forte;</li><li>não reutilizar senha vazada em outros serviços;</li><li>não enviar senha por mensagem;</li><li>não clicar em links suspeitos;</li><li>sair da conta em dispositivos públicos;</li><li>reportar acesso estranho imediatamente.</li></ul>
+<ul><li>proteger a chave privada SSH (permissões restritas, sem cópias em pastas partilhadas ou repositórios);</li><li>não reutilizar a mesma chave privada em serviços em que não confia ou que possam vazar o material;</li><li>nunca enviar chave privada por mensagem (só a chave pública, quando for pedida por canal oficial);</li><li>não clicar em links suspeitos;</li><li>em dispositivos partilhados, encerrar a sessão SSH e não deixar a chave privada ou o agente SSH expostos sem critério;</li><li>reportar acesso estranho imediatamente.</li></ul>
 
 <h2>ACESSO SUSPENSO OU BLOQUEADO</h2>
 

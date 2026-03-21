@@ -25,7 +25,7 @@ Este documento descreve a **ordem recomendada** para preparar um servidor Debian
 2. **Ferramentas e ficheiros globais** — `tools/tools.py` (MOTD, skel, binários, pacotes do manifest).
 3. **Site Apache / landing** — `site/genlanding.py`.
 4. **Dados públicos da landing** — `site/build_directory.py` (idealmente em **cron**).
-5. **Email de saída (msmtp)** — `email/configure_msmtp.py` (+ documentação em `email/docs/`).
+5. **Email de saída (Mailgun API, predefinido)** — `email/configure_mailgun.py` (+ documentação em `email/docs/`; legado SMTP: `configure_msmtp_legacy.py`).
 6. **SSH restrito «entre»** — `terminal/setup_entre.py`.
 7. **Operação** — `create_runv_user.py`, `update_user.py`, `del-user.py` (e só em cenários controlados: `scripts/doom/doom.py`).
 
@@ -43,7 +43,7 @@ sudo python3 starthere.py --help   # rever opções
 sudo python3 starthere.py          # ou com flags que precisares
 ```
 
-**Nota:** este script **não** configura msmtp nem o utilizador `entre`. Consulta também os Markdown em `scripts/docs/` se existirem no teu clone.
+**Nota:** este script **não** configura email (Mailgun/msmtp) nem o utilizador `entre`. Consulta também os Markdown em `scripts/docs/` se existirem no teu clone.
 
 ---
 
@@ -94,16 +94,18 @@ Ajusta intervalo e caminhos conforme a política do servidor.
 
 ---
 
-## 5. Email (msmtp + mail): `email/configure_msmtp.py`
+## 5. Email (Mailgun API + opcional legado SMTP): `email/configure_mailgun.py`
 
-**Objetivo:** pacotes (`msmtp-mta`, `bsd-mailx` ou equivalente), `msmtprc`, `~/.netrc` ou segredo adequado, aliases, testes.
+**Objetivo:** estado em `/etc/runv-email.json`, segredos em `/etc/runv-email.secrets.json`, envio via **API HTTP Mailgun** (sem msmtp no caminho predefinido). Modo **SMTP/msmtp** apenas com `--legacy-smtp` ou `configure_msmtp_legacy.py`.
 
 ```bash
 cd REPO/email
-sudo python3 configure_msmtp.py --help
-sudo python3 configure_msmtp.py --dry-run    # simular
-sudo python3 configure_msmtp.py              # aplicar (root)
+sudo python3 configure_mailgun.py --help
+sudo python3 configure_mailgun.py --dry-run    # simular
+sudo python3 configure_mailgun.py              # aplicar (root)
 ```
+
+O ficheiro `configure_msmtp.py` apenas indica os comandos actualizados (Mailgun ou legado).
 
 Documentação completa:
 
@@ -111,7 +113,7 @@ Documentação completa:
 - `email/docs/ADMIN.md`, `TROUBLESHOOTING.md`, `INTEGRATION.md`
 - `email/README.md`
 
-Scripts auxiliares: `email/scripts/send_test_mail.sh`, `email/scripts/diagnose_msmtp.sh`.
+Scripts auxiliares (legado / diagnóstico): `email/scripts/send_test_mail.sh`, `email/scripts/diagnose_msmtp.sh`.
 
 ---
 

@@ -29,10 +29,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final
 
-# ---------------------------------------------------------------------------
-# Constantes
-# ---------------------------------------------------------------------------
-
+# constantes
 VERSION: Final[str] = "0.14"
 
 LETSENCRYPT_LIVE: Final[Path] = Path("/etc/letsencrypt/live")
@@ -82,11 +79,7 @@ Bem-vindo ao runv.club no **Gemini**. Este é o teu espaço — escreve em `.gmi
 """
 
 
-# ---------------------------------------------------------------------------
-# Utilitários
-# ---------------------------------------------------------------------------
-
-
+# utilitários
 def _path_resolved(p: Path) -> Path:
     """Resolve o caminho; com symlinks (ex. Let's Encrypt) alinha com o canónico."""
     try:

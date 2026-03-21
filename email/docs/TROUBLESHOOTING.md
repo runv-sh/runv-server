@@ -1,53 +1,62 @@
 # Resolução de problemas — email runv.club
 
-## Autenticação SMTP falha
+## Mailgun API — 401 / 403
+
+- API key errada ou revogada; ou key sem permissão para o **domínio** indicado.
+- Confirme região **US vs EU** (URL base no JSON deve coincidir com a conta).
+
+## Mailgun API — 400
+
+- `From` não autorizado para o domínio; campos obrigatórios em falta; domínio não verificado no Mailgun.
+
+## Mailgun API — 404
+
+- Domínio incorrecto no path `/v3/.../messages` ou região trocada (US/EU).
+
+## Mailgun — timeout / rede
+
+- Firewall de saída, DNS, ou problemas TLS. Teste conectividade HTTPS ao host `api.mailgun.net` ou `api.eu.mailgun.net`.
+
+## Mailgun — `entre` não envia
+
+- Confirme `email_package_root` em `/etc/runv-email.json` aponta para a pasta `email/` do deploy **ou** defina `RUNV_EMAIL_ROOT` no ambiente do serviço.
+- Confirme `backend` é `mailgun` (ou domínio+região presentes sem `backend: sendmail`).
+
+## Legado — autenticação SMTP falha
 
 - Confirme `user` no `msmtprc` e `login` no `.netrc` para o mesmo `machine <host>` que o **host** SMTP.
-- Teste credenciais com outro cliente (mesmo host/porta/TLS) para isolar.
-- Ver `/var/log/msmtp.log` (sem publicar conteúdo com dados sensíveis).
+- Ver `/var/log/msmtp.log` (sem publicar dados sensíveis).
 
-## TLS / STARTTLS a falhar
+## Legado — TLS / STARTTLS
 
-- Combinações típicas: porta **587** + `tls on` + `tls_starttls on`; porta **465** muitas vezes `tls on` + `tls_starttls off`.
-- Confirme `tls_trust_file /etc/ssl/certs/ca-certificates.crt` e pacote `ca-certificates` instalado.
+- Porta **587** + `tls on` + `tls_starttls on`; **465** muitas vezes `tls on` + `tls_starttls off`.
+- Confirme `ca-certificates` instalado.
 
-## Erro de certificado
-
-- Relógio do sistema correcto (`timedatectl`).
-- Se o servidor usar certificado não padrão, a política de msmtp pode exigir ajuste (documentação msmtp — fora do âmbito normal runv).
-
-## `sendmail` não encontrado
+## `sendmail` não encontrado (modo legado)
 
 - Instale `msmtp-mta`: `apt-get install -y msmtp-mta`.
-- Verifique `ls -l /usr/sbin/sendmail`.
+- Em modo **Mailgun**, `sendmail` não é necessário para `lib.mailer.send_mail`.
 
-## `mail` não funciona
+## `mail` não funciona (legado)
 
-- Instale `bsd-mailx` (não confundir com ausência total de `mail`).
-- Sem `sendmail` funcional, `mail` também falha.
+- Instale `bsd-mailx`.
 
 ## Template ausente (`lib/mailer.py`)
 
-- Defina `RUNV_EMAIL_ROOT` para a pasta **`email/`** do repositório (que contém `templates/`).
-- Ou execute scripts a partir da árvore completa do repositório.
+- Defina `RUNV_EMAIL_ROOT` para a pasta **`email/`** do repositório.
 
-## Permissões em `/root/.netrc`
+## Permissões em `/root/.netrc` (legado)
 
-- Deve ser **600** e dono **root**. Corrigir: `sudo chmod 600 /root/.netrc && sudo chown root:root /root/.netrc`.
+- **600**, root. `sudo chmod 600 /root/.netrc && sudo chown root:root /root/.netrc`.
 
-## Permissões em `/etc/msmtprc`
+## Permissões em segredos Mailgun
 
-- Recomendado **600** root. `msmtp` em modo system-wide exige que o ficheiro não seja legível por utilizadores não privilegiados.
+- `/etc/runv-email.secrets.json` deve ser **0600** root. Nunca world-readable.
 
-## `passwordeval` / `netrc_password.py`
+## `passwordeval` / `netrc_password.py` (legado)
 
-- Deve existir `/usr/local/lib/runv-email/netrc_password.py` executável.
-- Reinstale com `configure_msmtp.py` ou copie manualmente desde `email/scripts/netrc_password.py`.
-
-## Senha com caracteres especiais no `.netrc`
-
-- O formato `.netrc` clássico **não** trata bem todos os caracteres; senhas muito complexas podem exigir escape ou outro método (ver documentação netrc). Em caso de dúvida, use token SMTP dedicado com caracteres seguros para ficheiros texto.
+- `/usr/local/lib/runv-email/netrc_password.py` — reinstalar com `configure_msmtp_legacy.py`.
 
 ## `--test` diz que falta estado
 
-- Corra primeiro `configure_msmtp.py` sem `--test` para criar `/etc/runv-email.json`.
+- Corra primeiro `configure_mailgun.py` (ou `configure_msmtp_legacy.py` no modo SMTP) **sem** `--test` para criar `/etc/runv-email.json`.

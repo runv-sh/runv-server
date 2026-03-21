@@ -1,50 +1,52 @@
 # Administração — email runv.club
 
-## Alterar remetente padrão (From)
+**Predefinição:** Mailgun HTTP API (`configure_mailgun.py`). Secção final: **legado SMTP/msmtp**.
 
-1. Edite `/etc/msmtprc` na conta `runv`: linha `from ...`.
-2. Actualize `/etc/runv-email.json` campo `default_from` (consistência com `--test` e documentação interna).
-3. Valide com `sudo python3 configure_msmtp.py --test` ou envio manual via `mail`.
+## Mailgun — alterar remetente (From)
 
-Faça **cópia de segurança** antes: `sudo cp /etc/msmtprc /etc/msmtprc.bak.$(date +%s)`.
+1. Edite `/etc/runv-email.json` — campo `default_from`.
+2. O endereço deve estar autorizado no domínio Mailgun configurado.
+3. Valide: `sudo python3 configure_mailgun.py --test`.
 
-## Alterar email do administrador
+**Não** coloque a API key neste ficheiro.
 
-1. Edite `/etc/msmtp_aliases` — linhas `root:`, `cron:`, `default:` para o novo endereço.
-2. Actualize `admin_email` em `/etc/runv-email.json`.
-3. Actualize também `admin_email` em `/opt/runv/terminal/config.toml` se usar o fluxo **entre**.
+## Mailgun — alterar email do administrador
 
-## Trocar host, porta ou TLS
+1. Edite `admin_email` em `/etc/runv-email.json`.
+2. Actualize também `admin_email` em `/opt/runv/terminal/config.toml` se usar o fluxo **entre**.
 
-1. Edite `/etc/msmtprc` (`host`, `port`, `tls`, `tls_starttls`, `user` se aplicável).
-2. Se mudar o **hostname** SMTP, actualize `/root/.netrc`:
-   - a linha `machine` deve coincidir com o novo `host`;
-   - ou volte a correr `configure_msmtp.py` (com `--force`) para regenerar de forma coerente.
+## Mailgun — rodar API key ou região
 
-## Credenciais
+1. Para nova key: edite `/etc/runv-email.secrets.json` (0600) **ou** defina `RUNV_MAILGUN_API_KEY` no ambiente do processo.
+2. Para mudar domínio/região: edite `/etc/runv-email.json` (`mailgun_domain`, `mailgun_region`, `api_base_url` coerente: `https://api.mailgun.net` vs `https://api.eu.mailgun.net`).
+3. Recomendado: voltar a correr `sudo python3 configure_mailgun.py --force` para prompts guiados.
 
-- Senha/token **só** em `/root/.netrc` (ou volte a correr `configure_msmtp.py` para reprompt seguro).
-- **Nunca** coloque senhas em `/etc/runv-email.json` nem em `msmtprc` em claro.
-
-## Reenviar email de teste
+## Mailgun — reenviar teste
 
 ```bash
-sudo python3 /caminho/runv-server/email/configure_msmtp.py --test
+sudo python3 /caminho/runv-server/email/configure_mailgun.py --test
 ```
 
-Requer `/etc/runv-email.json` e configuração msmtp válida.
+## Legado SMTP — alterar remetente (From)
+
+1. Edite `/etc/msmtprc` na conta `runv`: linha `from ...`.
+2. Actualize `/etc/runv-email.json` campo `default_from`.
+3. Valide com `sudo python3 configure_msmtp_legacy.py --test` ou envio via `mail`.
+
+## Legado SMTP — credenciais
+
+- Senha/token **só** em `/root/.netrc` (ou `configure_msmtp_legacy.py` com `--force`).
+- **Nunca** coloque senhas em `/etc/runv-email.json` em claro.
 
 ## Integrar outros scripts
 
-Ver [INTEGRATION.md](INTEGRATION.md). Resumo: definir `RUNV_EMAIL_ROOT` e usar `lib.mailer.send_mail` ou funções de template.
+Ver [INTEGRATION.md](INTEGRATION.md). Resumo: `RUNV_EMAIL_ROOT` ou `email_package_root` no JSON; usar `lib.mailer.send_mail`.
 
-## Aliases e limitações
+## Aliases msmtp (só legado)
 
-- **msmtp** expande aliases conforme o seu ficheiro `aliases` — útil para `mail root` redirecionar para o admin.
-- Isto **não** substitui um servidor de correio completo: endereços locais fictícios só funcionam na medida em que o `mail`/pipeline os passa e o msmtp resolve via aliases.
-- **`newaliases`** (estilo Sendmail) **não** actualiza este ficheiro.
+- **msmtp** expande aliases — útil para `mail root` → admin.
+- **`newaliases`** (estilo Sendmail) **não** actualiza `/etc/msmtp_aliases`.
 
-## Log
+## Log (legado)
 
-- Ficheiro configurado em `msmtprc`: por defeito `/var/log/msmtp.log`.
-- Permissões: criado pelo instalador; ajuste se necessário para rotação (logrotate).
+- `/var/log/msmtp.log` quando usa msmtp.

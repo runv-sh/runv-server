@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Favicon: emoji globo (🌐) — renderização depende das fontes emoji do sistema -->
+  <text
+    x="50"
+    y="54"
+    dominant-baseline="middle"
+    text-anchor="middle"
+    font-size="78"
+    font-family="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji, Twemoji Mozilla, sans-serif"
+  >🌐</text>
+</svg>

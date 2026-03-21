@@ -7,10 +7,10 @@ O runv.club é um sistema de acesso, organização, suporte e uso em ambiente di
 Não.
 
 3. Como entro no sistema?
-O acesso depende do fluxo disponível no ambiente: cadastro, login e, quando aplicável, recuperação de senha ou outro método oficial de autenticação.
+Na pubnix runv.club o acesso é por SSH com chave (não por senha SSH). O pedido de conta segue o fluxo oficial (ver página “Junte-se” no site: chave Ed25519 e ligação a entre@runv.club); a equipa cria a conta após revisão.
 
-4. Esqueci minha senha. O que faço?
-Use a opção oficial de recuperação de senha. Se o problema continuar, entre em contato por admin@runv.club.
+4. Perdi a minha chave SSH ou não consigo entrar. O que faço?
+Não há recuperação por senha no SSH. Guarde bem a chave privada. Se a perdeu ou precisa de trocar a chave pública no servidor, escreva para admin@runv.club explicando o caso.
 
 5. Posso compartilhar minha conta com outra pessoa?
 Não é recomendado e pode ser proibido, especialmente quando isso compromete segurança, auditoria, responsabilidade da conta ou regras do sistema.
@@ -37,7 +37,7 @@ Pode haver registro técnico e histórico operacional para fins de segurança, s
 Não. Exposição de dados pessoais, documentos, contatos, prints privados ou informações sensíveis sem autorização pode gerar punição grave.
 
 13. O que fazer se eu suspeitar que minha conta foi invadida?
-Troque a senha imediatamente, encerre sessões suspeitas se isso existir no sistema e comunique o caso para admin@runv.club.
+Se suspeitar que a chave privada foi copiada ou o seu PC comprometido: pare de usar essa chave, gere um par novo, não reutilize o material vazado e comunique de imediato admin@runv.club para a equipa avaliar substituição da chave pública no servidor e rever a conta.
 
 14. Como falar com a administração?
 Pelo e-mail oficial: admin@runv.club

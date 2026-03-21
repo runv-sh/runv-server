@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-runv.club — ferramentas globais, MOTD, comandos em /usr/local/bin e /etc/skel.
+runv.club — ferramentas globais, MOTD, Jailkit/SSH runv-jailed, comandos em /usr/local/bin e /etc/skel.
 
 Debian 13 · Python 3 stdlib apenas · sem shell=True.
 Execute como root. Ver tools/README.md e tools/docs/INSTALL.md.
@@ -28,10 +28,12 @@ _APT_PACKAGE_ALIASES: dict[str, str] = {
 BIN_DIR: Path = TOOL_ROOT / "bin"
 MOTD_SRC: Path = TOOL_ROOT / "motd" / "60-runv"
 SKEL_DIR: Path = TOOL_ROOT / "skel"
+SSHD_DROPIN_SRC: Path = TOOL_ROOT / "sshd" / "90-runv-jailed.conf"
 
 DEST_BIN_DIR: Path = Path("/usr/local/bin")
 DEST_MOTD: Path = Path("/etc/update-motd.d/60-runv")
 DEST_SKEL: Path = Path("/etc/skel")
+DEST_SSHD_DROPIN: Path = Path("/etc/ssh/sshd_config.d/90-runv-jailed.conf")
 
 
 @dataclass
@@ -236,6 +238,105 @@ def install_motd(
     )
 
 
+def remove_obsolete_skel_readme(
+    *,
+    dry_run: bool,
+    log: logging.Logger,
+    summary: RunSummary,
+) -> None:
+    stale = DEST_SKEL / "README.md"
+    if not stale.is_file():
+        return
+    if dry_run:
+        log.info("[dry-run] removeria %s", stale)
+        summary.copied.append(f"rm {stale} (simulado)")
+        return
+    try:
+        stale.unlink()
+        log.info("Removido (política skel): %s", stale)
+        summary.copied.append(f"removido {stale}")
+    except OSError as e:
+        summary.errors.append(f"remover {stale}: {e}")
+        log.error("Não foi possível remover %s: %s", stale, e)
+
+
+def ensure_jailkit_ssh_baseline(
+    *,
+    force: bool,
+    dry_run: bool,
+    log: logging.Logger,
+    summary: RunSummary,
+) -> None:
+    if dry_run:
+        log.info("[dry-run] groupadd -f runv-jailed; gpasswd -d pmurad-admin; sshd drop-in; reload ssh")
+        return
+    r = subprocess.run(
+        ["groupadd", "-f", "runv-jailed"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if r.returncode != 0:
+        err = (r.stderr or r.stdout or "").strip()
+        msg = f"groupadd -f runv-jailed falhou: {err}"
+        summary.errors.append(msg)
+        log.error("%s", msg)
+        return
+    log.info("Grupo runv-jailed garantido")
+
+    r = subprocess.run(
+        ["gpasswd", "-d", "pmurad-admin", "runv-jailed"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if r.returncode != 0:
+        log.debug("gpasswd -d pmurad-admin (esperado se não estava no grupo): %s", (r.stderr or "").strip())
+
+    copy_one(
+        SSHD_DROPIN_SRC,
+        DEST_SSHD_DROPIN,
+        0o644,
+        force=force,
+        dry_run=False,
+        log=log,
+        summary=summary,
+    )
+    if summary.errors:
+        return
+
+    test = subprocess.run(
+        ["sshd", "-t"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if test.returncode != 0:
+        err = (test.stderr or test.stdout or "").strip()
+        msg = f"sshd -t falhou após instalar drop-in: {err}"
+        summary.errors.append(msg)
+        log.error("%s", msg)
+        return
+
+    reloaded = False
+    for unit in ("ssh", "sshd"):
+        rr = subprocess.run(
+            ["systemctl", "reload", unit],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if rr.returncode == 0:
+            log.info("systemctl reload %s concluído", unit)
+            reloaded = True
+            break
+        log.debug("systemctl reload %s: %s", unit, (rr.stderr or rr.stdout or "").strip())
+    if not reloaded:
+        msg = "systemctl reload ssh/sshd falhou — recarregue o sshd manualmente"
+        summary.errors.append(msg)
+        log.error("%s", msg)
+
+
 def install_skel(
     *,
     force: bool,
@@ -247,8 +348,9 @@ def install_skel(
     if not dry_run:
         DEST_SKEL.mkdir(parents=True, exist_ok=True)
 
+    remove_obsolete_skel_readme(dry_run=dry_run, log=log, summary=summary)
+
     skel_files: list[tuple[Path, Path, int]] = [
-        (SKEL_DIR / "README.md", DEST_SKEL / "README.md", 0o644),
         (SKEL_DIR / ".bash_aliases", DEST_SKEL / ".bash_aliases", 0o644),
     ]
     for src, dst, mode in skel_files:
@@ -425,6 +527,14 @@ def main(argv: list[str] | None = None) -> int:
 
     log.info("Instalando MOTD em %s", DEST_MOTD)
     install_motd(force=args.force, dry_run=args.dry_run, log=log, summary=summary)
+
+    log.info("Jailkit / SSH runv-jailed (grupo, drop-in, reload)")
+    ensure_jailkit_ssh_baseline(
+        force=args.force,
+        dry_run=args.dry_run,
+        log=log,
+        summary=summary,
+    )
 
     log.info("Sincronizando skel em %s", DEST_SKEL)
     install_skel(force=args.force, dry_run=args.dry_run, log=log, summary=summary)

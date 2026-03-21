@@ -1,5 +1,5 @@
 # Exemplo de /etc/msmtprc (runv.club — msmtp, sem MTA local).
-# Gerado normalmente por email/configure_msmtp.py — não copie credenciais para exemplos.
+# Exemplo msmtp (modo legado). Gerado por email/configure_msmtp_legacy.py — não copie credenciais para exemplos.
 
 defaults
 auth           on

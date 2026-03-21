@@ -34,7 +34,7 @@ print_last_sessions_3x3() {
   [ -z "$LAST_CMD" ] && [ -x /usr/bin/last ] && LAST_CMD=/usr/bin/last
   [ -z "$LAST_CMD" ] && [ -x /bin/last ] && LAST_CMD=/bin/last
   if [ -z "$LAST_CMD" ]; then
-    printf '  %b\n' "${D}(comando last indisponível — instale util-linux ou ajuste o PATH)${R}"
+    printf '  %b\n' "${D}(comando last indisponível — em Debian 13+ instale o pacote wtmpdb: apt install wtmpdb)${R}"
     return
   fi
   tf=$(mktemp -t runvmotd.XXXXXX 2>/dev/null) || tf=/tmp/runvmotd.$$

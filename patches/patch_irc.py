@@ -12,7 +12,8 @@ bind mount em ``/var/gemini/users/<user>`` nem entram no menu Gopher/Gemini raiz
 
 MOTD e runv-help referem apenas **chat** (sem expor outros nomes de comando ao utilizador).
 
-Executar como root no Debian. Ver scripts/docs/irc_patch.md.
+Executar como root no Debian; detalhes em scripts/docs/irc_patch.md.
+SASL/NickServ: ver constante ``SASL_WEECHAT_SNIPPETS`` e https://weechat.org/doc/
 
 Versão 0.03 — runv.club
 """
@@ -31,15 +32,13 @@ import sys
 from pathlib import Path
 from typing import Final
 
-# ---------------------------------------------------------------------------
-# SASL / NickServ (futuro)
-# ---------------------------------------------------------------------------
-# Não gravar senhas em texto plano. Para SASL, usar depois comandos WeeChat + dados
-# seguros (sec.conf), por exemplo:
-#   /set irc.server.<name>.sasl_mechanism plain
-#   /secure set runv_irc_senha ...
-#   /set irc.server.<name>.sasl_password "${sec.data.runv_irc_senha}"
-# Documentação: https://weechat.org/doc/
+# SASL ainda não entra no patch; quando entrar, é na mão no WeeChat com sec.data (nada de
+# password em claro neste repo). Isto é só o boneco dos comandos, para não ir buscar à memória.
+SASL_WEECHAT_SNIPPETS: Final[tuple[str, ...]] = (
+    "/set irc.server.<name>.sasl_mechanism plain",
+    "/secure set runv_irc_senha ...",
+    '/set irc.server.<name>.sasl_password "${sec.data.runv_irc_senha}"',
+)
 
 VERSION: Final[str] = "0.03"
 
