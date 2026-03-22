@@ -15,7 +15,8 @@
 - Opcional: `--certbot` (incompatível com `--dev`).
 - Após cópia, por omissão chama `build_directory.py` para gravar `data/members.json` no DocumentRoot (`--no-refresh-members` para omitir).
 - **`--sync-public-only`:** só copia `site/public/` → DocumentRoot, `chown www-data` e regenera `members.json`; **não** altera Apache (uso típico após `create_runv_user.py` e disponível para correr à mão).
-- Versão actual do script: constante `VERSION` no ficheiro (ex.: `0.05`).
+- O VirtualHost HTTP gerado inclui **`ForceType text/xml`** para **`/news/feed.rss`**, para o browser mostrar o XML do feed em vez de forçar descarga (Chromium com outros MIME). Se o **Certbot** criou um VirtualHost **HTTPS** separado, esse ficheiro não é regenerado pelo `genlanding` — pode ser necessário acrescentar o mesmo bloco `<Directory …/news>` com `<Files "feed.rss">` nesse vhost ou voltar a alinhar a configuração manualmente.
+- Versão actual do script: constante `VERSION` no ficheiro (ex.: `0.06`).
 
 ## TLS e DNS
 

@@ -22,6 +22,10 @@
 - `apache2ctl configtest` após alterações de vhost.
 - `genlanding.py` imprime erros se `build_directory` falhar.
 
+## Feed RSS descarrega em vez de abrir no browser
+
+- O vhost HTTP gerado pelo `genlanding` força `text/xml` em `/news/feed.rss`. Se só o vhost **HTTPS** (ex.: Certbot) servir o site, confira se esse ficheiro inclui o mesmo bloco ou volte a correr `genlanding` e funda alterações com o SSL existente (ver [06-site-and-apache.md](06-site-and-apache.md)).
+
 ## Quotas
 
 - FS não ext4 → automatização de `starthere.py` pode recusar; configurar manualmente ou usar volume ext4.

@@ -34,7 +34,9 @@ sudo python3 REPO/site/genlanding.py --sync-public-only \
 
 ## Notícias
 
-- Colocar `.md` em `site/news/`, executar `site/news/publish_news.py`; depois voltar a copiar `public/` ou correr `genlanding.py` se aplicável.
+- Colocar `.md` em `site/news/`, executar **`sudo python3 REPO/site/news/publish_news.py`** em produção. O script grava `site/public/news/` (JSON, RSS, sitemap) e, se **`/var/www/runv.club/html`** existir, invoca **`site/genlanding.py --sync-public-only`** no fim (copia `site/public/` para o DocumentRoot + `data/members.json`). Se o DocumentRoot não existir no ambiente (ex.: só clone local), aparece um AVISO com o comando manual — a publicação em `site/public/` fica feita.
+- **`--skip-genlanding`:** só gera ficheiros em `site/public/` sem copiar para Apache.
+- Ajustar paths com `--landing-document-root`, `--members-users-json` e opcionalmente `--members-homes-root` se a tua instalação divergir dos defaults.
 
 ## Wiki
 

@@ -17,6 +17,28 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _SCRIPT_DIR.parent.parent
 
 
+def genlanding_sync_command(
+    *,
+    document_root: Path,
+    users_json: Path,
+    homes_root: Path | None = None,
+) -> list[str]:
+    """Comando completo para ``site/genlanding.py --sync-public-only`` (lista para subprocess)."""
+    script = _REPO_ROOT / "site" / "genlanding.py"
+    cmd: list[str] = [
+        sys.executable,
+        str(script),
+        "--sync-public-only",
+        "--document-root",
+        str(document_root),
+        "--members-users-json",
+        str(users_json),
+    ]
+    if homes_root is not None:
+        cmd.extend(["--members-homes-root", str(homes_root)])
+    return cmd
+
+
 def try_sync_landing_via_genlanding(
     *,
     document_root: Path,
@@ -36,17 +58,11 @@ def try_sync_landing_via_genlanding(
             script,
         )
         return False, None
-    cmd = [
-        sys.executable,
-        str(script),
-        "--sync-public-only",
-        "--document-root",
-        str(document_root),
-        "--members-users-json",
-        str(users_json),
-    ]
-    if homes_root is not None:
-        cmd.extend(["--members-homes-root", str(homes_root)])
+    cmd = genlanding_sync_command(
+        document_root=document_root,
+        users_json=users_json,
+        homes_root=homes_root,
+    )
     out = document_root / "data" / "members.json"
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)

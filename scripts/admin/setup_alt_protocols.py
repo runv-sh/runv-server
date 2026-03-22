@@ -373,47 +373,61 @@ def wait_for_unit_active(
 
 def ensure_le_tls_readable_for_molly(
     cert_path: Path,
+    key_path: Path,
     *,
     dry_run: bool,
     log: logging.Logger,
 ) -> None:
     """
-    Ajusta /etc/letsencrypt/live e archive (e o directório do certificado) para 755, e
+    Ajusta /etc/letsencrypt/live, archive, live/<domínio>, archive/<domínio> para 755 e
     archive/<domínio>/privkey*.pem para grupo ssl-cert + 640, para o molly-brown ler a chave.
-    Só actua se cert_path estiver sob .../live/<domínio>/ (Let's Encrypt típico).
-    Usa raízes resolvidas para não saltar quando /etc/letsencrypt/live é symlink.
+
+    Usa caminhos lógicos (sem resolver fullchain.pem → archive), porque o symlink típico do
+    Let's Encrypt fazia falhar a detecção quando se aplicava resolve() ao certificado.
     """
-    try:
-        cert_resolved = _path_resolved(cert_path)
-    except OSError as e:
-        log.debug("LE TLS: resolve %s: %s — salto", cert_path, e)
-        return
-
-    live_root = _path_resolved(LETSENCRYPT_LIVE)
-    archive_root = _path_resolved(LETSENCRYPT_ARCHIVE)
+    cert_p = Path(cert_path)
+    key_p = Path(key_path)
 
     try:
-        cert_resolved.relative_to(live_root)
+        cert_rel = cert_p.relative_to(LETSENCRYPT_LIVE)
     except ValueError:
         log.debug(
-            "LE TLS: cert não está sob a árvore LE resolvida (%s) — salto (%s)",
-            live_root,
-            cert_resolved,
+            "LE TLS: cert_path não está sob %s (%s) — salto",
+            LETSENCRYPT_LIVE,
+            cert_p,
         )
         return
 
-    live_domain_dir = cert_resolved.parent
-    parent_resolved = _path_resolved(live_domain_dir.parent)
-    if parent_resolved != live_root:
+    cparts = cert_rel.parts
+    if len(cparts) < 2:
         log.debug(
-            "LE TLS: esperado .../live/<domínio>/fullchain.pem — salto (pai=%s live_root=%s)",
-            parent_resolved,
-            live_root,
+            "LE TLS: esperado %s/<domínio>/<ficheiro> — salto (%s)",
+            LETSENCRYPT_LIVE,
+            cert_p,
+        )
+        return
+    domain = cparts[0]
+
+    try:
+        key_rel = key_p.relative_to(LETSENCRYPT_LIVE)
+    except ValueError:
+        log.debug(
+            "LE TLS: key_path não está sob %s (%s) — salto",
+            LETSENCRYPT_LIVE,
+            key_p,
+        )
+        return
+    if not key_rel.parts or key_rel.parts[0] != domain:
+        log.debug(
+            "LE TLS: key_path não está sob %s/%s/ — salto (%s)",
+            LETSENCRYPT_LIVE,
+            domain,
+            key_p,
         )
         return
 
-    domain = live_domain_dir.name
-    archive_domain_dir = archive_root / domain
+    live_domain_dir = LETSENCRYPT_LIVE / domain
+    archive_domain_dir = LETSENCRYPT_ARCHIVE / domain
 
     try:
         ssl_gid = grp.getgrnam(SSL_CERT_GROUP).gr_gid
@@ -425,8 +439,8 @@ def ensure_le_tls_readable_for_molly(
         ssl_gid = None
 
     dirs_755: list[Path] = [
-        live_root,
-        archive_root,
+        LETSENCRYPT_LIVE,
+        LETSENCRYPT_ARCHIVE,
         live_domain_dir,
     ]
     if archive_domain_dir.is_dir():
@@ -1156,7 +1170,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if not args.skip_gemini:
-        ensure_le_tls_readable_for_molly(cert, dry_run=args.dry_run, log=log)
+        ensure_le_tls_readable_for_molly(cert, key, dry_run=args.dry_run, log=log)
 
     pkgs: list[str] = []
     if not args.skip_install:

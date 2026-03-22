@@ -14,8 +14,12 @@ Os ``.md`` processados são **apagados**. Ficheiros cujo nome começa por ``_`` 
 Não versionar notícias no HTML: os dados ficam em ``news.json`` (tipicamente ignorado pelo git
 no servidor após gerar conteúdo local).
 
+Após publicar (sem ``--dry-run``), tenta ``site/genlanding.py --sync-public-only`` quando o
+DocumentRoot da landing existir (por omissão ``/var/www/runv.club/html``), para copiar
+``site/public/`` para o Apache. Em produção use ``sudo``. ``--skip-genlanding`` omite esse passo.
+
 Uso::
-    python3 site/news/publish_news.py [--dry-run] [--verbose]
+    sudo python3 site/news/publish_news.py [--dry-run] [--verbose] [--skip-genlanding]
 """
 
 from __future__ import annotations
@@ -24,6 +28,7 @@ import argparse
 import html
 import json
 import re
+import subprocess
 import sys
 import uuid
 from xml.sax.saxutils import escape as xml_escape
@@ -34,6 +39,8 @@ from zoneinfo import ZoneInfo
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_SITE = SCRIPT_DIR.parent
+_REPO_ROOT = REPO_SITE.parent
+
 PUBLIC_NEWS = REPO_SITE / "public" / "news"
 DATA_DIR = PUBLIC_NEWS / "data"
 JSON_PATH = DATA_DIR / "news.json"
@@ -44,6 +51,64 @@ TZ_BR: Final[str] = "America/Sao_Paulo"
 # Brasil sem DST: fallback se ``tzdata`` não estiver instalado (ex.: Windows minimal).
 BR_FALLBACK_TZ = timezone(timedelta(hours=-3))
 SITE_URL: Final[str] = "https://runv.club"
+DEFAULT_LANDING_DOCUMENT_ROOT: Final[Path] = Path("/var/www/runv.club/html")
+DEFAULT_MEMBERS_USERS_JSON: Final[Path] = Path("/var/lib/runv/users.json")
+
+
+def sync_landing_after_news(
+    *,
+    document_root: Path,
+    members_users_json: Path,
+    members_homes_root: Path | None,
+    verbose: bool,
+) -> int:
+    """
+    Copia site/public → DocumentRoot via genlanding --sync-public-only.
+    Devolve 0 se omitido (sem script / sem DocumentRoot) ou sync OK; 1 se genlanding falhou.
+    """
+    gl = _REPO_ROOT / "site" / "genlanding.py"
+    if not gl.is_file():
+        print(
+            f"AVISO: genlanding.py não encontrado em {gl}; não sincronizou DocumentRoot.",
+            file=sys.stderr,
+        )
+        return 0
+    root = document_root.resolve()
+    if not root.is_dir():
+        homes_opt = ""
+        if members_homes_root is not None:
+            homes_opt = f" --members-homes-root {members_homes_root.resolve()}"
+        print(
+            f"AVISO: DocumentRoot da landing inexistente ({root}) — site/public não foi copiado para Apache.\n"
+            f"Manual: sudo python3 {_REPO_ROOT / 'site' / 'genlanding.py'} --sync-public-only "
+            f"--document-root {root} --members-users-json {members_users_json}{homes_opt}",
+            file=sys.stderr,
+        )
+        return 0
+    admin = _REPO_ROOT / "scripts" / "admin"
+    if str(admin) not in sys.path:
+        sys.path.insert(0, str(admin))
+    from runv_landing_sync import genlanding_sync_command
+
+    cmd = genlanding_sync_command(
+        document_root=root,
+        users_json=members_users_json.resolve(),
+        homes_root=members_homes_root.resolve() if members_homes_root else None,
+    )
+    if verbose:
+        print(f"  $ {' '.join(cmd)}")
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    if r.returncode == 0:
+        print(f"Landing sincronizada (public + members) → {root}")
+        return 0
+    combined = ((r.stdout or "") + "\n" + (r.stderr or "")).strip()
+    print(
+        f"Erro: genlanding --sync-public-only terminou com código {r.returncode}.",
+        file=sys.stderr,
+    )
+    if combined:
+        print(combined[:4000], file=sys.stderr)
+    return 1
 
 
 def _apply_underline(s: str) -> str:
@@ -230,6 +295,32 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Publica notícias a partir de .md em site/news/")
     ap.add_argument("--dry-run", action="store_true", help="Só mostra o que faria")
     ap.add_argument("--verbose", "-v", action="store_true")
+    ap.add_argument(
+        "--landing-document-root",
+        type=Path,
+        default=DEFAULT_LANDING_DOCUMENT_ROOT,
+        help=(
+            "DocumentRoot Apache; se existir como directório e não usar --skip-genlanding, "
+            "corre site/genlanding.py --sync-public-only após publicar"
+        ),
+    )
+    ap.add_argument(
+        "--members-users-json",
+        type=Path,
+        default=DEFAULT_MEMBERS_USERS_JSON,
+        help="Fonte para data/members.json no genlanding (default: /var/lib/runv/users.json)",
+    )
+    ap.add_argument(
+        "--members-homes-root",
+        type=Path,
+        default=None,
+        help="Opcional: --members-homes-root para genlanding (ex. /home)",
+    )
+    ap.add_argument(
+        "--skip-genlanding",
+        action="store_true",
+        help="Não copiar site/public para DocumentRoot após publicar",
+    )
     args = ap.parse_args()
 
     try:
@@ -285,6 +376,17 @@ def main() -> int:
             print(f"  removido {path.name}")
 
     print(f"Publicadas {len(new_entries)} notícia(s). Total: {len(articles)}.")
+
+    if not args.skip_genlanding:
+        rc = sync_landing_after_news(
+            document_root=args.landing_document_root,
+            members_users_json=args.members_users_json,
+            members_homes_root=args.members_homes_root,
+            verbose=args.verbose,
+        )
+        if rc != 0:
+            return rc
+
     return 0
 
 

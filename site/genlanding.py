@@ -4,12 +4,13 @@ Configura o Apache (Debian) para servir a landing runv.club: VirtualHost,
 mod_userdir + mod_rewrite, cópia de site/public para DocumentRoot, redirect
 www → apex em HTTP. Produção ou modo --dev para testes locais.
 Metadados SEO: editar site/public/. FAQ estático: public/faq/ (copiado com o resto).
-Notícias: site/news/publish_news.py gera public/news/data/news.json e feed.rss —
-depois volte a correr este script para copiar.
+Notícias: site/news/publish_news.py gera public/news/data/news.json e feed.rss e, em produção,
+tenta ``genlanding --sync-public-only`` no fim (DocumentRoot existente). O VirtualHost abaixo
+força ``text/xml`` em ``/news/feed.rss`` para o browser mostrar o feed em vez de descarregar.
 
 Executar como root (excepto --dry-run). Apenas biblioteca padrão Python 3.
 
-Versão 0.05 — runv.club
+Versão 0.06 — runv.club
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ import sys
 from pathlib import Path
 from typing import Final
 
-VERSION: Final[str] = "0.05"
+VERSION: Final[str] = "0.06"
 EXIT_OK: Final[int] = 0
 EXIT_USAGE: Final[int] = 1
 EXIT_ERROR: Final[int] = 2
@@ -93,6 +94,13 @@ def render_vhost(
         Options FollowSymLinks
         AllowOverride None
         Require all granted
+    </Directory>
+
+    # Chromium descarrega feed.rss com alguns MIME; text/xml mostra o XML na aba.
+    <Directory {document_root}/news>
+        <Files "feed.rss">
+            ForceType text/xml
+        </Files>
     </Directory>
 
     ErrorLog ${{APACHE_LOG_DIR}}/{log_tag}-error.log
