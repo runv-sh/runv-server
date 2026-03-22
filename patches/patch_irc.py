@@ -132,7 +132,12 @@ for c in weechat weechat-curses; do
   command -v "$c" >/dev/null 2>&1 && IRC_UI=$c && break
 done
 if [ -z "$IRC_UI" ]; then
-  echo "runv: cliente IRC interactivo não encontrado; corra tools/tools.py." >&2
+  for p in /usr/bin/weechat-curses /usr/bin/weechat; do
+    [ -x "$p" ] && IRC_UI=$p && break
+  done
+fi
+if [ -z "$IRC_UI" ]; then
+  echo "runv: instale weechat-curses (apt) ou corra tools/tools.py." >&2
   exit 127
 fi
 CONFIG_DIR="${WEECHAT_HOME:-$HOME/.config/weechat}"

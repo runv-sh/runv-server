@@ -6,7 +6,7 @@
 
 **Função:** orquestrar no servidor Debian:
 
-1. Pacotes APT listados em `tools/manifests/apt_packages.txt` (alias `chat` → pacote `weechat`).
+1. Pacotes APT listados em `tools/manifests/apt_packages.txt` (alias `chat` → metapacote `weechat`). O manifesto inclui **`weechat-curses`** explicitamente porque `tools.py` usa `apt-get install --no-install-recommends`: sem isso, o metapacote `weechat` pode satisfazer-se **só** com `weechat-headless` e o comando `chat` deixa de encontrar cliente interactivo (`weechat` / `weechat-curses` no PATH).
 2. Cópia de `tools/bin/` para `/usr/local/bin` (`runv-help`, `runv-links`, `runv-status`, `chat`, …).
 3. MOTD dinâmico: `tools/motd/60-runv` → `/etc/update-motd.d/60-runv`.
 4. Modelos para novas contas: `tools/skel/` → `/etc/skel/`.

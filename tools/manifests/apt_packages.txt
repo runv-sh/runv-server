@@ -10,6 +10,9 @@ jailkit
 byobu
 tmux
 lynx
+# IRC: o metapacote «chat»→weechat pode resolver só com weechat-headless (já listado abaixo)
+# quando apt usa --no-install-recommends em tools.py — sem cliente interactivo no PATH.
+weechat-curses
 chat
 weechat-headless
 mutt

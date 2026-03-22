@@ -10,9 +10,19 @@ for c in weechat weechat-curses; do
     break
   fi
 done
+# Fallback se PATH estiver estranho mas o pacote Debian estiver instalado
+if [ -z "$IRC_UI" ]; then
+  for p in /usr/bin/weechat-curses /usr/bin/weechat; do
+    if [ -x "$p" ]; then
+      IRC_UI=$p
+      break
+    fi
+  done
+fi
 
 if [ -z "$IRC_UI" ]; then
-  echo "runv: cliente IRC interactivo não encontrado; peça ao admin para correr tools/tools.py (pacotes globais)." >&2
+  echo "runv: cliente IRC interactivo não encontrado (instale o pacote weechat-curses)." >&2
+  echo "runv: no servidor: sudo apt install -y weechat-curses   ou   sudo python3 tools/tools.py" >&2
   exit 127
 fi
 
