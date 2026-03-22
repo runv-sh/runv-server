@@ -4,7 +4,7 @@ Olá {username},
 
 A sua conta no runv.club foi criada.
 
-O endereço {email} é o contato que temos cadastrado (metadado administrativo).
+Utilizamos o endereço {email} como o seu email de contacto nesta conta.
 
 Acesso por SSH
 ----------------

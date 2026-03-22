@@ -1127,7 +1127,7 @@ def interactive_fill(args: argparse.Namespace) -> None:
         print("  (obrigatório)")
 
     while True:
-        e = input("Email administrativo (metadado, ex.: maria@example.com): ").strip()
+        e = input("Email do utilizador (ex.: maria@example.com): ").strip()
         if e:
             args.email = e
             break
@@ -1494,7 +1494,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="modo interativo (perguntas no terminal); também é o padrão se não passar nenhum argumento",
     )
     p.add_argument("--username", default=None, help="nome de usuário Unix (minúsculas)")
-    p.add_argument("--email", default=None, help="email administrativo (metadado)")
+    p.add_argument("--email", default=None, help="email do utilizador (também em users.json)")
     g = p.add_mutually_exclusive_group(required=False)
     g.add_argument("--public-key", dest="public_key", default=None, help="linha authorized_keys (OpenSSH)")
     g.add_argument(

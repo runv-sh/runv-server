@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Atualiza utilizador Unix existente no runv.club: metadados (email), chave SSH,
+Atualiza utilizador Unix existente no runv.club: email do utilizador (users.json), chave SSH,
 palavra-passe de login (chpasswd) e quotas ext4 (setquota).
 
 Executar como root. Alinha-se a create_runv_user / del-user / runv_mount.
@@ -475,7 +475,7 @@ def interactive_loop(
     print()
     print(f"Utilizador: {username}  (uid={uid}, home={home})")
     print("Escolha o que alterar (número). Repita até terminar.")
-    print("  1) Email (apenas metadados users.json)")
+    print("  1) Email do utilizador (users.json)")
     print("  2) Substituir ~/.ssh/authorized_keys por UMA chave (política runv típica)")
     print("  3) Acrescentar chave a authorized_keys")
     print("  4) Definir palavra-passe de login (chpasswd) — o runv costuma usar só SSH por chave")
@@ -490,7 +490,7 @@ def interactive_loop(
             if skip_metadata:
                 print("  [skip] --skip-metadata activo.")
                 continue
-            em = prompt_line("Novo email administrativo")
+            em = prompt_line("Novo email do utilizador")
             if not em:
                 continue
             try:
@@ -584,7 +584,7 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         action="store_true",
         help="menu interactivo (também é o padrão se não houver flags de alteração)",
     )
-    p.add_argument("--email", metavar="ADDR", help="email em users.json")
+    p.add_argument("--email", metavar="ADDR", help="email do utilizador (users.json)")
     p.add_argument(
         "--replace-public-key",
         metavar="LINE",
