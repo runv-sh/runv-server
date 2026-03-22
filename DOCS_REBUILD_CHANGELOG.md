@@ -26,7 +26,16 @@ Documento em **pt-BR**. Data da passagem: conforme o commit em que este ficheiro
 | [docs/diagrams/architecture.mmd](docs/diagrams/architecture.mmd) | Sequência SSH entre → fila (Mermaid) |
 | [docs/diagrams/member-flow.mmd](docs/diagrams/member-flow.mmd) | Fluxo pedido → admin → dados públicos (Mermaid) |
 
-Alteração mínima **fora** de `docs/` para não quebrar referências em código ou templates:
+## Actualizações posteriores (código + docs)
+
+- **`genlanding.py --sync-public-only`:** cópia de `site/public/` para o DocumentRoot + `members.json`, sem reconfigurar Apache (`site/genlanding.py` v0.05).
+- **`create_runv_user.py`:** após criar membro, invoca esse modo em vez de só `build_directory.py`; `--no-refresh-landing-members` omite cópia e JSON.
+- **MOTD** [`tools/motd/60-runv`](tools/motd/60-runv): título “Últimos usuários online” sem o sufixo explicativo entre parêntesis.
+- Documentação actualizada: `docs/06`, `docs/07`, `docs/10`, `docs/11`, `docs/13`, `docs/15`.
+
+---
+
+Alteração mínima **fora** de `docs/` para não quebrar referências em código ou templates (reconstrução inicial):
 
 - [README.md](README.md) (raiz): ponteiro para `docs/README.md`.
 - `tools/tools.py`, `site/build_directory.py`, `email/configure_mailgun.py`, `email/configure_msmtp_legacy.py`: docstrings / mensagens apontam para `docs/…` em vez de `.md` removidos nos módulos.

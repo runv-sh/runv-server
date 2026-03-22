@@ -22,7 +22,7 @@
 | `scripts/admin/update_user.py` | Actualizar membro / metadados |
 | `scripts/admin/del-user.py` | Remover membro |
 | `tools/tools.py` | APT, MOTD, skel, binários locais |
-| `site/genlanding.py` | Apache + cópia landing + refresh members |
+| `site/genlanding.py` | Apache + cópia landing + refresh members; `--sync-public-only` só cópia `public/` + members (sem Apache) |
 | `site/build_directory.py` | users.json → members.json público |
 | `email/configure_mailgun.py` | Config email Mailgun / legado |
 | `terminal/setup_entre.py` | Instalar fluxo `entre` |

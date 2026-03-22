@@ -5,7 +5,7 @@
 ## Bolhas / constelação não aparecem
 
 1. Confirmar que existe **`DocumentRoot/data/members.json`** (não só `site/public/data/members.json` no clone).
-2. Ver mensagem de **`create_runv_user.py`**: AVISO se DocumentRoot inexistente.
+2. Ver mensagem de **`create_runv_user.py`**: AVISO se DocumentRoot inexistente ou se `genlanding --sync-public-only` falhou (ver log / comando manual sugerido).
 3. Browser: em viewport ≤768px o JS **omitido** de propósito (`app.js`).
 
 ## `members.json` vazio

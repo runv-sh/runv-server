@@ -244,3 +244,37 @@ def ensure_runv_jail_for_user(
     )
     ensure_bind_mount(home, jail_home, log)
     append_fstab_bind(home, jail_home, log)
+
+
+def teardown_runv_jail_for_user(
+    username: str,
+    home: Path,
+    log: logging.Logger,
+    *,
+    dry_run: bool = False,
+) -> None:
+    """
+    Inverte ``ensure_runv_jail_for_user``: umount do bind, remove linha fstab, gpasswd -d,
+    apaga ``/srv/jail/<user>``. Omitido para contas em ``JAIL_SKIP_USERNAMES``.
+    """
+    if jail_skip_username(username):
+        log.info("jail teardown: omitido (conta excluída: %s)", username)
+        return
+    real_home = home.resolve()
+    jail_home = jail_bind_mountpoint(username)
+    jail_root = JAIL_ROOT / username
+    if dry_run:
+        log.info(
+            "jail teardown [dry-run]: umount %s, fstab, gpasswd -d, rmtree %s",
+            jail_home,
+            jail_root,
+        )
+        return
+    unbind_jail_home(jail_home, log)
+    remove_fstab_bind(real_home, jail_home, log)
+    remove_user_from_jailed_group(username, log)
+    if jail_root.is_dir():
+        shutil.rmtree(jail_root, ignore_errors=False)
+        log.info("jail: removido %s", jail_root)
+    elif jail_root.exists():
+        log.warning("jail: %s existe mas não é directório; não removido automaticamente", jail_root)

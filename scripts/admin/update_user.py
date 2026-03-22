@@ -7,7 +7,10 @@ Executar como root. Alinha-se a create_runv_user / del-user / runv_mount.
 
 Modo interativo no terminal (sem argumentos ou -i) ou flags CLI.
 
-Versão 0.02 — runv.club
+Após gravar ``users.json``, pode sincronizar a landing pública com
+``site/genlanding.py --sync-public-only`` (como ``create_runv_user`` / ``del-user``).
+
+Versão 0.03 — runv.club
 """
 
 from __future__ import annotations
@@ -16,6 +19,7 @@ import argparse
 import fcntl
 import getpass
 import json
+import logging
 import os
 import pwd
 import re
@@ -31,6 +35,8 @@ from typing import Any, Final
 _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
+
+from runv_landing_sync import try_sync_landing_via_genlanding
 
 USERNAME_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[a-z][a-z0-9_-]{1,31}$")
 EMAIL_PATTERN: Final[re.Pattern[str]] = re.compile(
@@ -55,12 +61,48 @@ DEFAULT_QUOTA_HARD_MIB: Final[int] = 500
 DEFAULT_QUOTA_INODE_SOFT: Final[int] = 10_000
 DEFAULT_QUOTA_INODE_HARD: Final[int] = 12_000
 
-VERSION: Final[str] = "0.02"
+VERSION: Final[str] = "0.03"
 EXIT_OK: Final[int] = 0
 EXIT_VALIDATION: Final[int] = 1
 EXIT_SYSTEM: Final[int] = 2
 
 MIN_UID_NORMAL_USER: Final[int] = 1000
+
+
+def setup_update_user_log() -> logging.Logger:
+    log = logging.getLogger("runv.update_user")
+    log.setLevel(logging.INFO)
+    log.propagate = False
+    if not log.handlers:
+        h = logging.StreamHandler(sys.stderr)
+        h.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+        log.addHandler(h)
+    return log
+
+
+def maybe_sync_landing_after_metadata(
+    *,
+    skip_metadata: bool,
+    no_refresh_landing_members: bool,
+    landing_document_root: Path | None,
+    metadata_file: Path,
+    members_homes_root: Path | None,
+    dry_run: bool,
+    log: logging.Logger,
+) -> None:
+    if dry_run or skip_metadata or no_refresh_landing_members or landing_document_root is None:
+        return
+    root = landing_document_root.resolve()
+    if not root.is_dir():
+        log.warning("DocumentRoot da landing inexistente (%s); sync omitido", root)
+        return
+    log.info("sincronizar landing (public + members) em %s", root)
+    try_sync_landing_via_genlanding(
+        document_root=root,
+        users_json=metadata_file,
+        homes_root=members_homes_root.resolve() if members_homes_root else None,
+        log=log,
+    )
 
 
 def eprint(msg: str) -> None:
@@ -358,7 +400,7 @@ def update_metadata_after_key(
     fingerprint: str,
     *,
     dry_run: bool,
-) -> None:
+) -> bool:
     def m(data: list[dict[str, Any]]) -> bool:
         idx = find_metadata_index(data, username)
         if idx is None:
@@ -369,6 +411,8 @@ def update_metadata_after_key(
 
     if mutate_metadata(metadata_path, lock_path, dry_run=dry_run, mutator=m):
         print(f"  [ok] fingerprint em metadados: {fingerprint}")
+        return True
+    return False
 
 
 def update_metadata_after_quota(
@@ -580,6 +624,27 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     )
     p.add_argument("--metadata-file", type=Path, default=DEFAULT_METADATA_PATH)
     p.add_argument("--lock-file", type=Path, default=DEFAULT_LOCK_PATH)
+    p.add_argument(
+        "--landing-document-root",
+        type=Path,
+        default=Path("/var/www/runv.club/html"),
+        help=(
+            "DocumentRoot da landing; após gravar users.json, executa genlanding --sync-public-only "
+            "(omitido com --skip-metadata ou --no-refresh-landing-members)"
+        ),
+    )
+    p.add_argument(
+        "--no-refresh-landing-members",
+        action="store_true",
+        help="não copiar site/public nem regenerar data/members.json após alterar metadados",
+    )
+    p.add_argument(
+        "--members-homes-root",
+        type=Path,
+        default=None,
+        metavar="DIR",
+        help="opcional: --members-homes-root para genlanding (ex. /home)",
+    )
     p.add_argument("--version", action="version", version=f"%(prog)s {VERSION} — runv.club")
     return p.parse_args(argv)
 
@@ -595,6 +660,7 @@ def read_key_file(path: Path) -> str:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     dry_run = args.dry_run
+    log = setup_update_user_log()
     require_root(dry_run=dry_run)
 
     has_quota_flag = any(
@@ -644,6 +710,15 @@ def main(argv: list[str] | None = None) -> int:
             args.lock_file,
             dry_run=dry_run,
             skip_metadata=args.skip_metadata,
+        )
+        maybe_sync_landing_after_metadata(
+            skip_metadata=args.skip_metadata,
+            no_refresh_landing_members=args.no_refresh_landing_members,
+            landing_document_root=args.landing_document_root,
+            metadata_file=args.metadata_file,
+            members_homes_root=args.members_homes_root,
+            dry_run=dry_run,
+            log=log,
         )
         return EXIT_OK
 
@@ -744,6 +819,16 @@ def main(argv: list[str] | None = None) -> int:
     except RuntimeError as e:
         eprint(str(e))
         return EXIT_SYSTEM
+
+    maybe_sync_landing_after_metadata(
+        skip_metadata=args.skip_metadata,
+        no_refresh_landing_members=args.no_refresh_landing_members,
+        landing_document_root=args.landing_document_root,
+        metadata_file=args.metadata_file,
+        members_homes_root=args.members_homes_root,
+        dry_run=dry_run,
+        log=log,
+    )
 
     return EXIT_OK
 

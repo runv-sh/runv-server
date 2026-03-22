@@ -25,8 +25,11 @@ sudo python3 tools.py
 
 Flags úteis: `--force`, `--skip-apt` (ver `--help`).
 
-## IRC / patches
+## IRC / comando `chat`
 
-A rede IRC “da casa” e o comando `chat` ligam-se a `patches/patch_irc.py` conforme documentação histórica do módulo (código em `patches/`).
+- **Utilizador:** no servidor, use apenas o comando `chat` (wrapper em `/usr/local/bin/chat` após `tools/tools.py` ou `patches/patch_irc.py`). O cliente gráfico no terminal é `weechat` / `weechat-curses` (pacote `chat` no manifesto APT).
+- **Por omissão** (após `patches/patch_irc.py`): o WeeChat fica com um único servidor com autoconnect no arranque — nome interno **`runv`**, endereço **`irc.portalidea.com.br`**, porta **6697**, **TLS ligado**, autojoin só **`#runv`**. Outras redes que o utilizador adicionar manualmente **não** autoconectam por defeito (o patch desliga `autoconnect` nos outros servidores já existentes, sem apagar redes).
+- **Provisionamento:** o patch corre com `weechat-headless -a -r '…' --stdout` (o `-a` evita auto-connect durante o batch). O launcher **`chat` não usa `-a`**. Novas contas Unix criadas com `scripts/admin/create_runv_user.py` invocam o patch automaticamente para esse utilizador.
+- **Backfill / admin:** `sudo python3 patches/patch_irc.py --all-users` (ou `--user NOME`). Requer `weechat-headless` no sistema.
 
 Próximo: [06-site-and-apache.md](06-site-and-apache.md).

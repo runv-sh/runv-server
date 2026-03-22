@@ -6,16 +6,17 @@ O conjunto ``IRC_PATCH_SKIP_USERS`` também é usado por ``resolve_all_users`` p
 backfill Gopher/Gemini (``setup_alt_protocols.py``): contas listadas não recebem
 bind mount em ``/var/gemini/users/<user>`` nem entram no menu Gopher/Gemini raiz.
 
-- Config em ~/.config/weechat (XDG), servidor interno «runv», autoconnect.
-- Aplicação **só** via binário ``weechat-headless`` (-a, -r, --stdout); não usar cliente interactivo no patch.
+- Config em ~/.config/weechat (XDG), servidor interno «runv», TLS, autoconnect só nele.
+- Outros servidores existentes mantêm-se; apenas ``irc.server.<outro>.autoconnect`` fica ``off``.
+- Aplicação **só** via ``weechat-headless`` (-a, -r, --stdout) no patch; o launcher ``chat`` não usa -a.
 - Instala /usr/local/bin/chat (launcher) salvo --skip-launcher.
 
 MOTD e runv-help referem apenas **chat** (sem expor outros nomes de comando ao utilizador).
 
-Executar como root no Debian; detalhes em scripts/docs/irc_patch.md.
+Executar como root no Debian; detalhes em docs/05-tools-and-system-experience.md.
 SASL/NickServ: ver constante ``SASL_WEECHAT_SNIPPETS`` e https://weechat.org/doc/
 
-Versão 0.03 — runv.club
+Versão 0.04 — runv.club
 """
 
 from __future__ import annotations
@@ -40,11 +41,12 @@ SASL_WEECHAT_SNIPPETS: Final[tuple[str, ...]] = (
     '/set irc.server.<name>.sasl_password "${sec.data.runv_irc_senha}"',
 )
 
-VERSION: Final[str] = "0.03"
+VERSION: Final[str] = "0.04"
 
 DEFAULT_USERS_JSON: Final[Path] = Path("/var/lib/runv/users.json")
 DEFAULT_HOMES_ROOT: Final[Path] = Path("/home")
 DEFAULT_HOST: Final[str] = "irc.portalidea.com.br"
+DEFAULT_PORT_TLS: Final[int] = 6697
 DEFAULT_SERVER_NAME: Final[str] = "runv"
 DEFAULT_AUTOJOIN: Final[str] = "#runv"
 
@@ -237,6 +239,29 @@ def weechat_config_dir(home: Path) -> Path:
     return home / ".config" / "weechat"
 
 
+def parse_all_server_names(irc_conf_text: str) -> set[str]:
+    """Nomes de servidor na secção [server] (prefixos antes do primeiro '.' na chave)."""
+    names: set[str] = set()
+    in_server = False
+    for raw in irc_conf_text.splitlines():
+        line = raw.strip()
+        if line == "[server]":
+            in_server = True
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            in_server = False
+            continue
+        if not in_server or not line or line.startswith("#") or "=" not in line:
+            continue
+        key_part = line.split("=", 1)[0].strip()
+        if "." not in key_part:
+            continue
+        srv, _sub = key_part.split(".", 1)
+        if srv:
+            names.add(srv)
+    return names
+
+
 def parse_server_options(irc_conf_text: str, server: str) -> dict[str, str]:
     opts: dict[str, str] = {}
     in_server = False
@@ -272,8 +297,66 @@ def tls_effective(opts: dict[str, str]) -> bool:
     return v in ("on", "true", "yes", "1")
 
 
+def autoconnect_enabled(opts: dict[str, str]) -> bool:
+    ac = (opts.get("autoconnect") or "off").lower()
+    return ac in ("on", "true", "yes", "1")
+
+
 def expected_nicks(username: str) -> str:
     return f"{username},{username}_,{username}__,{username}|away"
+
+
+def runv_server_options_match(
+    opts: dict[str, str],
+    *,
+    host: str,
+    port: int,
+    tls: bool,
+    unix_username: str,
+    autojoin: str,
+    log: logging.Logger,
+) -> bool:
+    if "addresses" not in opts:
+        return False
+    addr = opts["addresses"].lower()
+    expect_addr = f"{host.lower()}/{port}"
+    if addr != expect_addr:
+        log.debug("addresses %r != %r", addr, expect_addr)
+        return False
+    if tls_effective(opts) != tls:
+        log.debug("tls/ssl diverge")
+        return False
+    if opts.get("nicks") != expected_nicks(unix_username):
+        log.debug("nicks divergem")
+        return False
+    if (opts.get("username") or "") != unix_username:
+        return False
+    if (opts.get("realname") or "") != unix_username:
+        return False
+    if not autoconnect_enabled(opts):
+        return False
+    aj = opts.get("autojoin") or ""
+    if aj != autojoin:
+        log.debug("autojoin %r != %r", aj, autojoin)
+        return False
+    return True
+
+
+def non_primary_servers_autoconnect_all_off(
+    irc_conf_text: str,
+    primary: str,
+    log: logging.Logger,
+) -> bool:
+    for name in parse_all_server_names(irc_conf_text):
+        if name == primary:
+            continue
+        o = parse_server_options(irc_conf_text, name)
+        if not o.get("addresses"):
+            continue
+        if autoconnect_enabled(o):
+            log.debug("servidor %r tem autoconnect on (deveria off)", name)
+            return False
+    return True
 
 
 def config_matches(
@@ -283,7 +366,7 @@ def config_matches(
     host: str,
     port: int,
     tls: bool,
-    username: str,
+    unix_username: str,
     autojoin: str,
     log: logging.Logger,
 ) -> bool:
@@ -295,31 +378,32 @@ def config_matches(
         log.debug("ler %s: %s", irc_conf, e)
         return False
     opts = parse_server_options(text, server)
-    if "addresses" not in opts:
+    if not runv_server_options_match(
+        opts,
+        host=host,
+        port=port,
+        tls=tls,
+        unix_username=unix_username,
+        autojoin=autojoin,
+        log=log,
+    ):
         return False
-    addr = opts["addresses"].lower()
-    expect_addr = f"{host.lower()}/{port}"
-    if addr != expect_addr:
-        log.debug("addresses %r != %r", addr, expect_addr)
-        return False
-    if tls_effective(opts) != tls:
-        log.debug("tls/ssl diverge")
-        return False
-    if opts.get("nicks") != expected_nicks(username):
-        log.debug("nicks divergem")
-        return False
-    if (opts.get("username") or "") != username:
-        return False
-    if (opts.get("realname") or "") != username:
-        return False
-    ac = (opts.get("autoconnect") or "off").lower()
-    if ac not in ("on", "true", "yes", "1"):
-        return False
-    aj = opts.get("autojoin") or ""
-    if aj != autojoin:
-        log.debug("autojoin %r != %r", aj, autojoin)
-        return False
-    return True
+    return non_primary_servers_autoconnect_all_off(text, server, log)
+
+
+def build_disable_other_autoconnect_chain(irc_conf_text: str, primary: str) -> str:
+    """Comandos /set para desligar autoconnect em servidores != primary (só onde está on)."""
+    parts: list[str] = []
+    for name in sorted(parse_all_server_names(irc_conf_text)):
+        if name == primary:
+            continue
+        o = parse_server_options(irc_conf_text, name)
+        if not o.get("addresses"):
+            continue
+        if not autoconnect_enabled(o):
+            continue
+        parts.append(f"/set irc.server.{name}.autoconnect off")
+    return " ; ".join(parts)
 
 
 def build_apply_command_chain(
@@ -328,25 +412,23 @@ def build_apply_command_chain(
     host: str,
     port: int,
     tls: bool,
-    username: str,
+    unix_username: str,
     autojoin: str,
 ) -> str:
-    add_tokens = [f"/server add {server} {host}/{port}"]
+    # Sem -autoconnect no /server add: autoconnect via /set (requisito runv).
+    add_cmd = f"/server add {server} {host}/{port}"
     if tls:
-        add_tokens.append("-tls")
-    add_tokens.append("-autoconnect")
-    parts: list[str] = [" ".join(add_tokens)]
-    nicks = expected_nicks(username)
+        add_cmd += " -tls"
+    parts: list[str] = [add_cmd]
+    nicks = expected_nicks(unix_username)
     parts.append(f'/set irc.server.{server}.nicks "{nicks}"')
-    parts.append(f'/set irc.server.{server}.username "{username}"')
-    parts.append(f'/set irc.server.{server}.realname "{username}"')
+    parts.append(f'/set irc.server.{server}.username "{unix_username}"')
+    parts.append(f'/set irc.server.{server}.realname "{unix_username}"')
     parts.append(f"/set irc.server.{server}.autoconnect on")
     if autojoin:
         parts.append(f'/set irc.server.{server}.autojoin "{autojoin}"')
     else:
         parts.append(f'/set irc.server.{server}.autojoin ""')
-    # Globais: ao entrar num canal, mudar para esse buffer; servidor IRC em buffer próprio;
-    # buflist só canais IRC (#runv, …) — esconde buffer do servidor «runv» e core.weechat na lista.
     parts.append("/set irc.look.buffer_switch_join on")
     parts.append("/set irc.look.server_buffer independent")
     parts.append(
@@ -355,6 +437,17 @@ def build_apply_command_chain(
     parts.append("/save")
     parts.append("/quit")
     return " ; ".join(parts)
+
+
+def chain_with_save_quit(prefix_chain: str) -> str:
+    p = prefix_chain.strip()
+    if p:
+        return f"{p} ; /save ; /quit"
+    return "/save ; /quit"
+
+
+def merge_command_chains(*parts: str) -> str:
+    return " ; ".join(s.strip() for s in parts if s and s.strip())
 
 
 def ensure_xdg_weechat_dir(home: Path, uid: int, gid: int, log: logging.Logger, dry_run: bool) -> Path:
@@ -463,38 +556,66 @@ def patch_user(
         return False
 
     irc_conf = weechat_config_dir(home) / "irc.conf"
-    matched = config_matches(
+    conf_text = ""
+    if irc_conf.is_file():
+        try:
+            conf_text = irc_conf.read_text(encoding="utf-8", errors="replace")
+        except OSError as e:
+            log.debug("%s: ler %s: %s", username, irc_conf, e)
+
+    if not force and config_matches(
         irc_conf,
         server=server,
         host=host,
         port=port,
         tls=tls,
-        username=username,
+        unix_username=username,
+        autojoin=autojoin,
+        log=log,
+    ):
+        log.info("%s: IRC já conforme (runv + sem autoconnect noutros) — no-op", username)
+        return True
+
+    opts_runv = parse_server_options(conf_text, server)
+    runv_ok = runv_server_options_match(
+        opts_runv,
+        host=host,
+        port=port,
+        tls=tls,
+        unix_username=username,
         autojoin=autojoin,
         log=log,
     )
-    if not force and matched:
-        log.info("%s: servidor %s já coincide com o desejado — a saltar", username, server)
-        return True
+    others_ok = non_primary_servers_autoconnect_all_off(conf_text, server, log)
 
-    server_exists = False
-    if irc_conf.is_file():
-        try:
-            conf_text = irc_conf.read_text(encoding="utf-8", errors="replace")
-            server_exists = bool(parse_server_options(conf_text, server).get("addresses"))
-        except OSError as e:
-            log.debug("%s: ler %s: %s", username, irc_conf, e)
+    disable_others = build_disable_other_autoconnect_chain(conf_text, server)
 
-    if server_exists and (force or not matched):
+    if not force and runv_ok and not others_ok:
+        log.info("%s: só desligar autoconnect noutros servidores", username)
+        chain = chain_with_save_quit(disable_others)
+        ok = run_weechat_script(
+            username=username,
+            home=home,
+            weechat_bin=weechat_bin,
+            command_chain=chain,
+            dry_run=dry_run,
+            log=log,
+        )
+        if ok and not dry_run and irc_conf.is_file():
+            try:
+                os.chown(irc_conf, uid, gid)
+            except OSError:
+                pass
+        return ok
+
+    server_exists = bool(opts_runv.get("addresses"))
+
+    if server_exists and (force or not runv_ok):
         del_chain = f"/server del {server} ; /quit"
         if force:
             log.info("%s: remover servidor %s existente (--force)", username, server)
         else:
-            log.info(
-                "%s: realinhar servidor «%s» ao alvo (remove e volta a criar)",
-                username,
-                server,
-            )
+            log.info("%s: realinhar servidor «%s» (remove e volta a criar)", username, server)
         run_weechat_script(
             username=username,
             home=home,
@@ -504,21 +625,29 @@ def patch_user(
             log=log,
             allow_failure=True,
         )
+        if not dry_run and irc_conf.is_file():
+            try:
+                conf_text = irc_conf.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                conf_text = ""
+        disable_others = build_disable_other_autoconnect_chain(conf_text, server)
 
-    chain = build_apply_command_chain(
+    apply_chain = build_apply_command_chain(
         server=server,
         host=host,
         port=port,
         tls=tls,
-        username=username,
+        unix_username=username,
         autojoin=autojoin,
     )
+    # apply_chain já termina em /save;/quit — prefixar desligar outros antes do /server add.
+    full_chain = merge_command_chains(disable_others, apply_chain)
     log.info("%s: aplicar configuração IRC — servidor «%s» (weechat-headless)", username, server)
     ok = run_weechat_script(
         username=username,
         home=home,
         weechat_bin=weechat_bin,
-        command_chain=chain,
+        command_chain=full_chain,
         dry_run=dry_run,
         log=log,
     )
@@ -534,7 +663,12 @@ def patch_user(
 
 def validate_post(
     sample_user: str | None,
+    *,
+    host: str,
+    port: int,
+    tls: bool,
     server: str,
+    autojoin: str,
     log: logging.Logger,
 ) -> None:
     if not CHAT_DEST.is_file() or not os.access(CHAT_DEST, os.X_OK):
@@ -551,11 +685,19 @@ def validate_post(
     if not irc_conf.is_file():
         log.warning("validação: %s sem %s", sample_user, irc_conf)
         return
-    txt = irc_conf.read_text(encoding="utf-8", errors="replace")
-    if re.search(rf"^{re.escape(server)}\.addresses\s*=", txt, re.MULTILINE):
-        log.info("validação: %s tem %s.addresses em %s", sample_user, server, irc_conf)
-    else:
-        log.warning("validação: %s.addresses não encontrado em %s", server, irc_conf)
+    if config_matches(
+        irc_conf,
+        server=server,
+        host=host,
+        port=port,
+        tls=tls,
+        unix_username=sample_user,
+        autojoin=autojoin,
+        log=log,
+    ):
+        log.info("validação: %s — runv=%s/%s TLS=%s autoconnect+autojoin OK; outros sem autoconnect", sample_user, host, port, tls)
+        return
+    log.warning("validação: %s — config não passa em todas as verificações (ver patch / irc.conf)", sample_user)
 
 
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -575,7 +717,7 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         type=int,
         default=None,
         metavar="PORT",
-        help="porta (omissão: 6697 com TLS, 6667 sem TLS)",
+        help=f"porta (omissão: {DEFAULT_PORT_TLS} com TLS, 6667 sem TLS)",
     )
     tls_g = p.add_mutually_exclusive_group()
     tls_g.add_argument("--tls", dest="tls", action="store_true", help="usar TLS (padrão)")
@@ -590,9 +732,9 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument(
         "--autojoin",
         default=DEFAULT_AUTOJOIN,
-        metavar="CHANNELS",
+        metavar="CHANNEL",
         help=(
-            f'canais separados por vírgula (padrão: {DEFAULT_AUTOJOIN!r}); '
+            f'canal único por omissão ({DEFAULT_AUTOJOIN!r}); '
             'use --autojoin "" para não autoentrar em canais'
         ),
     )
@@ -607,7 +749,7 @@ def main(argv: list[str] | None = None) -> int:
     log = setup_logging(args.verbose)
 
     if args.port is None:
-        port = 6697 if args.tls else 6667
+        port = DEFAULT_PORT_TLS if args.tls else 6667
     else:
         port = args.port
 
@@ -633,6 +775,7 @@ def main(argv: list[str] | None = None) -> int:
         users = [args.user]
 
     failures = 0
+    autojoin = args.autojoin.strip()
     if not args.skip_backfill:
         assert weechat_bin is not None
         for u in users:
@@ -645,7 +788,7 @@ def main(argv: list[str] | None = None) -> int:
                 port=port,
                 tls=args.tls,
                 server=args.server_name,
-                autojoin=args.autojoin.strip(),
+                autojoin=autojoin,
                 force=args.force,
                 weechat_bin=weechat_bin,
                 dry_run=args.dry_run,
@@ -657,14 +800,21 @@ def main(argv: list[str] | None = None) -> int:
         log.info("backfill ignorado (--skip-backfill).")
 
     sample = users[0] if users else None
-    validate_post(sample, args.server_name, log)
+    validate_post(
+        sample,
+        host=args.host,
+        port=port,
+        tls=args.tls,
+        server=args.server_name,
+        autojoin=autojoin,
+        log=log,
+    )
 
     print()
     print("========== patch_irc — resumo ==========")
     print(f"Modo: {'DRY-RUN' if args.dry_run else 'aplicação'}")
     print(f"Host: {args.host}:{port}  TLS: {args.tls}  servidor na config: {args.server_name}")
-    aj = args.autojoin.strip()
-    print(f"Autojoin: {aj if aj else '(nenhum)'}")
+    print(f"Autojoin (só runv): {autojoin if autojoin else '(nenhum)'}")
     if not args.skip_backfill:
         print(f"Utilizadores processados: {len(users)}  falhas: {failures}")
     print("Comando para utilizadores: chat")

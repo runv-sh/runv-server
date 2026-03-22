@@ -5,9 +5,13 @@ Remove permanentemente uma conta Unix (banimento) no servidor runv.club (Debian)
 Usa ``deluser`` com remoção da home. Opcionalmente remove o registro em
 ``/var/lib/runv/users.json`` se existir.
 
-Executar como root. Não altera Apache nem SSH diretamente.
+Antes de ``deluser``: desmonta jail SSH (bind em ``/srv/jail/…``), quota Gemini, etc.
+Após actualizar ``users.json``: opcionalmente executa ``site/genlanding.py --sync-public-only``
+(alinhado a ``create_runv_user``).
 
-Versão 0.03 — runv.club
+Executar como root. Não altera a configuração Apache; a sincronização só copia ficheiros estáticos.
+
+Versão 0.04 — runv.club
 """
 
 from __future__ import annotations
@@ -15,6 +19,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 import json
+import logging
 import os
 import pwd
 import shutil
@@ -30,6 +35,9 @@ from typing import Any, Final
 _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
+
+import runv_jail
+from runv_landing_sync import try_sync_landing_via_genlanding
 
 # constantes
 USERNAME_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[a-z][a-z0-9_-]{1,31}$")
@@ -55,13 +63,15 @@ RESERVED_USERNAMES: Final[frozenset[str]] = frozenset(
         "irc",
         "_apt",
         "nobody",
+        "admin",
+        "postmaster",
     }
 )
 
 DEFAULT_METADATA_PATH: Final[Path] = Path("/var/lib/runv/users.json")
 DEFAULT_LOCK_PATH: Final[Path] = Path("/var/lib/runv/users.lock")
 
-VERSION: Final[str] = "0.03"
+VERSION: Final[str] = "0.04"
 
 _REPO_ROOT: Final[Path] = _SCRIPT_DIR.parent.parent
 
@@ -70,6 +80,17 @@ EXIT_VALIDATION: Final[int] = 1
 EXIT_SYSTEM: Final[int] = 2
 
 MIN_UID_NORMAL_USER: Final[int] = 1000
+
+
+def setup_del_user_log(*, verbose: bool) -> logging.Logger:
+    log = logging.getLogger("runv.del_user")
+    log.setLevel(logging.DEBUG if verbose else logging.INFO)
+    log.propagate = False
+    if not log.handlers:
+        h = logging.StreamHandler(sys.stderr)
+        h.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+        log.addHandler(h)
+    return log
 
 
 # validação / root
@@ -125,6 +146,14 @@ def enforce_safety_rules(
         print(
             f"Erro: {username!r} é uma conta reservada do sistema. "
             "Se tem certeza absoluta, repita com --force (não recomendado).",
+            file=sys.stderr,
+        )
+        raise SystemExit(EXIT_VALIDATION)
+
+    if username in runv_jail.JAIL_SKIP_USERNAMES and not force:
+        print(
+            f"Erro: {username!r} é conta de serviço runv (SSH signup / admin). "
+            "Não remover excepto com --force (quebra o sistema).",
             file=sys.stderr,
         )
         raise SystemExit(EXIT_VALIDATION)
@@ -610,11 +639,34 @@ def main() -> int:
         help="não envia email ao utilizador sobre desativação por normas da comunidade",
     )
     parser.add_argument(
+        "--landing-document-root",
+        type=Path,
+        default=Path("/var/www/runv.club/html"),
+        help=(
+            "DocumentRoot da landing; após remover entrada em users.json, executa "
+            "genlanding --sync-public-only (omitido com --skip-metadata ou --no-refresh-landing-members)"
+        ),
+    )
+    parser.add_argument(
+        "--no-refresh-landing-members",
+        action="store_true",
+        help="não copiar site/public nem regenerar data/members.json após users.json",
+    )
+    parser.add_argument(
+        "--members-homes-root",
+        type=Path,
+        default=None,
+        metavar="DIR",
+        help="opcional: --members-homes-root para genlanding (ex. /home)",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"%(prog)s {VERSION} — runv.club",
     )
     args = parser.parse_args()
+
+    log = setup_del_user_log(verbose=args.verbose)
 
     username = validate_username_syntax(args.username)
 
@@ -633,6 +685,7 @@ def main() -> int:
             dry_run=True,
         )
         remove_gemini_user_symlink(username, dry_run=True, verbose=args.verbose)
+        runv_jail.teardown_runv_jail_for_user(username, home, log, dry_run=True)
         run_deluser(
             username,
             purge_all_files=args.purge_all_files,
@@ -647,6 +700,18 @@ def main() -> int:
                 dry_run=True,
                 verbose=args.verbose,
             )
+            if not args.no_refresh_landing_members and args.landing_document_root:
+                dr = args.landing_document_root.resolve()
+                if dr.is_dir():
+                    print(
+                        f"  [dry-run] executaria genlanding --sync-public-only "
+                        f"(document-root={dr}, users.json={args.metadata_file})"
+                    )
+                elif args.verbose:
+                    print(
+                        f"  [dry-run] landing: DocumentRoot inexistente ({dr}); sync omitido",
+                        file=sys.stderr,
+                    )
         ban_email = read_user_email_from_metadata(args.metadata_file, username)
         if args.no_ban_notify_email:
             print("  notificação ban: omitida (--no-ban-notify-email)")
@@ -680,6 +745,16 @@ def main() -> int:
 
     remove_gemini_user_symlink(username, dry_run=False, verbose=args.verbose)
 
+    try:
+        runv_jail.teardown_runv_jail_for_user(username, home, log, dry_run=False)
+    except RuntimeError as e:
+        print(f"Erro: jail SSH: {e}", file=sys.stderr)
+        print(
+            "  Resolva o bind em /srv/jail/… antes de remover o utilizador (umount, fstab).",
+            file=sys.stderr,
+        )
+        raise SystemExit(EXIT_SYSTEM) from e
+
     run_deluser(
         username,
         purge_all_files=args.purge_all_files,
@@ -696,6 +771,23 @@ def main() -> int:
             dry_run=False,
             verbose=args.verbose,
         )
+        if not args.no_refresh_landing_members and args.landing_document_root:
+            root = args.landing_document_root.resolve()
+            if root.is_dir():
+                log.info("sincronizar landing após remoção de metadados (%s)", root)
+                try_sync_landing_via_genlanding(
+                    document_root=root,
+                    users_json=args.metadata_file,
+                    homes_root=args.members_homes_root.resolve()
+                    if args.members_homes_root
+                    else None,
+                    log=log,
+                )
+            else:
+                log.warning(
+                    "DocumentRoot da landing inexistente (%s); constelação não actualizada",
+                    root,
+                )
 
     try_send_community_ban_notice(
         username,

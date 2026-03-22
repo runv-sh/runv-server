@@ -36,7 +36,7 @@ Vários scripts importam `fcntl` ou `grp` — **não executáveis** em Windows t
 - `terminal/setup_entre.py --help`
 - `site/genlanding.py --help`
 
-Em **Debian:** correr os `--help` acima e guardar a saída para operadores.
+Em **Debian:** correr os `--help` acima e guardar a saída para operadores. Confirmar que `site/genlanding.py --help` lista **`--sync-public-only`**.
 
 ## O que **não** existe no repo (facto)
 

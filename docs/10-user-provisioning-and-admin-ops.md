@@ -7,10 +7,12 @@
 - **Único** script de criação de **membros** com a política completa (docstring longa no ficheiro): `adduser`, chaves, `public_html` / gopher / gemini, permissões, jail (Jailkit), quota, metadados em `users.json`.
 - Executar como **root** no servidor Debian.
 
-## Pós-criação: constelação
+## Pós-criação: landing pública e constelação
 
-- Flag `--landing-document-root` (default `/var/www/runv.club/html`): se o directório **existir**, corre `build_directory.py` para `data/members.json` (salvo `--no-refresh-landing-members`).
-- Saída explícita para o operador: linha de **sucesso** com contagem ou **AVISO** com comando sugerido se path em falta ou falha (**código actual**).
+- **`genlanding.py` completo** continua necessário para a **primeira** montagem do site (VirtualHost Apache, módulos, cópia inicial). Não é preciso repetir esse fluxo **a cada** novo membro.
+- Flag **`--landing-document-root`** (default `/var/www/runv.club/html`): se o directório **existir**, após gravar `users.json` o script invoca **`site/genlanding.py --sync-public-only`** — recopia `site/public/` para o DocumentRoot, aplica `chown` a `www-data` e regenera `data/members.json` via `build_directory.py` interno ao genlanding.
+- **`--no-refresh-landing-members`:** omite toda essa sincronização (nem cópia de `public/` nem `members.json`).
+- Saída para o operador: linha **`landing (public + bolhas): sincronizado`** com contagem opcional, ou **AVISO** com comando manual (`genlanding.py --sync-public-only …`) se o DocumentRoot não existir ou o subprocess falhar.
 
 ## Outros scripts admin
 

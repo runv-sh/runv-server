@@ -9,7 +9,7 @@ depois volte a correr este script para copiar.
 
 Executar como root (excepto --dry-run). Apenas biblioteca padrão Python 3.
 
-Versão 0.04 — runv.club
+Versão 0.05 — runv.club
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 from typing import Final
 
-VERSION: Final[str] = "0.04"
+VERSION: Final[str] = "0.05"
 EXIT_OK: Final[int] = 0
 EXIT_USAGE: Final[int] = 1
 EXIT_ERROR: Final[int] = 2
@@ -261,6 +261,14 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         help="não desactiva 000-default.conf (produção e --dev: mantém página Debian; pedidos por IP não casam com ServerName)",
     )
     p.add_argument(
+        "--sync-public-only",
+        action="store_true",
+        help=(
+            "só copia site/public → DocumentRoot, chown www-data e regenera data/members.json; "
+            "não configura Apache nem recarrega o serviço (uso típico: após create_runv_user.py)"
+        ),
+    )
+    p.add_argument(
         "--no-refresh-members",
         action="store_true",
         help="não executar site/build_directory.py após copiar public/ (omitir data/members.json)",
@@ -299,6 +307,40 @@ def resolve_profile(args: argparse.Namespace) -> tuple[str, Path, str, bool]:
     return domain, doc.resolve(), conf, disable_default
 
 
+def sync_public_only_main(args: argparse.Namespace) -> int:
+    """Copia site/public → DocumentRoot, chown e members.json; sem Apache."""
+    _, document_root, _, _ = resolve_profile(args)
+    source = args.source.resolve()
+
+    print(f"== genlanding.py v{VERSION} — sync-public-only ==")
+    print(f"  modo: {'dev' if args.dev else 'produção'}")
+    print(f"  DocumentRoot: {document_root}")
+    print(f"  origem: {source}")
+    print()
+
+    try:
+        copy_landing(source, document_root, dry_run=args.dry_run)
+        if not args.dry_run:
+            chown_www_data(document_root, dry_run=False)
+
+        if not args.no_refresh_members:
+            refresh_members_json_in_document_root(
+                document_root,
+                users_json=args.members_users_json,
+                homes_root=args.members_homes_root.resolve()
+                if args.members_homes_root
+                else None,
+                dry_run=args.dry_run,
+            )
+    except (FileNotFoundError, OSError, RuntimeError) as e:
+        eprint(f"Erro: {e}")
+        return EXIT_ERROR
+
+    print()
+    print("  [ok] sync-public-only concluído (Apache não foi alterado).")
+    return EXIT_OK
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
@@ -306,7 +348,14 @@ def main(argv: list[str] | None = None) -> int:
         eprint("Erro: --certbot não pode ser usado com --dev (Certbot não serve para domínios locais).")
         return EXIT_USAGE
 
+    if args.sync_public_only and args.certbot:
+        eprint("Erro: --certbot não pode ser usado com --sync-public-only.")
+        return EXIT_USAGE
+
     require_root(dry_run=args.dry_run)
+
+    if args.sync_public_only:
+        return sync_public_only_main(args)
 
     domain, document_root, site_conf_name, disable_default = resolve_profile(args)
     source = args.source.resolve()
@@ -416,8 +465,8 @@ def main(argv: list[str] | None = None) -> int:
         print("  - Em /etc/hosts (cliente ou VM): 127.0.0.1  runv.local  www.runv.local")
     print(
         "  - Membros na constelação: regenerado com build_directory após esta cópia "
-        "(fonte: /var/lib/runv/users.json). Novas contas: create_runv_user.py também actualiza "
-        "members.json se o DocumentRoot existir. Use --no-refresh-members para omitir."
+        "(fonte: /var/lib/runv/users.json). Novas contas: create_runv_user.py corre "
+        "genlanding.py --sync-public-only (public + members). Use --no-refresh-members para omitir."
     )
     return EXIT_OK
 

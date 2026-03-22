@@ -67,6 +67,7 @@ if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
 import runv_jail
+from runv_landing_sync import try_sync_landing_via_genlanding
 
 # constantes
 USERNAME_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[a-z][a-z0-9_-]{1,31}$")
@@ -1097,64 +1098,6 @@ def try_apply_quota(
 
 
 # CLI
-def try_refresh_landing_members_json(
-    *,
-    document_root: Path,
-    users_json: Path,
-    homes_root: Path | None,
-    log: logging.Logger,
-) -> tuple[bool, int | None]:
-    """
-    Regenera public/data/members.json no DocumentRoot da landing (build_directory.py).
-    Falhas são apenas registadas — não aborta o provisionamento.
-    Devolve (sucesso, número de membros no JSON público ou None se não foi possível contar).
-    """
-    script = _REPO_ROOT / "site" / "build_directory.py"
-    if not script.is_file():
-        log.warning(
-            "build_directory.py não encontrado em %s; members.json da landing não atualizado",
-            script,
-        )
-        return False, None
-    out = document_root / "data" / "members.json"
-    cmd = [
-        sys.executable,
-        str(script),
-        "--users-json",
-        str(users_json),
-        "-o",
-        str(out),
-    ]
-    if homes_root is not None:
-        cmd.extend(["--homes-root", str(homes_root)])
-    try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-        err_tail = (r.stderr or r.stdout or "").strip()
-        if r.returncode != 0:
-            log.warning(
-                "build_directory terminou com código %s: %s",
-                r.returncode,
-                err_tail[:2000] if err_tail else "(sem saída)",
-            )
-            return False, None
-        log.info("members.json da landing actualizado em %s", out)
-        if r.stderr and r.stderr.strip():
-            log.debug("build_directory stderr: %s", r.stderr.strip()[:1500])
-        n_public: int | None = None
-        try:
-            raw = out.read_text(encoding="utf-8")
-            parsed = json.loads(raw)
-            if isinstance(parsed, list):
-                n_public = len(parsed)
-                log.info("constelação: %s membro(s) no dataset público (%s)", n_public, out)
-        except (OSError, json.JSONDecodeError, TypeError) as ex:
-            log.warning("members.json escrito mas não foi possível validar a lista: %s", ex)
-        return True, n_public
-    except (OSError, subprocess.TimeoutExpired) as e:
-        log.warning("falha ao executar build_directory: %s", e)
-        return False, None
-
-
 def print_banner() -> None:
     print()
     print("  create_runv_user — provisionamento runv.club")
@@ -1305,6 +1248,54 @@ def _resolve_email_package_root(state: dict[str, Any] | None) -> Path | None:
                 return p
     cand = _REPO_ROOT / "email"
     return cand if cand.is_dir() else None
+
+
+def try_patch_irc_for_new_user(
+    username: str,
+    *,
+    dry_run: bool,
+    log: logging.Logger,
+) -> None:
+    """
+    Executa ``patches/patch_irc.py --user`` (WeeChat headless: servidor «runv», TLS, #runv).
+    Não aborta o provisionamento se o patch falhar; contas em ``IRC_PATCH_SKIP_USERS`` são ignoradas.
+    """
+    if dry_run:
+        return
+    patch_path = _REPO_ROOT / "patches" / "patch_irc.py"
+    if not patch_path.is_file():
+        log.warning("patch IRC: ficheiro ausente %s — corra o patch manualmente no servidor.", patch_path)
+        return
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("patch_irc_embed", patch_path)
+        if spec is None or spec.loader is None:
+            log.warning("patch IRC: não foi possível carregar %s", patch_path)
+            return
+        pim = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(pim)
+        if username in pim.IRC_PATCH_SKIP_USERS:
+            log.info("patch IRC omitido (lista reservada / serviço): %s", username)
+            return
+    except Exception as e:
+        log.warning("patch IRC: verificação de skip falhou (%s); tento subprocess mesmo assim.", e)
+    cmd = [sys.executable, str(patch_path), "--user", username]
+    log.info("patch IRC: %s", " ".join(cmd))
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        log.warning("patch IRC: execução falhou: %s", e)
+        return
+    if r.returncode != 0:
+        log.warning(
+            "patch IRC terminou com código %s para %s: %s",
+            r.returncode,
+            username,
+            ((r.stderr or "") + (r.stdout or "")).strip()[:2000] or "(sem saída)",
+        )
+    else:
+        log.info("patch IRC concluído para %s (comando «chat», rede runv / #runv).", username)
 
 
 def try_send_welcome_email(
@@ -1573,21 +1564,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=Path("/var/www/runv.club/html"),
         help=(
-            "DocumentRoot da landing Apache (directório existente para actualizar a constelação); "
-            "após criar o utilizador, executa site/build_directory.py para gravar data/members.json. "
-            "Se não existir, o refresh é omitido e é impresso um AVISO com o comando sugerido."
+            "DocumentRoot da landing Apache (directório existente); após criar o utilizador, "
+            "executa site/genlanding.py --sync-public-only (copia site/public + data/members.json). "
+            "Se não existir, a sincronização é omitida e é impresso um AVISO com o comando sugerido."
         ),
     )
     p.add_argument(
         "--no-refresh-landing-members",
         action="store_true",
-        help="não regenerar data/members.json na landing após gravar metadados",
+        help=(
+            "não sincronizar site/public → DocumentRoot nem regenerar data/members.json após gravar metadados"
+        ),
     )
     p.add_argument(
         "--members-homes-root",
         type=Path,
         default=None,
-        help="se definido (ex. /home), passa --homes-root a build_directory.py (homepage_mtime)",
+        help="se definido (ex. /home), passa --members-homes-root a genlanding (homepage_mtime em members.json)",
     )
     p.add_argument(
         "--no-quota",
@@ -1752,7 +1745,7 @@ def main(argv: list[str] | None = None) -> int:
             "  ações: (1) adduser + skel  (2) authorized_keys  (3) public_html  "
             "(4) public_gopher + public_gemini + bind Gemini  (5) README só com --with-readme  "
             "(6) permissões  (7) jail runv-jailed salvo --no-jail  "
-            "(8) quota  (9) verificação + metadados JSON"
+            "(8) quota  (9) verificação + patch IRC (chat)  (10) metadados JSON"
         )
         print(f"  with-readme: {getattr(args, 'with_readme', False)}  no-jail: {getattr(args, 'no_jail', False)}")
         if args.no_quota:
@@ -1858,6 +1851,9 @@ def main(argv: list[str] | None = None) -> int:
             expect_readme=bool(args.with_readme),
         )
 
+        log.info("=== fase: IRC WeeChat (patches/patch_irc.py — comando chat, runv / #runv)")
+        try_patch_irc_for_new_user(user, dry_run=False, log=log)
+
         record = UserRecord(
             username=user,
             email=email,
@@ -1884,8 +1880,8 @@ def main(argv: list[str] | None = None) -> int:
         if not args.no_refresh_landing_members and args.landing_document_root:
             root = args.landing_document_root.resolve()
             if root.is_dir():
-                log.info("=== fase: actualizar members.json da landing (%s)", root)
-                members_refreshed, members_public_count = try_refresh_landing_members_json(
+                log.info("=== fase: sincronizar landing (public + members) (%s)", root)
+                members_refreshed, members_public_count = try_sync_landing_via_genlanding(
                     document_root=root,
                     users_json=args.metadata_file,
                     homes_root=args.members_homes_root.resolve()
@@ -1912,6 +1908,7 @@ def main(argv: list[str] | None = None) -> int:
         print("  public_gopher:     pronto (gophermap)")
         print("  public_gemini:     pronto (index.gmi)")
         print("  bind Gemini:       /var/gemini/users/<user> <- ~/public_gemini (se o diretório existir)")
+        print("  IRC:               comando «chat» → irc.portalidea.com.br (TLS) #runv (patch_irc.py)")
         if args.with_readme:
             print("  README.md:         criado em ~/README.md (pt-BR)")
         else:
@@ -1927,15 +1924,19 @@ def main(argv: list[str] | None = None) -> int:
             args.landing_document_root.resolve() if args.landing_document_root else None
         )
         out_members = (dr_resolved / "data" / "members.json") if dr_resolved else None
+        homes_opt = ""
+        if args.members_homes_root:
+            homes_opt = f" --members-homes-root {args.members_homes_root.resolve()}"
         if args.no_refresh_landing_members:
-            print("  constelação (bolhas): omitida (--no-refresh-landing-members)")
+            print("  landing (public + bolhas): omitida (--no-refresh-landing-members)")
         elif dr_resolved is not None:
             if not dr_resolved.is_dir():
                 print(
-                    f"  AVISO constelação: DocumentRoot inexistente ({dr_resolved}) — "
-                    "bolhas não actualizadas. Depois de criar o site: "
-                    f"python3 {_REPO_ROOT / 'site' / 'build_directory.py'} "
-                    f"--users-json {args.metadata_file} -o {out_members}",
+                    f"  AVISO landing: DocumentRoot inexistente ({dr_resolved}) — "
+                    "public/members não actualizados. Primeiro: site/genlanding.py (Apache); depois: "
+                    f"python3 {_REPO_ROOT / 'site' / 'genlanding.py'} --sync-public-only "
+                    f"--document-root {dr_resolved} --members-users-json {args.metadata_file}"
+                    f"{homes_opt}",
                     file=sys.stderr,
                 )
             elif members_refreshed:
@@ -1944,12 +1945,13 @@ def main(argv: list[str] | None = None) -> int:
                     if members_public_count is not None
                     else ""
                 )
-                print(f"  constelação (bolhas): actualizado{cnt} → {out_members}")
+                print(f"  landing (public + bolhas): sincronizado{cnt} → {out_members}")
             else:
                 print(
-                    f"  AVISO constelação: falha ao regenerar members.json (ver log). "
-                    f"Manual: python3 {_REPO_ROOT / 'site' / 'build_directory.py'} "
-                    f"--users-json {args.metadata_file} -o {out_members}",
+                    f"  AVISO landing: falha ao sincronizar (ver log). "
+                    f"Manual: python3 {_REPO_ROOT / 'site' / 'genlanding.py'} --sync-public-only "
+                    f"--document-root {dr_resolved} --members-users-json {args.metadata_file}"
+                    f"{homes_opt}",
                     file=sys.stderr,
                 )
         if args.no_quota:

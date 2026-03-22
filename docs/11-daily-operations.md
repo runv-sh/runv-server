@@ -6,15 +6,26 @@
 
 1. Pedido via `entre` ou processo interno.
 2. `sudo python3 scripts/admin/create_runv_user.py …` (ver `--help` no servidor).
-3. Confirmar linha **constelação (bolhas)** ou corrigir com `build_directory.py` manual.
+3. Confirmar linha **`landing (public + bolhas): sincronizado`** ou corrigir com `genlanding.py --sync-public-only` (ou só `build_directory.py` se bastar actualizar `members.json`).
 
 ## Actualizar lista pública sem novo membro
+
+Só regenerar **`members.json`**:
 
 ```bash
 sudo python3 REPO/site/build_directory.py \
   --users-json /var/lib/runv/users.json \
   -o /var/www/runv.club/html/data/members.json
 ```
+
+Recopiar também **`site/public/`** (assets/HTML) para o DocumentRoot + `members.json`:
+
+```bash
+sudo python3 REPO/site/genlanding.py --sync-public-only \
+  --document-root /var/www/runv.club/html \
+  --members-users-json /var/lib/runv/users.json
+```
+
 (Ajustar paths ao teu DocumentRoot.)
 
 ## Após `git pull` no servidor

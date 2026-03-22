@@ -62,7 +62,7 @@ print_last_sessions_3x3() {
     return
   fi
 
-  printf '\n%bÚltimos usuários online%b %b(até 9 nomes únicos, por atividade recente)%b\n' "${B}" "${R}" "${D}" "${R}"
+  printf '\n%bÚltimos usuários online%b\n' "${B}" "${R}"
   row=1
   while [ "$row" -le 3 ]; do
     read -r c1 || c1=''
