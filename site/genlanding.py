@@ -9,13 +9,14 @@ depois volte a correr este script para copiar.
 
 Executar como root (excepto --dry-run). Apenas biblioteca padrão Python 3.
 
-Versão 0.03 — runv.club
+Versão 0.04 — runv.club
 """
 
 from __future__ import annotations
 
 import argparse
 import grp
+import json
 import os
 import pwd
 import re
@@ -25,7 +26,7 @@ import sys
 from pathlib import Path
 from typing import Final
 
-VERSION: Final[str] = "0.03"
+VERSION: Final[str] = "0.04"
 EXIT_OK: Final[int] = 0
 EXIT_USAGE: Final[int] = 1
 EXIT_ERROR: Final[int] = 2
@@ -159,6 +160,11 @@ def refresh_members_json_in_document_root(
             f"({users_json} → {document_root / 'data' / 'members.json'})",
         )
         return
+    if not document_root.is_dir():
+        eprint(
+            f"Erro: DocumentRoot inexistente ({document_root}); não é possível gravar data/members.json."
+        )
+        return
     script = SCRIPT_DIR / "build_directory.py"
     if not script.is_file():
         eprint(f"Aviso: {script} não encontrado; members.json não regenerado.")
@@ -187,6 +193,17 @@ def refresh_members_json_in_document_root(
         if r.stderr.strip():
             for line in r.stderr.strip().splitlines()[:5]:
                 print(f"      {line}")
+        try:
+            data = json.loads(out.read_text(encoding="utf-8"))
+            if isinstance(data, list):
+                print(
+                    f"  [ok] constelação (bolhas): {len(data)} membro(s) — "
+                    "o index.html faz fetch a data/members.json (relativo ao DocumentRoot)."
+                )
+            else:
+                eprint("Aviso: members.json não é uma lista JSON; verifique build_directory.py.")
+        except (OSError, json.JSONDecodeError, TypeError) as e:
+            eprint(f"Aviso: não foi possível confirmar o conteúdo de members.json: {e}")
 
 
 def chown_www_data(path: Path, *, dry_run: bool) -> None:

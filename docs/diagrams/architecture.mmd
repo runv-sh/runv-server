@@ -1,0 +1,21 @@
+%% Fluxo SSH entre + fila (alinhado ao código actual; espelha o antigo terminal/docs/ARCHITECTURE.md, removido)
+%% Renderizar com qualquer visualizador Mermaid
+sequenceDiagram
+  participant C as Cliente_SSH
+  participant S as sshd
+  participant A as entre_app_py
+  participant Q as entre_queue
+  participant L as entre_log
+  participant M as sendmail_ou_Mailgun
+
+  C->>S: autentica_como_entre
+  S->>A: ForceCommand
+  A->>C: formulario_guiado
+  C->>A: respostas
+  A->>A: validacao_entre_core
+  A->>Q: JSON_O_EXCL
+  A->>L: eventos
+  opt admin_email_configurado
+    A->>M: notificacao
+  end
+  A->>C: despedida

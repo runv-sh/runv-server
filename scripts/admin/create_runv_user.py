@@ -1103,10 +1103,11 @@ def try_refresh_landing_members_json(
     users_json: Path,
     homes_root: Path | None,
     log: logging.Logger,
-) -> bool:
+) -> tuple[bool, int | None]:
     """
     Regenera public/data/members.json no DocumentRoot da landing (build_directory.py).
     Falhas são apenas registadas — não aborta o provisionamento.
+    Devolve (sucesso, número de membros no JSON público ou None se não foi possível contar).
     """
     script = _REPO_ROOT / "site" / "build_directory.py"
     if not script.is_file():
@@ -1114,7 +1115,7 @@ def try_refresh_landing_members_json(
             "build_directory.py não encontrado em %s; members.json da landing não atualizado",
             script,
         )
-        return False
+        return False, None
     out = document_root / "data" / "members.json"
     cmd = [
         sys.executable,
@@ -1135,14 +1136,23 @@ def try_refresh_landing_members_json(
                 r.returncode,
                 err_tail[:2000] if err_tail else "(sem saída)",
             )
-            return False
+            return False, None
         log.info("members.json da landing actualizado em %s", out)
         if r.stderr and r.stderr.strip():
             log.debug("build_directory stderr: %s", r.stderr.strip()[:1500])
-        return True
+        n_public: int | None = None
+        try:
+            raw = out.read_text(encoding="utf-8")
+            parsed = json.loads(raw)
+            if isinstance(parsed, list):
+                n_public = len(parsed)
+                log.info("constelação: %s membro(s) no dataset público (%s)", n_public, out)
+        except (OSError, json.JSONDecodeError, TypeError) as ex:
+            log.warning("members.json escrito mas não foi possível validar a lista: %s", ex)
+        return True, n_public
     except (OSError, subprocess.TimeoutExpired) as e:
         log.warning("falha ao executar build_directory: %s", e)
-        return False
+        return False, None
 
 
 def print_banner() -> None:
@@ -1563,8 +1573,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=Path("/var/www/runv.club/html"),
         help=(
-            "DocumentRoot da landing Apache; após criar o utilizador, executa site/build_directory.py "
-            "para gravar data/members.json (bolinhas no site). Se a pasta não existir, o passo é ignorado."
+            "DocumentRoot da landing Apache (directório existente para actualizar a constelação); "
+            "após criar o utilizador, executa site/build_directory.py para gravar data/members.json. "
+            "Se não existir, o refresh é omitido e é impresso um AVISO com o comando sugerido."
         ),
     )
     p.add_argument(
@@ -1869,11 +1880,12 @@ def main(argv: list[str] | None = None) -> int:
         append_user_metadata(args.metadata_file, args.lock_file, record, log)
 
         members_refreshed = False
+        members_public_count: int | None = None
         if not args.no_refresh_landing_members and args.landing_document_root:
             root = args.landing_document_root.resolve()
             if root.is_dir():
                 log.info("=== fase: actualizar members.json da landing (%s)", root)
-                members_refreshed = try_refresh_landing_members_json(
+                members_refreshed, members_public_count = try_refresh_landing_members_json(
                     document_root=root,
                     users_json=args.metadata_file,
                     homes_root=args.members_homes_root.resolve()
@@ -1882,8 +1894,9 @@ def main(argv: list[str] | None = None) -> int:
                     log=log,
                 )
             else:
-                log.info(
-                    "landing document root inexistente (%s); omitindo build_directory.py",
+                log.warning(
+                    "DocumentRoot da landing inexistente (%s); constelação/bolhas não actualizadas "
+                    "(corra site/genlanding.py antes ou aponte --landing-document-root para o DocumentRoot real).",
                     root,
                 )
 
@@ -1910,15 +1923,33 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  URL prevista:      {args.base_url.rstrip('/')}/~{user}/")
         print(f"  fingerprint:       {fingerprint}")
         print(f"  metadados:         {args.metadata_file}")
-        if members_refreshed:
-            print(
-                f"  landing members:   {args.landing_document_root.resolve() / 'data' / 'members.json'}",
-            )
-        elif not args.no_refresh_landing_members and args.landing_document_root:
-            dr = args.landing_document_root.resolve()
-            if dr.is_dir():
+        dr_resolved = (
+            args.landing_document_root.resolve() if args.landing_document_root else None
+        )
+        out_members = (dr_resolved / "data" / "members.json") if dr_resolved else None
+        if args.no_refresh_landing_members:
+            print("  constelação (bolhas): omitida (--no-refresh-landing-members)")
+        elif dr_resolved is not None:
+            if not dr_resolved.is_dir():
                 print(
-                    "  landing members:   (falha ao regenerar; ver log — corra build_directory.py manualmente)",
+                    f"  AVISO constelação: DocumentRoot inexistente ({dr_resolved}) — "
+                    "bolhas não actualizadas. Depois de criar o site: "
+                    f"python3 {_REPO_ROOT / 'site' / 'build_directory.py'} "
+                    f"--users-json {args.metadata_file} -o {out_members}",
+                    file=sys.stderr,
+                )
+            elif members_refreshed:
+                cnt = (
+                    f", {members_public_count} membro(s) público(s)"
+                    if members_public_count is not None
+                    else ""
+                )
+                print(f"  constelação (bolhas): actualizado{cnt} → {out_members}")
+            else:
+                print(
+                    f"  AVISO constelação: falha ao regenerar members.json (ver log). "
+                    f"Manual: python3 {_REPO_ROOT / 'site' / 'build_directory.py'} "
+                    f"--users-json {args.metadata_file} -o {out_members}",
                     file=sys.stderr,
                 )
         if args.no_quota:

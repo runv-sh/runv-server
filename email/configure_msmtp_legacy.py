@@ -5,7 +5,7 @@ LEGADO — Instalador/configurador runv.club: envio via msmtp + sendmail (Debian
 O caminho predefinido do projeto é Mailgun API (`configure_mailgun.py`).
 Use este script apenas se precisar de SMTP local/msmtp.
 
-Executar como root. Ver email/docs/INSTALL.md.
+Executar como root. Ver docs/08-email.md no repositório.
 """
 
 from __future__ import annotations
@@ -460,7 +460,7 @@ def main() -> int:
         print(f"  netrc:     {NETRC_PATH} (credenciais — não partilhar)")
         print(f"  estado:    {STATE_PATH}")
         print(f"  sendmail:  /usr/sbin/sendmail (msmtp-mta)")
-        print("\nDocumentação: email/docs/INSTALL.md")
+        print("\nDocumentação: docs/08-email.md (repositório)")
         print("Teste posterior: sudo python3 email/configure_msmtp_legacy.py --test")
         print("Mailgun (recomendado): sudo python3 email/configure_mailgun.py")
         return 0

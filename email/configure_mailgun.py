@@ -4,7 +4,7 @@ Configurador de email runv — Mailgun HTTP API (predefinido).
 
 Aviso: este script foi feito para Mailgun. Não pré-configura nenhuma credencial.
 
-Executar como root. Ver email/docs/INSTALL.md.
+Executar como root. Ver docs/08-email.md no repositório.
 """
 
 from __future__ import annotations
@@ -219,7 +219,7 @@ def print_summary(public: dict[str, Any], *, dry_run: bool) -> None:
     if dry_run:
         print("  (dry-run — ficheiros não gravados)")
     print()
-    print("Documentação: email/docs/INSTALL.md")
+    print("Documentação: docs/08-email.md (repositório)")
 
 
 def main() -> int:

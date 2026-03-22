@@ -18,4 +18,4 @@ Chave pública (uma linha):
 
 ---
 Fila: /var/lib/runv/entre-queue/{request_id}.json
-Aprovar com create_runv_user.py (ver terminal/docs/ADMIN.md).
+Aprovar com create_runv_user.py (ver docs/10-user-provisioning-and-admin-ops.md no repositório runv-server).

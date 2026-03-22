@@ -122,7 +122,7 @@ def main() -> None:
             "Nota: com membros > 0, confirme que este path é o servido pelo HTTP "
             "(<DocumentRoot>/data/members.json). Se a landing em produção não mostrar os pontos, "
             "use -o ex.: /var/www/runv.club/html/data/members.json ou copie o ficheiro para lá "
-            "(ou genlanding.py). Ver site/build_directory.md.",
+            "(ou genlanding.py). Ver docs/07-public-members-directory.md no repositório.",
             file=sys.stderr,
         )
 

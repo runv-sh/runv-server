@@ -3,7 +3,7 @@
 runv.club — ferramentas globais, MOTD, Jailkit/SSH runv-jailed, comandos em /usr/local/bin e /etc/skel.
 
 Debian 13 · Python 3 stdlib apenas · sem shell=True.
-Execute como root. Ver tools/README.md e tools/docs/INSTALL.md.
+Execute como root. Ver docs/05-tools-and-system-experience.md no repositório.
 """
 
 from __future__ import annotations

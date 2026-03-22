@@ -1,0 +1,20 @@
+%% Ciclo membro: pedido até presença pública (sem automatizar aprovação)
+flowchart LR
+  subgraph pedido [Pedido]
+    E[SSH_entre]
+    F[fila_JSON]
+    E --> F
+  end
+  subgraph admin [Admin]
+    R[revisao_humana]
+    C[create_runv_user_py]
+    R --> C
+  end
+  subgraph dados [Dados]
+    U[users_json]
+    M[members_json_publico]
+    U --> M
+  end
+  F --> R
+  C --> U
+  M --> W[HTTP_landing]
