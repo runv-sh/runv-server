@@ -5,12 +5,13 @@ mod_userdir + mod_rewrite, cópia de site/public para DocumentRoot, redirect
 www → apex em HTTP. Produção ou modo --dev para testes locais.
 Metadados SEO: editar site/public/. FAQ estático: public/faq/ (copiado com o resto).
 Notícias: site/news/publish_news.py gera public/news/data/news.json e feed.rss e, em produção,
-tenta ``genlanding --sync-public-only`` no fim (DocumentRoot existente). O VirtualHost abaixo
-força ``text/xml`` em ``/news/feed.rss`` para o browser mostrar o feed em vez de descarregar.
+tenta ``genlanding --sync-public-only`` no fim (DocumentRoot existente). O MIME ``text/xml`` para
+``/news/feed.rss`` fica em ``conf-available/runv-landing-rss-mime.conf`` (``a2enconf``), aplicável
+a :80 e :443 sem editar o vhost SSL do Certbot.
 
 Executar como root (excepto --dry-run). Apenas biblioteca padrão Python 3.
 
-Versão 0.06 — runv.club
+Versão 0.07 — runv.club
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ import sys
 from pathlib import Path
 from typing import Final
 
-VERSION: Final[str] = "0.06"
+VERSION: Final[str] = "0.07"
 EXIT_OK: Final[int] = 0
 EXIT_USAGE: Final[int] = 1
 EXIT_ERROR: Final[int] = 2
@@ -45,6 +46,10 @@ DEV_DOCUMENT_ROOT: Final[Path] = Path("/var/www/runv-dev/html")
 DEV_SITE_CONF: Final[str] = "runv-dev.conf"
 
 APACHE_SITES_AVAILABLE: Final[Path] = Path("/etc/apache2/sites-available")
+APACHE_CONF_AVAILABLE: Final[Path] = Path("/etc/apache2/conf-available")
+# Snippet global: aplica ForceType ao feed em todos os vhosts (:80 e :443), sem tocar no SSL do Certbot.
+RSS_MIME_CONF_FILE: Final[str] = "runv-landing-rss-mime.conf"
+RSS_MIME_CONF_STEM: Final[str] = "runv-landing-rss-mime"
 APACHE_CTL: Final[str] = "/usr/sbin/apache2ctl"
 DEFAULT_SITE: Final[str] = "000-default.conf"
 
@@ -70,6 +75,21 @@ def log_tag_from_domain(domain: str) -> str:
     return re.sub(r"[^\w.-]+", "-", domain).strip("-") or "runv"
 
 
+def render_rss_mime_conf_contents(document_root: Path) -> str:
+    """Snippet em conf-available: vale para :80 e :443 (evita editar o vhost SSL do Certbot à mão)."""
+    root = document_root.as_posix()
+    return f"""# Gerado por genlanding.py v{VERSION} — runv.club
+# Chromium descarrega feed.rss com application/rss+xml; text/xml mostra o XML na aba.
+# Global ao servidor para o caminho actual do DocumentRoot (volte a correr genlanding se mudar).
+
+<Directory {root}/news>
+    <Files "feed.rss">
+        ForceType text/xml
+    </Files>
+</Directory>
+"""
+
+
 def render_vhost(
     *,
     server_name: str,
@@ -79,6 +99,7 @@ def render_vhost(
     www_alias = f"www.{server_name}"
     return f"""# Gerado por genlanding.py v{VERSION} — runv.club
 # Não editar à mão sem saber o que faz; volte a correr o script ou ajuste e recarregue o Apache.
+# MIME do feed RSS: conf-available/{RSS_MIME_CONF_FILE} (a2enconf {RSS_MIME_CONF_STEM}).
 
 <VirtualHost *:80>
     ServerName {server_name}
@@ -94,13 +115,6 @@ def render_vhost(
         Options FollowSymLinks
         AllowOverride None
         Require all granted
-    </Directory>
-
-    # Chromium descarrega feed.rss com alguns MIME; text/xml mostra o XML na aba.
-    <Directory {document_root}/news>
-        <Files "feed.rss">
-            ForceType text/xml
-        </Files>
     </Directory>
 
     ErrorLog ${{APACHE_LOG_DIR}}/{log_tag}-error.log
@@ -397,6 +411,24 @@ def main(argv: list[str] | None = None) -> int:
 
         run_cmd(["a2enmod", "userdir"], dry_run=args.dry_run)
         run_cmd(["a2enmod", "rewrite"], dry_run=args.dry_run)
+
+        rss_conf_path = APACHE_CONF_AVAILABLE / RSS_MIME_CONF_FILE
+        rss_body = render_rss_mime_conf_contents(document_root)
+        if args.dry_run:
+            print("--- conf-available (RSS MIME, :80 e :443) ---")
+            print(rss_body)
+            print(f"  [dry-run] escreveria {rss_conf_path} ; a2enconf {RSS_MIME_CONF_STEM}")
+        else:
+            if not APACHE_CONF_AVAILABLE.is_dir():
+                APACHE_CONF_AVAILABLE.mkdir(parents=True, exist_ok=True)
+            rss_conf_path.write_text(rss_body, encoding="utf-8")
+            os.chmod(rss_conf_path, 0o644)
+            print(f"  [ok] RSS MIME: {rss_conf_path}")
+        run_cmd_allow_fail(
+            ["a2enconf", RSS_MIME_CONF_STEM],
+            dry_run=args.dry_run,
+            ok_hint="conf já activo",
+        )
 
         copy_landing(source, document_root, dry_run=args.dry_run)
         if not args.dry_run:

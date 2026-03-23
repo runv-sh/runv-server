@@ -24,7 +24,8 @@
 
 ## Feed RSS descarrega em vez de abrir no browser
 
-- O vhost HTTP gerado pelo `genlanding` força `text/xml` em `/news/feed.rss`. Se só o vhost **HTTPS** (ex.: Certbot) servir o site, confira se esse ficheiro inclui o mesmo bloco ou volte a correr `genlanding` e funda alterações com o SSL existente (ver [06-site-and-apache.md](06-site-and-apache.md)).
+- Com `genlanding` ≥ 0.07: confirme que existe **`/etc/apache2/conf-available/runv-landing-rss-mime.conf`**, que o symlink em `conf-enabled` está activo (`a2enconf runv-landing-rss-mime`) e que o `<Directory>` aponta ao **DocumentRoot correcto**; depois `sudo systemctl reload apache2`. O snippet cobre **HTTPS** sem tocar no ficheiro do Certbot (ver [06-site-and-apache.md](06-site-and-apache.md)).
+- Instalações antigas só com `ForceType` no `:80`: acrescente o mesmo bloco `<Directory …/news><Files "feed.rss">ForceType text/xml</Files></Directory>` no VirtualHost **:443** ou migre correr o `genlanding` completo de novo.
 
 ## Quotas
 
