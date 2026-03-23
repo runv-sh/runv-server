@@ -26,7 +26,8 @@ SECRETS_PATH = Path("/etc/runv-email.secrets.json")
 MAILGUN_API_REGION = "us"
 
 sys.path.insert(0, str(MODULE_ROOT))
-from lib.mailgun_client import build_mailgun_messages_url, mailgun_base_url, mask_secret, validate_mailgun_inputs  # noqa: E402, type: ignore
+# pyre-ignore[21]
+from lib.mailgun_client import build_mailgun_messages_url, mailgun_base_url, mask_secret, validate_mailgun_inputs  # noqa: E402
 
 
 def setup_logging(verbose: bool) -> None:
