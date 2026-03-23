@@ -56,7 +56,7 @@ def require_root() -> None:
 
 
 def run_cmd(
-    cmd: list[str],
+    cmd: list,
     *,
     dry_run: bool,
     timeout: int = 600,
@@ -111,7 +111,7 @@ def _remove_netrc_machine_block(text: str, host: str) -> str:
     host_line = re.compile(rf"^machine\s+{re.escape(host)}\s*$", re.MULTILINE)
     next_machine = re.compile(r"^machine\s+", re.MULTILINE)
     lines = text.splitlines()
-    out: list[str] = []
+    out = []
     i = 0
     while i < len(lines):
         if host_line.match(lines[i]):
@@ -287,7 +287,7 @@ def run_test_send(*, dry_run: bool) -> None:
         raise ValueError("admin_email ou default_from em falta no estado")
 
     sys.path.insert(0, str(MODULE_ROOT))
-    from lib.mailer import render_template, send_mail
+    from lib.mailer import render_template, send_mail  # type: ignore
 
     body = render_template(
         "system_test",

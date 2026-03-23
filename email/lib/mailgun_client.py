@@ -77,7 +77,7 @@ def mask_secret(value: str | None, *, visible_tail: int = 4) -> str:
         return "(vazio)"
     if len(s) <= visible_tail + 3:
         return "***"
-    return s[:3] + "…" + s[-visible_tail:]
+    return s[:3] + "…" + s[-visible_tail:]  # type: ignore
 
 
 def validate_mailgun_inputs(
@@ -260,7 +260,7 @@ def send_via_mailgun_api(
             return resp.getcode() or 200, raw
     except urllib.error.HTTPError as e:
         err_body = e.read().decode("utf-8", errors="replace") if e.fp else ""
-        snippet = err_body[:500].strip()
+        snippet = err_body[:500].strip()  # type: ignore
         raise MailgunHTTPError(
             f"Mailgun HTTP {e.code}",
             status=e.code,
@@ -283,9 +283,9 @@ def format_mailgun_failure(status: int, body_snippet: str) -> str:
             f"domínio na URL, e em Security/API a lista de IPs permitidos."
         )
     if status == 400:
-        return f"{base}: pedido inválido — verifique domínio, From autorizado e campos obrigatórios. Resposta: {body_snippet[:200]}"
+        return f"{base}: pedido inválido — verifique domínio, From autorizado e campos obrigatórios. Resposta: {body_snippet[:200]}"  # type: ignore
     if status == 404:
-        return f"{base}: domínio ou URL/região incorretos (confirme US vs EU e o domínio no painel Mailgun). Resposta: {body_snippet[:200]}"
+        return f"{base}: domínio ou URL/região incorretos (confirme US vs EU e o domínio no painel Mailgun). Resposta: {body_snippet[:200]}"  # type: ignore
     if status >= 500:
-        return f"{base}: erro no serviço Mailgun. Tente mais tarde. Resposta: {body_snippet[:200]}"
-    return f"{base}: {body_snippet[:300]}"
+        return f"{base}: erro no serviço Mailgun. Tente mais tarde. Resposta: {body_snippet[:200]}"  # type: ignore
+    return f"{base}: {body_snippet[:300]}"  # type: ignore

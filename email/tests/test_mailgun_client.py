@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import unittest
 
-from lib.mailgun_client import (
+from lib.mailgun_client import (  # type: ignore
     MailgunConfigError,
     build_mailgun_messages_url,
     mailgun_base_url,

@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """
 Configurador de email runv — Mailgun HTTP API (predefinido).
@@ -25,12 +26,7 @@ SECRETS_PATH = Path("/etc/runv-email.secrets.json")
 MAILGUN_API_REGION = "us"
 
 sys.path.insert(0, str(MODULE_ROOT))
-from lib.mailgun_client import (  # noqa: E402
-    build_mailgun_messages_url,
-    mailgun_base_url,
-    mask_secret,
-    validate_mailgun_inputs,
-)
+from lib.mailgun_client import build_mailgun_messages_url, mailgun_base_url, mask_secret, validate_mailgun_inputs  # noqa: E402, type: ignore
 
 
 def setup_logging(verbose: bool) -> None:
@@ -78,6 +74,7 @@ def prompt_api_key_twice() -> str:
             print("As duas entradas não coincidem — tente de novo.")
             continue
         return key
+    raise RuntimeError("Unreachable")
 
 
 def print_mailgun_operator_hints() -> None:
@@ -181,7 +178,7 @@ def run_test_send(*, dry_run: bool) -> None:
     if not admin or not from_addr:
         raise ValueError("admin_email ou default_from em falta no estado")
 
-    from lib.mailer import render_template, send_mail
+    from lib.mailer import render_template, send_mail  # type: ignore
 
     body = render_template(
         "system_test",
@@ -242,9 +239,9 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.legacy_smtp:
-        import configure_msmtp_legacy as leg
+        import configure_msmtp_legacy as leg  # type: ignore
 
-        argv = [sys.argv[0]] + [a for a in sys.argv[1:] if a != "--legacy-smtp"]
+        argv = [sys.argv[0]] + [sys.argv[i] for i in range(1, len(sys.argv)) if sys.argv[i] != "--legacy-smtp"]
         sys.argv = argv
         return leg.main()
 

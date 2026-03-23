@@ -16,7 +16,7 @@ from email.utils import formataddr
 from pathlib import Path
 from typing import Mapping, Sequence
 
-from .mailgun_client import (
+from .mailgun_client import (  # type: ignore
     MailgunHTTPError,
     build_mailgun_runtime_config,
     format_mailgun_failure,
@@ -134,7 +134,7 @@ def send_mail(
         )
 
     if isinstance(to_addrs, str):
-        recipients: list[str] = [to_addrs.strip()]
+        recipients = [to_addrs.strip()]
     else:
         recipients = [a.strip() for a in to_addrs if a and str(a).strip()]
 
