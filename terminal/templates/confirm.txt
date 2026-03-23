@@ -1,11 +1,11 @@
   Confirmar pedido
   ────────────────
 
-  Revisa os dados antes de enviar.
+  Revise os dados antes de continuar.
 
     Nome desejado      : {username}
     Email              : {email}
-    Onde apareces online:
+    Onde podemos te ver:
 {online_presence}
 
     Fingerprint SHA256 : {fingerprint}

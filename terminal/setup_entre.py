@@ -59,7 +59,7 @@ import time
 from pathlib import Path
 from typing import Final
 
-from gen_config_toml import write_terminal_config_toml
+from gen_config_toml import write_terminal_config_toml  # type: ignore
 
 VERSION: Final[str] = "0.11"
 ENTRE_USER: Final[str] = "entre"
@@ -232,7 +232,9 @@ def install_pam_empty_password_rule(
             break
         insert_at = i + 1
 
-    new_body = "".join(lines[:insert_at]) + block + "".join(lines[insert_at:])
+    part1 = [lines[j] for j in range(insert_at)]
+    part2 = [lines[j] for j in range(insert_at, len(lines))]
+    new_body = "".join(part1) + block + "".join(part2)
     PAM_SSHD.write_text(new_body, encoding="utf-8")
     print(f"Inserida regra PAM em {PAM_SSHD} (antes da auth padrão).")
 
@@ -635,6 +637,8 @@ def copy_module(dest: Path, *, dry_run: bool) -> None:
     files = [
         "entre_app.py",
         "entre_core.py",
+        "closed_app.py",
+        "close_entre.py",
         "config.example.toml",
         "gen_config_toml.py",
         "README.md",

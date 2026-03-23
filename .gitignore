@@ -25,3 +25,6 @@ email/testmail*.py
 # Cópias locais de segredos de email (nunca versionar)
 runv-email.secrets.json
 **/runv-email.secrets.json
+
+.agent/
+.cursor/
