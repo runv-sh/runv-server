@@ -11,7 +11,7 @@ a :80 e :443 sem editar o vhost SSL do Certbot.
 
 Executar como root (excepto --dry-run). Apenas biblioteca padrão Python 3.
 
-Versão 0.07 — runv.club
+Versão 0.08 — runv.club
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ import sys
 from pathlib import Path
 from typing import Final
 
-VERSION: Final[str] = "0.07"
+VERSION: Final[str] = "0.08"
 EXIT_OK: Final[int] = 0
 EXIT_USAGE: Final[int] = 1
 EXIT_ERROR: Final[int] = 2
@@ -47,7 +47,7 @@ DEV_SITE_CONF: Final[str] = "runv-dev.conf"
 
 APACHE_SITES_AVAILABLE: Final[Path] = Path("/etc/apache2/sites-available")
 APACHE_CONF_AVAILABLE: Final[Path] = Path("/etc/apache2/conf-available")
-# Snippet global: aplica ForceType ao feed em todos os vhosts (:80 e :443), sem tocar no SSL do Certbot.
+# Snippet global: MIME do feed em todos os vhosts (:80 e :443), sem tocar no SSL do Certbot.
 RSS_MIME_CONF_FILE: Final[str] = "runv-landing-rss-mime.conf"
 RSS_MIME_CONF_STEM: Final[str] = "runv-landing-rss-mime"
 APACHE_CTL: Final[str] = "/usr/sbin/apache2ctl"
@@ -79,12 +79,15 @@ def render_rss_mime_conf_contents(document_root: Path) -> str:
     """Snippet em conf-available: vale para :80 e :443 (evita editar o vhost SSL do Certbot à mão)."""
     root = document_root.as_posix()
     return f"""# Gerado por genlanding.py v{VERSION} — runv.club
-# Chromium descarrega feed.rss com application/rss+xml; text/xml mostra o XML na aba.
+# Chromium descarrega com application/rss+xml (mod_mime por extensão .rss).
+# RemoveType + Header forçam text/xml na resposta; requer mod_headers (a2enmod headers).
 # Global ao servidor para o caminho actual do DocumentRoot (volte a correr genlanding se mudar).
 
 <Directory {root}/news>
+    RemoveType rss
     <Files "feed.rss">
         ForceType text/xml
+        Header set Content-Type "text/xml; charset=utf-8"
     </Files>
 </Directory>
 """
@@ -411,6 +414,7 @@ def main(argv: list[str] | None = None) -> int:
 
         run_cmd(["a2enmod", "userdir"], dry_run=args.dry_run)
         run_cmd(["a2enmod", "rewrite"], dry_run=args.dry_run)
+        run_cmd(["a2enmod", "headers"], dry_run=args.dry_run)
 
         rss_conf_path = APACHE_CONF_AVAILABLE / RSS_MIME_CONF_FILE
         rss_body = render_rss_mime_conf_contents(document_root)

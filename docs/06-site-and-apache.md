@@ -15,7 +15,7 @@
 - Opcional: `--certbot` (incompatível com `--dev`).
 - Após cópia, por omissão chama `build_directory.py` para gravar `data/members.json` no DocumentRoot (`--no-refresh-members` para omitir).
 - **`--sync-public-only`:** só copia `site/public/` → DocumentRoot, `chown www-data` e regenera `members.json`; **não** altera Apache (uso típico após `create_runv_user.py` e disponível para correr à mão).
-- **RSS (`/news/feed.rss`):** o `genlanding` completo (sem `--sync-public-only`) grava `/etc/apache2/conf-available/runv-landing-rss-mime.conf` com **`ForceType text/xml`** e activa com **`a2enconf runv-landing-rss-mime`**. Esse snippet é **global** ao Apache, por isso aplica-se a **:80 e :443** sem editar o VirtualHost SSL que o Certbot gerou. Após mudar o DocumentRoot (ex. `--dev` vs produção), volte a correr o `genlanding` completo para actualizar o snippet.
+- **RSS (`/news/feed.rss`):** o `genlanding` completo (sem `--sync-public-only`) grava `/etc/apache2/conf-available/runv-landing-rss-mime.conf` com **`RemoveType`**, **`ForceType text/xml`** e **`Header set Content-Type`** (sobrepor `mod_mime` / `application/rss+xml`), activa **`a2enmod headers`** e **`a2enconf runv-landing-rss-mime`**. O snippet é **global** ao Apache (**:80 e :443**) sem editar o VirtualHost SSL do Certbot. Após mudar o DocumentRoot, volte a correr o `genlanding` completo para actualizar o snippet.
 - Versão actual do script: constante `VERSION` no ficheiro (ex.: `0.07`).
 
 ## TLS e DNS

@@ -24,8 +24,9 @@
 
 ## Feed RSS descarrega em vez de abrir no browser
 
-- Com `genlanding` ≥ 0.07: confirme que existe **`/etc/apache2/conf-available/runv-landing-rss-mime.conf`**, que o symlink em `conf-enabled` está activo (`a2enconf runv-landing-rss-mime`) e que o `<Directory>` aponta ao **DocumentRoot correcto**; depois `sudo systemctl reload apache2`. O snippet cobre **HTTPS** sem tocar no ficheiro do Certbot (ver [06-site-and-apache.md](06-site-and-apache.md)).
-- Instalações antigas só com `ForceType` no `:80`: acrescente o mesmo bloco `<Directory …/news><Files "feed.rss">ForceType text/xml</Files></Directory>` no VirtualHost **:443** ou migre correr o `genlanding` completo de novo.
+- O `mod_mime` trata `.rss` como `application/rss+xml`; o Chromium costuma **descarregar**. Com `genlanding` ≥ 0.08 o snippet usa **`RemoveType`**, **`Header set Content-Type`** (requer **`mod_headers`**) e **`a2enconf runv-landing-rss-mime`**. Verifique: `curl -sI https://runv.club/news/feed.rss | grep -i content-type` → deve ser **`text/xml`**.
+- Com `genlanding` ≥ 0.07 e &lt; 0.08: confirme **`/etc/apache2/conf-available/runv-landing-rss-mime.conf`**, symlink em `conf-enabled`, DocumentRoot correcto; volte a correr o **`genlanding` completo** (0.08+) para aplicar `Header` + `headers`.
+- Instalações antigas só com `ForceType` no `:80`: corra o `genlanding` completo de novo ou veja [06-site-and-apache.md](06-site-and-apache.md).
 
 ## Quotas
 
