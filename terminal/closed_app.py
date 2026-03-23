@@ -26,6 +26,11 @@ def main() -> int:
     print("  Olá, aguarde pela abertura dos registros :)\n")
     print(f"  Qualquer dúvida: {green}admin@runv.club{reset}\n")
 
+    try:
+        input("  [Pressione Enter para sair...]")
+    except (EOFError, KeyboardInterrupt):
+        pass
+
     return 0
 
 if __name__ == "__main__":
