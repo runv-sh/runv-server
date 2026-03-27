@@ -36,11 +36,6 @@ printf '  %b%-12s%b %b—%b aventura clássica em texto (pacote bsdgames).\n' "$
 printf '  %b%-12s%b %b—%b o seu bichinho virtual do servidor.\n' "${G}" "gotchi" "${R}" "${D}" "${R}"
 printf '\n'
 
-printf '%b%bComo abrir%b\n' "${Y}" "${B}" "${R}"
-printf '  %badventure%b  inicia o jogo de exploração textual.\n' "${C}" "${R}"
-printf '  %bgotchi%b     abre o runv-pet.\n' "${C}" "${R}"
-printf '\n'
-
 printf '%b%bVoltar%b\n' "${Y}" "${B}" "${R}"
 printf '  Prima %bEnter%b para regressar à shell.\n' "${C}" "${R}"
 printf '\n%s\n' '→ Escolha um jogo ou volte quando quiser.'
