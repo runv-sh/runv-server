@@ -1257,7 +1257,7 @@ def try_patch_irc_for_new_user(
     log: logging.Logger,
 ) -> None:
     """
-    Executa ``patches/patch_irc.py --user`` (WeeChat headless: servidor «runv», TLS, #runv).
+    Executa ``patches/patch_irc.py --user`` (WeeChat headless: servidor «runv», irc.tilde.chat, TLS, #runv).
     Não aborta o provisionamento se o patch falhar; contas em ``IRC_PATCH_SKIP_USERS`` são ignoradas.
     """
     if dry_run:
@@ -1908,7 +1908,7 @@ def main(argv: list[str] | None = None) -> int:
         print("  public_gopher:     pronto (gophermap)")
         print("  public_gemini:     pronto (index.gmi)")
         print("  bind Gemini:       /var/gemini/users/<user> <- ~/public_gemini (se o diretório existir)")
-        print("  IRC:               comando «chat» → irc.portalidea.com.br (TLS) #runv (patch_irc.py)")
+        print("  IRC:               comando «chat» → irc.tilde.chat (TLS) #runv (patch_irc.py)")
         if args.with_readme:
             print("  README.md:         criado em ~/README.md (pt-BR)")
         else:

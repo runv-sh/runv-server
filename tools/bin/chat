@@ -1,6 +1,6 @@
 #!/bin/sh
 # runv.club — cliente IRC interactivo; config em ~/.config/weechat.
-# Por omissão (após patches/patch_irc.py): servidor interno «runv» → irc.portalidea.com.br:6697 (TLS), canal #runv.
+# Por omissão (após patches/patch_irc.py): servidor interno «runv» → irc.tilde.chat:6697 (TLS), canal #runv.
 # Utilizadores: use só o comando «chat»; não é preciso memorizar outros nomes de binário.
 
 IRC_UI=""
@@ -33,7 +33,7 @@ if [ ! -f "$CONFIG_DIR/irc.conf" ]; then
   echo "runv: peça ao admin para correr patches/patch_irc.py (rede IRC da casa)." >&2
 elif ! grep -q '^runv\.' "$CONFIG_DIR/irc.conf" 2>/dev/null; then
   echo "runv: aviso — servidor «runv» não está definido em $CONFIG_DIR/irc.conf." >&2
-  echo "runv: o admin pode aplicar patches/patch_irc.py (TLS, #runv em irc.portalidea.com.br)." >&2
+  echo "runv: o admin pode aplicar patches/patch_irc.py (TLS, #runv em irc.tilde.chat)." >&2
 fi
 
 exec "$IRC_UI" -d "$CONFIG_DIR" "$@"

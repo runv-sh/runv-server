@@ -45,7 +45,7 @@ VERSION: Final[str] = "0.04"
 
 DEFAULT_USERS_JSON: Final[Path] = Path("/var/lib/runv/users.json")
 DEFAULT_HOMES_ROOT: Final[Path] = Path("/home")
-DEFAULT_HOST: Final[str] = "irc.portalidea.com.br"
+DEFAULT_HOST: Final[str] = "irc.tilde.chat"
 DEFAULT_PORT_TLS: Final[int] = 6697
 DEFAULT_SERVER_NAME: Final[str] = "runv"
 DEFAULT_AUTOJOIN: Final[str] = "#runv"

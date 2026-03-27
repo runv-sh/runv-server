@@ -34,6 +34,7 @@ DEST_BIN_DIR: Path = Path("/usr/local/bin")
 DEST_MOTD: Path = Path("/etc/update-motd.d/60-runv")
 DEST_SKEL: Path = Path("/etc/skel")
 DEST_SSHD_DROPIN: Path = Path("/etc/ssh/sshd_config.d/90-runv-jailed.conf")
+PATCH_IRC_PATH: Path = TOOL_ROOT.parent / "patches" / "patch_irc.py"
 
 
 @dataclass
@@ -452,6 +453,38 @@ def install_skel(
                 os.chmod(gemini_dir, 0o755)
 
 
+def apply_irc_patch(
+    *,
+    dry_run: bool,
+    log: logging.Logger,
+    summary: RunSummary,
+) -> None:
+    if not PATCH_IRC_PATH.is_file():
+        msg = f"patch IRC não encontrado: {PATCH_IRC_PATH}"
+        summary.errors.append(msg)
+        log.error("%s", msg)
+        return
+
+    cmd = [sys.executable, str(PATCH_IRC_PATH), "--all-users"]
+    if dry_run:
+        log.info("[dry-run] %s", " ".join(cmd))
+        summary.copied.append(f"patch IRC (simulado): {' '.join(cmd)}")
+        return
+
+    r = run_subprocess(cmd, dry_run=False, log=log)
+    assert r is not None
+    if r.returncode != 0:
+        err = (r.stderr or r.stdout or "").strip()
+        msg = f"patch_irc.py falhou (código {r.returncode})" + (f": {err}" if err else "")
+        summary.errors.append(msg)
+        log.error("%s", msg)
+        return
+
+    summary.copied.append("patch IRC aplicado a todos os utilizadores")
+    if r.stdout.strip():
+        log.info("patch IRC: %s", r.stdout.strip().splitlines()[-1])
+
+
 def print_summary(summary: RunSummary, log: logging.Logger) -> None:
     print()
     print("========== runv-tools — resumo ==========")
@@ -538,6 +571,9 @@ def main(argv: list[str] | None = None) -> int:
 
     log.info("Sincronizando skel em %s", DEST_SKEL)
     install_skel(force=args.force, dry_run=args.dry_run, log=log, summary=summary)
+
+    log.info("Aplicando patch IRC (chat / WeeChat)")
+    apply_irc_patch(dry_run=args.dry_run, log=log, summary=summary)
 
     print_summary(summary, log)
     return 0
