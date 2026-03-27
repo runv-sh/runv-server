@@ -31,7 +31,7 @@ printf '  %btmux%b / %bbyobu%b   Multiplexadores de terminal (várias sessões).
 printf '  %bmutt%b           E-mail no terminal.\n' "${G}" "${R}"
 printf '  %bchat%b           IRC da rede da casa (após o admin aplicar o patch no servidor).\n' "${G}" "${R}"
 printf '  %btree%b           Árvore de diretórios.\n' "${G}" "${R}"
-printf '  %badventure%b      Jogo de aventura (bsdgames).\n' "${G}" "${R}"
+printf '  %brunv-games%b     Jogos do servidor (inclui adventure e gotchi).\n' "${G}" "${R}"
 printf '\n'
 
 printf '%b%bSite pessoal (%b~/public_html/%b)%b\n' "${Y}" "${B}" "${C}" "${G}" "${R}"

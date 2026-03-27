@@ -91,7 +91,7 @@ printf '  %b%-12s%b %b—%b barra de estado e atalhos sobre tmux/screen.\n' "${G
 printf '  %b%-12s%b %b—%b cliente de e-mail no terminal.\n' "${G}" "mutt" "${R}" "${D}" "${R}"
 printf '  %b%-12s%b %b—%b IRC da rede da casa.\n' "${G}" "chat" "${R}" "${D}" "${R}"
 printf '  %b%-12s%b %b—%b um espaço digital de encontro, troca e comunidade.\n' "${G}" "square" "${R}" "${D}" "${R}"
-printf '  %b%-12s%b %b—%b jogo de aventura em texto (bsdgames).\n' "${G}" "adventure" "${R}" "${D}" "${R}"
+printf '  %b%-12s%b %b—%b catálogo de jogos do servidor.\n' "${G}" "runv-games" "${R}" "${D}" "${R}"
 
 print_last_sessions_3x3
 

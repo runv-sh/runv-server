@@ -1,0 +1,50 @@
+#!/bin/sh
+# runv.club — catálogo de jogos do servidor
+#
+# Ecrã simples: apresenta os jogos e devolve o utilizador à shell ao sair.
+
+R='\033[0m'
+G='\033[0;32m'
+C='\033[0;36m'
+Y='\033[0;33m'
+B='\033[1m'
+D='\033[2m'
+
+print_runv_art() {
+  while IFS= read -r line || [ -n "$line" ]; do
+    printf '%b%s%b\n' '\033[1;32m' "$line" '\033[0m'
+  done <<'RUNV_ART'
+██████╗ ██╗   ██╗███╗   ██╗██╗   ██╗
+██╔══██╗██║   ██║████╗  ██║██║   ██║
+██████╔╝██║   ██║██╔██╗ ██║██║   ██║
+██╔══██╗╚██╗ ██╔╝██║╚██╗██║╚██╗ ██╔╝
+██║  ██║ ╚████╔╝ ██║ ╚████║ ╚████╔╝
+╚═╝  ╚═╝  ╚═══╝  ╚═╝  ╚═══╝  ╚═══╝
+RUNV_ART
+}
+
+if command -v clear >/dev/null 2>&1; then
+  clear
+fi
+
+print_runv_art
+printf '\n%s\n' '.club — jogos e pequenos mundos'
+printf '\n'
+
+printf '%b%bDisponíveis agora%b\n' "${Y}" "${B}" "${R}"
+printf '  %b%-12s%b %b—%b aventura clássica em texto (pacote bsdgames).\n' "${G}" "adventure" "${R}" "${D}" "${R}"
+printf '  %b%-12s%b %b—%b o seu bichinho virtual do servidor.\n' "${G}" "gotchi" "${R}" "${D}" "${R}"
+printf '\n'
+
+printf '%b%bComo abrir%b\n' "${Y}" "${B}" "${R}"
+printf '  %badventure%b  inicia o jogo de exploração textual.\n' "${C}" "${R}"
+printf '  %bgotchi%b     abre o runv-pet.\n' "${C}" "${R}"
+printf '\n'
+
+printf '%b%bVoltar%b\n' "${Y}" "${B}" "${R}"
+printf '  Prima %bEnter%b para regressar à shell.\n' "${C}" "${R}"
+printf '\n%s\n' '→ Escolha um jogo ou volte quando quiser.'
+
+if [ -t 0 ]; then
+  IFS= read -r _
+fi
