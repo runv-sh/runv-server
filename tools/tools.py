@@ -218,7 +218,7 @@ def install_bin_scripts(
 ) -> None:
     if not dry_run:
         DEST_BIN_DIR.mkdir(parents=True, exist_ok=True)
-    for name in ("runv-help", "runv-links", "runv-status", "runv-games", "chat"):
+    for name in ("runv-help", "runv-links", "runv-status", "runv-games", "runvers", "chat"):
         copy_one(
             BIN_DIR / name,
             DEST_BIN_DIR / name,
