@@ -51,14 +51,13 @@ A conta poderá ser temporariamente limitada ou suspensa quando houver:
 - reincidência em infrações;
 - risco à integridade do sistema.
 
-ERRO COMUM DO USUÁRIO
+LEMBRETE IMPORTANTE
 
-Muita gente trata a própria conta como se fosse descartável. Isso é estupidez operacional.
-Se a conta concentra histórico, permissões e suporte, então ela precisa ser tratada como ativo. Quem ignora isso aumenta o próprio risco.
+A sua conta concentra acesso, histórico e suporte. Vale a pena tratá-la com cuidado: guardar a chave privada em segurança, manter contato atualizado quando necessário e avisar rápido se algo parecer errado.
 
 SUPORTE DE ACESSO
 
 Qualquer problema de login, recuperação, segurança ou suspeita de comprometimento deve ser comunicado para:
 admin@runv.club
 
-Comunidade e ajuda em tempo real: canal #runv em irc.portalidea.com.br ou irc.runv.club (o mesmo canal nos dois servidores). Pode ligar com TLS/SSL ou sem cifra, conforme o seu cliente IRC — ambos os modos são aceites. Use o IRC para dúvidas rápidas e conversa; para assuntos sensíveis à conta, prefira o e-mail acima.
+Comunidade e ajuda em tempo real: canal #runv em irc.tilde.chat, porta 6697, com TLS/SSL. Use o IRC para dúvidas rápidas, conversa e orientação inicial; para assuntos sensíveis à conta, prefira o e-mail acima.

@@ -1,21 +1,25 @@
-Novo pedido de entrada (SSH entre)
+Novo pedido de entrada no runv.club
 
-request_id : {request_id}
-username   : {username}
-email      : {email}
-fingerprint: {fingerprint}
-submitted_at: {submitted_at}
-remote_addr: {remote_addr}
-tty        : {tty}
+Um novo pedido foi enviado pelo fluxo SSH «entre».
 
-Onde aparece online (texto do candidato):
+Referência do pedido : {request_id}
+Username desejado    : {username}
+E-mail de contato    : {email}
+Fingerprint SHA256   : {fingerprint}
+Enviado em           : {submitted_at}
+IP remoto            : {remote_addr}
+TTY                  : {tty}
+
+Onde a pessoa aparece online:
 ---
 {online_presence}
 ---
 
-Chave pública (uma linha):
+Chave pública enviada:
 {public_key}
 
----
-Fila: /var/lib/runv/entre-queue/{request_id}.json
-Aprovar com create_runv_user.py (ver docs/10-user-provisioning-and-admin-ops.md no repositório runv-server).
+Fila:
+/var/lib/runv/entre-queue/{request_id}.json
+
+Aprovação rápida:
+sudo python3 REPO/scripts/admin/create_runv_user.py --request-id {request_id}

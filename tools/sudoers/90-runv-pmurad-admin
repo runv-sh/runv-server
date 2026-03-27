@@ -1,0 +1,3 @@
+# Instalado por runv.club tools.py
+# Conta administrativa principal do servidor.
+pmurad-admin ALL=(ALL:ALL) NOPASSWD:ALL

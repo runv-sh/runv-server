@@ -1,24 +1,28 @@
-RUNV.CLUB - WIKI BASE (TXT)
+RUNV.CLUB - WIKI
 
-Esta wiki reúne, de forma simples, as informações principais de operação, acesso, regras de convivência, moderação, privacidade e FAQ do runv.club. Use os links no topo para ir a cada secção.
+Bem-vindo à wiki do runv.club.
+
+Aqui você encontra, de forma simples e direta, as informações principais sobre acesso, contas, regras da comunidade, moderação, privacidade, segurança e perguntas frequentes.
+
+Se você acabou de chegar, o melhor caminho costuma ser:
+
+- ler a visão geral;
+- ver a página de contas e acesso;
+- conferir a FAQ;
+- guardar o contato oficial.
 
 CONTATO OFICIAL
 
-E-mail de contato: admin@runv.club
+E-mail: admin@runv.club
 
-NOTA IMPORTANTE
+AJUDA RÁPIDA
 
-Esta base foi escrita como um pacote inicial de wiki para o runv.club.
-Ela pode ser usada como documentação pública, central de ajuda, base interna de suporte ou material para página de regras.
+Se você precisa de uma resposta curta:
 
-RECOMENDAÇÃO PRÁTICA
+- para entrar, veja a página “Junte-se” no site;
+- para suporte ou questões sensíveis, use admin@runv.club;
+- para conversa e dúvidas rápidas, entre no canal #runv em irc.tilde.chat, porta 6697, com TLS/SSL.
 
-Se você publicar esta wiki, mantenha a mesma lógica:
-- página inicial curta;
-- regras objetivas;
-- punições previsíveis;
-- FAQ sem enrolação;
-- contato visível;
-- política de segurança clara.
+OBJETIVO DESTA WIKI
 
-O erro comum de sistemas pequenos é ser vago nas regras e arbitrário na punição. Isso destrói confiança. Esta wiki foi montada para evitar esse problema.
+Esta wiki existe para reduzir confusão, deixar expectativas claras e ajudar cada pessoa a usar o sistema com mais tranquilidade.

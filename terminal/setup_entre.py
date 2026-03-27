@@ -12,8 +12,8 @@ Onboarding estilo tilde.town (join@tilde.town):
   e políticas explícitas. Deliberadamente menos seguro — usar só para onboarding público,
   não para contas normais.
 
-Modo recomendado (default): --auth-mode shared-password
-  Palavra-passe Unix partilhada + ForceCommand.
+Modo recomendado neste projecto (default): --auth-mode empty-password
+  Onboarding público estilo tilde.town, com PAM pam_succeed_if por omissão.
 
 Modo --auth-mode empty-password (primeira classe):
   Replica o espírito tilde.town para «entre»: senha vazia (passwd -d), grupo suplementar
@@ -59,6 +59,11 @@ import time
 from pathlib import Path
 from typing import Final
 
+_ADMIN_DIR = Path(__file__).resolve().parent.parent / "scripts" / "admin"
+if str(_ADMIN_DIR) not in sys.path:
+    sys.path.insert(0, str(_ADMIN_DIR))
+
+from admin_guard import ensure_admin_cli
 from gen_config_toml import write_terminal_config_toml  # type: ignore
 
 VERSION: Final[str] = "0.11"
@@ -765,8 +770,8 @@ def main() -> int:
     parser.add_argument(
         "--auth-mode",
         choices=[AUTH_SHARED, AUTH_KEY, AUTH_EMPTY],
-        default=AUTH_SHARED,
-        help="método SSH para «entre» (empty-password = onboarding tilde.town-style)",
+        default=AUTH_EMPTY,
+        help="método SSH para «entre» (default: empty-password; onboarding tilde.town-style)",
     )
     parser.add_argument(
         "--empty-password-group",
@@ -810,6 +815,10 @@ def main() -> int:
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
     args = parser.parse_args()
+    ensure_admin_cli(
+        script_name=Path(__file__).name,
+        dry_run=bool(args.dry_run),
+    )
 
     if args.empty_password_tilde_password_auth and args.auth_mode != AUTH_EMPTY:
         eprint("--empty-password-tilde-password-auth só com --auth-mode empty-password.")

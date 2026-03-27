@@ -1,10 +1,12 @@
 runv.club — pedido aprovado
 
-Olá,
+Olá {username},
 
 O seu pedido de entrada (referência {request_id}) foi aprovado pela administração.
 
-O acesso ao runv.club é por **SSH**. Use a **chave privada OpenSSH** que corresponde à chave pública que você enviou no pedido. Não compartilhe a chave privada com ninguém.
+O acesso ao runv.club é por **SSH**. Guarde bem a sua **chave privada OpenSSH** e nunca a compartilhe com ninguém.
 
-Cumprimentos,
+Se precisar falar com a equipe, escreva para admin@runv.club.
+
+Um abraço,
 Equipe runv.club

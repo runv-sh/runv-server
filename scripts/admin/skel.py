@@ -14,6 +14,12 @@ import sys
 from pathlib import Path
 from typing import Final
 
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+
+from admin_guard import ensure_admin_cli
+
 # ---------------------------------------------------------------------------
 # Constantes
 # ---------------------------------------------------------------------------
@@ -349,6 +355,10 @@ def main() -> int:
         version=f"%(prog)s {VERSION} — runv.club",
     )
     args = parser.parse_args()
+    ensure_admin_cli(
+        script_name=Path(__file__).name,
+        dry_run=bool(args.dry_run),
+    )
 
     if args.dry_run:
         return run_dry_run(args.verbose)

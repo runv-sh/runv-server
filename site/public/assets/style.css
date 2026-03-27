@@ -259,6 +259,119 @@ body {
   background: rgba(196, 156, 245, 0.06);
 }
 
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0 0 2.5rem;
+}
+
+.button-primary,
+.button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.8rem;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  font-family: "Syne", sans-serif;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 0.16s ease, border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
+}
+
+.button-primary {
+  color: #08110d;
+  background: linear-gradient(135deg, rgba(127, 212, 160, 0.96) 0%, rgba(190, 255, 215, 0.92) 100%);
+  border: 1px solid rgba(127, 212, 160, 0.6);
+  box-shadow: 0 12px 30px rgba(127, 212, 160, 0.12);
+}
+
+.button-secondary {
+  color: var(--fg);
+  background: rgba(196, 156, 245, 0.08);
+  border: 1px solid rgba(196, 156, 245, 0.28);
+}
+
+.button-primary:hover,
+.button-primary:focus-visible,
+.button-secondary:hover,
+.button-secondary:focus-visible {
+  transform: translateY(-1px);
+}
+
+.button-primary:hover,
+.button-primary:focus-visible {
+  color: #08110d;
+  background: linear-gradient(135deg, rgba(148, 232, 180, 0.98) 0%, rgba(206, 255, 227, 0.94) 100%);
+}
+
+.button-secondary:hover,
+.button-secondary:focus-visible {
+  color: var(--accent);
+  border-color: rgba(127, 212, 160, 0.34);
+  background: rgba(127, 212, 160, 0.07);
+}
+
+.feature-grid,
+.mini-cards,
+.quick-paths {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.mini-cards {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 1.35rem;
+}
+
+.quick-paths {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.feature-card,
+.mini-card,
+.quick-path-card {
+  padding: 1.15rem 1.05rem 1.15rem;
+  border-radius: calc(var(--radius) + 2px);
+  border: 1px solid var(--stroke);
+  background:
+    radial-gradient(circle at top left, rgba(127, 212, 160, 0.08), transparent 45%),
+    linear-gradient(145deg, rgba(232, 228, 220, 0.04) 0%, rgba(12, 11, 15, 0.62) 100%);
+  box-shadow:
+    0 1px 0 rgba(232, 228, 220, 0.05) inset,
+    0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.feature-card h2,
+.mini-card h2,
+.quick-path-card h2 {
+  margin-bottom: 0.6rem;
+  font-size: 1.04rem;
+  color: var(--fg);
+}
+
+.feature-card p:last-child,
+.mini-card p:last-child,
+.quick-path-card p:last-child {
+  margin-bottom: 0;
+}
+
+.feature-kicker,
+.mini-card-kicker {
+  margin: 0 0 0.55rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.inline-accent {
+  color: var(--accent);
+}
+
 .section {
   margin-top: 2.75rem;
 }
@@ -423,6 +536,13 @@ h2 {
 .cta-join {
   margin: 1.1rem 0 0;
   font-size: 0.98rem;
+}
+
+.cta-subline {
+  margin: 0.85rem auto 0;
+  max-width: 30rem;
+  color: var(--muted);
+  font-size: 0.96rem;
 }
 
 .cta-join a {
@@ -612,12 +732,18 @@ h2 {
 /* FAQ */
 .faq-main .faq-item {
   margin-bottom: 1.75rem;
-  padding-bottom: 1.35rem;
-  border-bottom: 1px solid var(--stroke);
+  padding: 1.1rem 1rem 1.2rem;
+  border: 1px solid rgba(196, 156, 245, 0.16);
+  border-radius: calc(var(--radius) - 2px);
+  background:
+    linear-gradient(
+      145deg,
+      rgba(196, 156, 245, 0.07) 0%,
+      rgba(12, 11, 15, 0.2) 100%
+    );
 }
 
 .faq-main .faq-item:last-child {
-  border-bottom: none;
   margin-bottom: 0;
   padding-bottom: 0;
 }
@@ -641,12 +767,24 @@ h2 {
 /* Junte-se (versão curta) */
 .join-summary {
   margin-bottom: 1.5rem;
+  padding: 0.9rem 1rem 0.7rem 2rem;
+  border: 1px solid rgba(127, 212, 160, 0.2);
+  border-radius: calc(var(--radius) - 2px);
+  background: rgba(127, 212, 160, 0.06);
 }
 
 .join-note {
   font-size: 0.95rem;
   color: var(--muted);
   margin-top: 0.35rem;
+}
+
+.join-main h2 {
+  margin-top: 1.65rem;
+}
+
+.join-main h2:first-of-type {
+  margin-top: 0;
 }
 
 /* Página de notícias (data/news.json + news-page.js) */
@@ -775,5 +913,21 @@ h2 {
 
 .wiki-main .wiki-page-title {
   margin-top: 0;
+}
+
+.wiki-main p + p {
+  margin-top: 0.8rem;
+}
+
+.wiki-main ul {
+  margin: 0.75rem 0 1rem;
+}
+
+@media (max-width: 860px) {
+  .feature-grid,
+  .mini-cards,
+  .quick-paths {
+    grid-template-columns: 1fr;
+  }
 }
 

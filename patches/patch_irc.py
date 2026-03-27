@@ -33,6 +33,13 @@ import sys
 from pathlib import Path
 from typing import Final
 
+_PATCHES_DIR = Path(__file__).resolve().parent
+_ADMIN_DIR = _PATCHES_DIR.parent / "scripts" / "admin"
+if str(_ADMIN_DIR) not in sys.path:
+    sys.path.insert(0, str(_ADMIN_DIR))
+
+from admin_guard import ensure_admin_cli
+
 # SASL ainda não entra no patch; quando entrar, é na mão no WeeChat com sec.data (nada de
 # password em claro neste repo). Isto é só o boneco dos comandos, para não ir buscar à memória.
 SASL_WEECHAT_SNIPPETS: Final[tuple[str, ...]] = (
@@ -751,6 +758,10 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    ensure_admin_cli(
+        script_name=Path(__file__).name,
+        dry_run=bool(args.dry_run),
+    )
     log = setup_logging(args.verbose)
 
     if args.port is None:

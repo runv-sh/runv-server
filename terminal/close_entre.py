@@ -8,7 +8,14 @@ Executar como root no servidor Debian.
 import os
 import sys
 import subprocess
+import argparse
 from pathlib import Path
+
+ADMIN_DIR = Path(__file__).resolve().parent.parent / "scripts" / "admin"
+if str(ADMIN_DIR) not in sys.path:
+    sys.path.insert(0, str(ADMIN_DIR))
+
+from admin_guard import ensure_admin_cli
 
 def eprint(msg: str) -> None:
     print(msg, file=sys.stderr)
@@ -25,6 +32,35 @@ def run(cmd: list[str]) -> None:
         raise RuntimeError(f"Falhou: {' '.join(cmd)}\n{err}")
 
 def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Fecha temporariamente os registros do terminal entre.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="mostra o que seria alterado sem gravar nem recarregar o SSH",
+    )
+    parser.add_argument(
+        "--auth-mode",
+        default="empty-password",
+        help="opção compatível com setup_entre.py; mantida por simetria operacional",
+    )
+    parser.add_argument(
+        "--install-pam-empty-password-rule",
+        action="store_true",
+        help="opção compatível com setup_entre.py; close_entre.py não altera PAM",
+    )
+    parser.add_argument(
+        "--skip-pam-empty-password-rule",
+        action="store_true",
+        help="opção compatível com setup_entre.py; close_entre.py não altera PAM",
+    )
+    args = parser.parse_args()
+
+    ensure_admin_cli(
+        script_name=Path(__file__).name,
+        dry_run=bool(args.dry_run),
+    )
     require_root()
     
     dropin_path = Path("/etc/ssh/sshd_config.d/runv-entre.conf")
@@ -46,6 +82,11 @@ def main() -> int:
     # Substitui a app principal pela fechada
     new_content = content.replace("entre_app.py", "closed_app.py")
     
+    if args.dry_run:
+        print(f"[dry-run] modificaria {dropin_path.name}: entre_app.py -> closed_app.py")
+        print("[dry-run] correria sshd -t e systemctl reload ssh")
+        return 0
+
     # Grava novamente
     dropin_path.write_text(new_content, encoding="utf-8")
     print(f"Modificado {dropin_path.name}: entre_app.py -> closed_app.py")

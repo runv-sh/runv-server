@@ -25,6 +25,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Final
 
@@ -34,6 +35,12 @@ EXIT_USAGE: Final[int] = 1
 EXIT_ERROR: Final[int] = 2
 
 SCRIPT_DIR = Path(__file__).resolve().parent
+ADMIN_DIR = SCRIPT_DIR.parent / "scripts" / "admin"
+if str(ADMIN_DIR) not in sys.path:
+    sys.path.insert(0, str(ADMIN_DIR))
+
+from admin_guard import ensure_admin_cli
+
 DEFAULT_SOURCE: Final[Path] = SCRIPT_DIR / "public"
 DEFAULT_MEMBERS_USERS_JSON: Final[Path] = Path("/var/lib/runv/users.json")
 
@@ -171,29 +178,62 @@ def copy_landing(source: Path, dest: Path, *, dry_run: bool) -> None:
     shutil.copytree(source, dest)
 
 
+def preserve_existing_members_json(document_root: Path, *, dry_run: bool) -> Path | None:
+    """Guarda uma cópia temporária do members.json actual para rollback seguro da constelação."""
+    current = document_root / "data" / "members.json"
+    if dry_run or not current.is_file():
+        return None
+    fd, tmp_name = tempfile.mkstemp(prefix="runv-members-backup-", suffix=".json")
+    os.close(fd)
+    backup = Path(tmp_name)
+    shutil.copy2(current, backup)
+    return backup
+
+
+def restore_members_json_backup(
+    document_root: Path,
+    backup: Path | None,
+    *,
+    dry_run: bool,
+) -> bool:
+    """Restaura o members.json anterior se existir backup."""
+    if dry_run or backup is None or not backup.is_file():
+        return False
+    out = document_root / "data" / "members.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(backup, out)
+    return True
+
+
+def cleanup_members_json_backup(backup: Path | None) -> None:
+    if backup is None:
+        return
+    backup.unlink(missing_ok=True)
+
+
 def refresh_members_json_in_document_root(
     document_root: Path,
     *,
     users_json: Path,
     homes_root: Path | None,
     dry_run: bool,
-) -> None:
+) -> bool:
     """Regenera data/members.json no DocumentRoot após copiar site/public (stdlib)."""
     if dry_run:
         print(
             "  [dry-run] regeneraria data/members.json "
             f"({users_json} → {document_root / 'data' / 'members.json'})",
         )
-        return
+        return True
     if not document_root.is_dir():
         eprint(
             f"Erro: DocumentRoot inexistente ({document_root}); não é possível gravar data/members.json."
         )
-        return
+        return False
     script = SCRIPT_DIR / "build_directory.py"
     if not script.is_file():
         eprint(f"Aviso: {script} não encontrado; members.json não regenerado.")
-        return
+        return False
     out = document_root / "data" / "members.json"
     cmd = [
         sys.executable,
@@ -213,6 +253,7 @@ def refresh_members_json_in_document_root(
             f"Aviso: build_directory.py terminou com código {r.returncode}; "
             f"members.json pode estar desactualizado. {tail[:800]}"
         )
+        return False
     else:
         print(f"  [ok] members.json em {out}")
         if r.stderr.strip():
@@ -227,8 +268,11 @@ def refresh_members_json_in_document_root(
                 )
             else:
                 eprint("Aviso: members.json não é uma lista JSON; verifique build_directory.py.")
+                return False
         except (OSError, json.JSONDecodeError, TypeError) as e:
             eprint(f"Aviso: não foi possível confirmar o conteúdo de members.json: {e}")
+            return False
+    return True
 
 
 def chown_www_data(path: Path, *, dry_run: bool) -> None:
@@ -343,13 +387,14 @@ def sync_public_only_main(args: argparse.Namespace) -> int:
     print(f"  origem: {source}")
     print()
 
+    members_backup = preserve_existing_members_json(document_root, dry_run=args.dry_run)
     try:
         copy_landing(source, document_root, dry_run=args.dry_run)
         if not args.dry_run:
             chown_www_data(document_root, dry_run=False)
 
         if not args.no_refresh_members:
-            refresh_members_json_in_document_root(
+            refreshed = refresh_members_json_in_document_root(
                 document_root,
                 users_json=args.members_users_json,
                 homes_root=args.members_homes_root.resolve()
@@ -357,9 +402,19 @@ def sync_public_only_main(args: argparse.Namespace) -> int:
                 else None,
                 dry_run=args.dry_run,
             )
+            if not refreshed and restore_members_json_backup(
+                document_root,
+                members_backup,
+                dry_run=args.dry_run,
+            ):
+                print("  [ok] members.json anterior restaurado; constelação preservada.")
+        elif restore_members_json_backup(document_root, members_backup, dry_run=args.dry_run):
+            print("  [ok] members.json anterior preservado (--no-refresh-members).")
     except (FileNotFoundError, OSError, RuntimeError) as e:
         eprint(f"Erro: {e}")
+        cleanup_members_json_backup(members_backup)
         return EXIT_ERROR
+    cleanup_members_json_backup(members_backup)
 
     print()
     print("  [ok] sync-public-only concluído (Apache não foi alterado).")
@@ -368,6 +423,10 @@ def sync_public_only_main(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    ensure_admin_cli(
+        script_name=Path(__file__).name,
+        dry_run=bool(args.dry_run),
+    )
 
     if args.dev and args.certbot:
         eprint("Erro: --certbot não pode ser usado com --dev (Certbot não serve para domínios locais).")
@@ -395,10 +454,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  origem: {source}")
     print()
 
+    members_backup = preserve_existing_members_json(document_root, dry_run=args.dry_run)
     if not apache_installed():
         eprint("Erro: Apache não parece instalado (falta /usr/sbin/apache2ctl).")
         eprint("       Instale com: sudo apt install -y apache2")
         eprint("       ou corra scripts/admin/starthere.py antes.")
+        cleanup_members_json_backup(members_backup)
         return EXIT_ERROR
 
     vhost_body = render_vhost(
@@ -439,7 +500,7 @@ def main(argv: list[str] | None = None) -> int:
             chown_www_data(document_root, dry_run=False)
 
         if not args.no_refresh_members:
-            refresh_members_json_in_document_root(
+            refreshed = refresh_members_json_in_document_root(
                 document_root,
                 users_json=args.members_users_json,
                 homes_root=args.members_homes_root.resolve()
@@ -447,6 +508,14 @@ def main(argv: list[str] | None = None) -> int:
                 else None,
                 dry_run=args.dry_run,
             )
+            if not refreshed and restore_members_json_backup(
+                document_root,
+                members_backup,
+                dry_run=args.dry_run,
+            ):
+                print("  [ok] members.json anterior restaurado; constelação preservada.")
+        elif restore_members_json_backup(document_root, members_backup, dry_run=args.dry_run):
+            print("  [ok] members.json anterior preservado (--no-refresh-members).")
 
         if args.dry_run:
             print(f"  [dry-run] escreveria {conf_path}")
@@ -500,7 +569,9 @@ def main(argv: list[str] | None = None) -> int:
 
     except (FileNotFoundError, OSError, RuntimeError) as e:
         eprint(f"Erro: {e}")
+        cleanup_members_json_backup(members_backup)
         return EXIT_ERROR
+    cleanup_members_json_backup(members_backup)
 
     print()
     print("Próximos passos:")

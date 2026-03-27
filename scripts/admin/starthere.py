@@ -41,6 +41,8 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
+from admin_guard import ensure_admin_cli
+
 try:
     from runv_mount import MountLookupError, find_mount_triple
 except ModuleNotFoundError:
@@ -608,6 +610,10 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
+    ensure_admin_cli(
+        script_name=Path(__file__).name,
+        dry_run=bool(args.dry_run),
+    )
 
     try:
         require_root()

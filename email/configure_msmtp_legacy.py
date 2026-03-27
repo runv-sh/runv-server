@@ -33,6 +33,12 @@ PASS_SCRIPT_DEST = PASS_SCRIPT_DIR / "netrc_password.py"
 LOGFILE_MSMT = Path("/var/log/msmtp.log")
 
 MODULE_ROOT = Path(__file__).resolve().parent
+ADMIN_DIR = MODULE_ROOT.parent / "scripts" / "admin"
+if str(ADMIN_DIR) not in sys.path:
+    sys.path.insert(0, str(ADMIN_DIR))
+
+from admin_guard import ensure_admin_cli
+
 SOURCE_PASS_SCRIPT = MODULE_ROOT / "scripts" / "netrc_password.py"
 
 APT_PACKAGES = ("msmtp", "msmtp-mta", "ca-certificates", "bsd-mailx")
@@ -382,6 +388,10 @@ def main() -> int:
     )
     parser.add_argument("--skip-apt", action="store_true", help="não executar apt-get")
     args = parser.parse_args()
+    ensure_admin_cli(
+        script_name=Path(__file__).name,
+        dry_run=bool(args.dry_run),
+    )
 
     setup_logging(args.verbose)
     require_root()

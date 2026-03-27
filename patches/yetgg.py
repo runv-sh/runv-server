@@ -35,6 +35,13 @@ def repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+_ADMIN_DIR = repo_root() / "scripts" / "admin"
+if str(_ADMIN_DIR) not in sys.path:
+    sys.path.insert(0, str(_ADMIN_DIR))
+
+from admin_guard import ensure_admin_cli
+
+
 def load_script_module(name: str, path: Path) -> Any:
     spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
@@ -106,6 +113,10 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    ensure_admin_cli(
+        script_name=Path(__file__).name,
+        dry_run=bool(args.dry_run),
+    )
     log = setup_logging(args.verbose)
 
     if not args.dry_run:

@@ -20,6 +20,12 @@ from pathlib import Path
 from typing import Any
 
 MODULE_ROOT = Path(__file__).resolve().parent
+ADMIN_DIR = MODULE_ROOT.parent / "scripts" / "admin"
+if str(ADMIN_DIR) not in sys.path:
+    sys.path.insert(0, str(ADMIN_DIR))
+
+from admin_guard import ensure_admin_cli
+
 STATE_PATH = Path("/etc/runv-email.json")
 SECRETS_PATH = Path("/etc/runv-email.secrets.json")
 
@@ -238,6 +244,10 @@ def main() -> int:
         help="usar o configurador SMTP/msmtp legado (desativado por predefinição)",
     )
     args = parser.parse_args()
+    ensure_admin_cli(
+        script_name=Path(__file__).name,
+        dry_run=bool(args.dry_run),
+    )
 
     if args.legacy_smtp:
         import configure_msmtp_legacy as leg  # type: ignore

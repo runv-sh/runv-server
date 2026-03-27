@@ -36,6 +36,7 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
+from admin_guard import ensure_admin_cli
 from runv_landing_sync import try_sync_landing_via_genlanding
 
 USERNAME_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[a-z][a-z0-9_-]{1,31}$")
@@ -660,6 +661,10 @@ def read_key_file(path: Path) -> str:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     dry_run = args.dry_run
+    ensure_admin_cli(
+        script_name=Path(__file__).name,
+        dry_run=bool(dry_run),
+    )
     log = setup_update_user_log()
     require_root(dry_run=dry_run)
 

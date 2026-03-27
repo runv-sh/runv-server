@@ -4,6 +4,8 @@ OBJETIVO DA MODERAÇÃO
 
 A moderação existe para proteger usuários, preservar a operação do sistema e impedir que uma minoria destrua a utilidade do ambiente para todos os outros.
 
+O objetivo da moderação não é punir por esporte. É manter o espaço seguro, previsível e utilizável para a comunidade.
+
 TIPOS DE MEDIDA
 
 1. Orientação informal
@@ -61,8 +63,7 @@ A administração pode considerar:
 NEM TUDO PRECISA SEGUIR ESCADA LINEAR
 
 Nem toda infração começa em aviso.
-Essa fantasia de que todo caso precisa passar por aviso, depois suspensão, depois banimento, independentemente da gravidade, é ingênua.
-Fraude séria, ameaça real, golpe ou ataque técnico podem justificar banimento direto.
+Casos leves podem ser resolvidos com orientação. Casos graves, como fraude séria, ameaça real, golpe ou ataque técnico, podem justificar suspensão imediata ou banimento direto.
 
 RECURSO
 
@@ -86,7 +87,6 @@ DECISÃO FINAL
 
 A administração pode revisar, manter, reduzir ou ampliar a medida aplicada com base nos elementos disponíveis.
 
-POLÍTICA CONTRA IMPUNIDADE
+CONSISTÊNCIA
 
-Sistema sem execução consistente de regras vira piada.
-Se a regra existe, ela precisa produzir consequência real.
+Regra sem aplicação consistente vira só texto. Por isso, a administração pode agir quando houver necessidade real de proteger usuários, equipe e operação.

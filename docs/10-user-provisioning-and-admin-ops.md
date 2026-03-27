@@ -27,7 +27,27 @@
 
 1. JSON na fila `entre-queue/`.
 2. Admin valida manualmente.
-3. `create_runv_user.py` com dados aprovados.
+3. `create_runv_user.py` com dados aprovados, manualmente ou por `request_id` da fila.
 4. Refresh público conforme [07](07-public-members-directory.md).
+
+### Aprovação rápida por `request_id`
+
+Se o pedido veio do fluxo `entre`, o admin pode aprová-lo diretamente pelo UUID do ficheiro na fila:
+
+```bash
+sudo python3 scripts/admin/create_runv_user.py --request-id UUID
+```
+
+O script lê `username`, `email` e `public_key` do JSON em `/var/lib/runv/entre-queue/UUID.json`, cria a conta e arquiva o pedido em `entre-queue/approved/` após sucesso.
+
+### Aprovação em lote da fila inteira
+
+Para processar todos os pedidos pendentes de uma vez:
+
+```bash
+sudo python3 scripts/admin/create_runv_user.py --all-pending
+```
+
+O script percorre os JSONs pendentes da fila, processa um a um em sequência e imprime um resumo final com sucessos e falhas.
 
 Próximo: [11-daily-operations.md](11-daily-operations.md).

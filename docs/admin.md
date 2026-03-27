@@ -25,6 +25,7 @@ Nos exemplos abaixo, substitua:
 - Servidor Debian com Python 3
 - Quotas ext4 prontas se for usar quota automática
 - Apache / DocumentRoot configurados se quiser refresh público automático
+- Operador autorizado: por padrão, `pmurad-admin` (ou a lista em `RUNV_ADMIN_USERS`)
 
 ## Bootstrap inicial do servidor
 
@@ -48,6 +49,12 @@ Aplicar ferramentas globais, `MOTD`, `skel`, drop-in SSH jailed e patch IRC:
 sudo python3 REPO/tools/tools.py
 ```
 
+Esse comando também:
+
+- garante `pmurad-admin` com sudo administrativo via `/etc/sudoers.d/90-runv-pmurad-admin`
+- remove `pmurad-admin` do grupo `runv-jailed`
+- não altera membros já existentes por omissão
+
 Simular:
 
 ```bash
@@ -58,6 +65,18 @@ Reaplicar só arquivos e patch IRC, sem APT:
 
 ```bash
 sudo python3 REPO/tools/tools.py --skip-apt
+```
+
+Reaplicar sem APT:
+
+```bash
+sudo python3 REPO/tools/tools.py --skip-apt
+```
+
+Se quiser reconciliar membros já existentes de uma vez (jail SSH + patch IRC):
+
+```bash
+sudo python3 REPO/tools/tools.py --reconcile-existing-users
 ```
 
 ## Setup do onboarding via SSH (`entre`)
@@ -172,6 +191,18 @@ Modo interativo:
 
 ```bash
 sudo python3 REPO/scripts/admin/create_runv_user.py --interactive
+```
+
+Aprovar direto da fila pelo `request_id`:
+
+```bash
+sudo python3 REPO/scripts/admin/create_runv_user.py --request-id ID_DO_PEDIDO
+```
+
+Processar toda a fila pendente de uma vez:
+
+```bash
+sudo python3 REPO/scripts/admin/create_runv_user.py --all-pending
 ```
 
 ## Atualizar usuário existente

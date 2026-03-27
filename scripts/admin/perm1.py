@@ -12,6 +12,7 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
+from admin_guard import ensure_admin_cli
 import runv_jail as rj
 
 EXCLUDE_NAMES = frozenset({"nobody", "pmurad-admin", "entre"})
@@ -64,6 +65,10 @@ def main(argv: list[str] | None = None) -> int:
         help="não executar jk_init; exige jail já com bin/ (só grupo + home no jail + bind + fstab)",
     )
     args = p.parse_args(argv)
+    ensure_admin_cli(
+        script_name=Path(__file__).name,
+        dry_run=bool(args.dry_run),
+    )
 
     log = setup_logging(args.verbose)
 

@@ -16,6 +16,12 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SITE_DIR = SCRIPT_DIR.parent
+ADMIN_DIR = SITE_DIR.parent / "scripts" / "admin"
+if str(ADMIN_DIR) not in sys.path:
+    sys.path.insert(0, str(ADMIN_DIR))
+
+from admin_guard import ensure_admin_cli
+
 OUT_DIR = SITE_DIR / "public" / "wiki"
 SITEMAP_PATH = SITE_DIR / "public" / "sitemap.xml"
 
@@ -217,6 +223,7 @@ def patch_sitemap(wiki_urls: list[str]) -> None:
 
 
 def main() -> int:
+    ensure_admin_cli(script_name=Path(__file__).name)
     txt_files = sorted(SCRIPT_DIR.glob(TXT_GLOB))
     if not txt_files:
         eprint("Nenhum ficheiro", TXT_GLOB, "em", SCRIPT_DIR)

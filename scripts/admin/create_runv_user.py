@@ -118,8 +118,13 @@ DEFAULT_METADATA_PATH: Final[Path] = Path("/var/lib/runv/users.json")
 DEFAULT_LOCK_PATH: Final[Path] = Path("/var/lib/runv/users.lock")
 DEFAULT_LOG_PATH: Final[Path] = Path("/var/log/runv-user-provision.log")
 DEFAULT_BASE_URL: Final[str] = "http://runv.club"
+DEFAULT_ENTRE_QUEUE_DIR: Final[Path] = Path("/var/lib/runv/entre-queue")
 DEFAULT_GEMINI_HOST_PUBLIC: Final[str] = "runv.club"
 GEMINI_USERS_DIR: Final[Path] = Path("/var/gemini/users")
+DEFAULT_ALLOWED_ADMIN_USERS: Final[tuple[str, ...]] = ("pmurad-admin",)
+REQUEST_ID_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+)
 
 # Quota ext4 (valores padrão runv; limites em MiB = 1024² bytes → setquota usa kiB de 1024 B)
 DEFAULT_QUOTA_SOFT_MIB: Final[int] = 450
@@ -151,6 +156,47 @@ class SystemProvisionError(ProvisionError):
 
 class QuotaNotAvailableError(ValidationError):
     """Sistema de quotas não preparado (ext4 usrquota ausente, ferramentas, etc.)."""
+
+
+@dataclass(frozen=True)
+class QueueApprovalRequest:
+    request_id: str
+    username: str
+    email: str
+    public_key: str
+    fingerprint: str
+    queue_path: Path
+    payload: dict[str, Any]
+
+
+def resolve_allowed_admin_users() -> set[str]:
+    raw = os.environ.get("RUNV_ADMIN_USERS", "").strip()
+    if not raw:
+        return set(DEFAULT_ALLOWED_ADMIN_USERS)
+    names = {part.strip() for part in raw.split(",") if part.strip()}
+    return names or set(DEFAULT_ALLOWED_ADMIN_USERS)
+
+
+def resolve_operator_user() -> str:
+    sudo_user = os.environ.get("SUDO_USER", "").strip()
+    if sudo_user:
+        return sudo_user
+    return getpass.getuser().strip()
+
+
+def require_authorized_admin_operator(*, dry_run: bool) -> str:
+    operator = resolve_operator_user()
+    allowed = resolve_allowed_admin_users()
+    if operator not in allowed:
+        allowed_list = ", ".join(sorted(allowed))
+        msg = (
+            f"operação permitida apenas a administrador autorizado. "
+            f"Operador detectado: {operator!r}. Permitidos: {allowed_list}."
+        )
+        if dry_run:
+            raise ValidationError(msg)
+        raise SystemProvisionError(msg)
+    return operator
 
 
 # validação username / email
@@ -274,6 +320,194 @@ def validate_public_key(public_key_line: str, tmp_dir: Path | None = None) -> tu
     normalized = normalize_public_key(public_key_line)
     fp = compute_public_key_fingerprint(normalized, tmp_dir=tmp_dir)
     return normalized, fp
+
+
+def load_queue_request_by_id(request_id: str, queue_dir: Path) -> QueueApprovalRequest:
+    rid = request_id.strip().lower()
+    if not REQUEST_ID_PATTERN.fullmatch(rid):
+        raise ValidationError("request_id inválido: esperado UUID em minúsculas.")
+    queue_path = queue_dir / f"{rid}.json"
+    if not queue_path.is_file():
+        raise ValidationError(f"pedido não encontrado na fila: {queue_path}")
+    try:
+        payload = json.loads(queue_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        raise ValidationError(f"não foi possível ler o pedido {rid!r}: {e}") from e
+    if not isinstance(payload, dict):
+        raise ValidationError(f"pedido {rid!r} inválido: esperado objeto JSON.")
+
+    username = validate_username(str(payload.get("username", "")))
+    email = validate_email(str(payload.get("email", "")))
+    normalized_key, computed_fingerprint = validate_public_key(str(payload.get("public_key", "")))
+    queued_fp = str(payload.get("public_key_fingerprint", "")).strip()
+    if queued_fp and queued_fp != computed_fingerprint:
+        raise ValidationError(
+            f"fingerprint do pedido {rid!r} diverge da chave pública armazenada."
+        )
+    status = str(payload.get("status", "pending")).strip().lower()
+    if status and status != "pending":
+        raise ValidationError(f"pedido {rid!r} não está pendente (status={status!r}).")
+
+    return QueueApprovalRequest(
+        request_id=rid,
+        username=username,
+        email=email,
+        public_key=normalized_key,
+        fingerprint=computed_fingerprint,
+        queue_path=queue_path,
+        payload=payload,
+    )
+
+
+def archive_approved_queue_request(
+    approval: QueueApprovalRequest,
+    *,
+    operator: str,
+    created_username: str,
+    dry_run: bool,
+    log: logging.Logger,
+) -> None:
+    approved_dir = approval.queue_path.parent / "approved"
+    archived_payload = dict(approval.payload)
+    archived_payload["status"] = "approved"
+    archived_payload["approved_at"] = datetime.now(timezone.utc).isoformat()
+    archived_payload["approved_by"] = operator
+    archived_payload["provisioned_username"] = created_username
+
+    if dry_run:
+        log.info(
+            "[dry-run] arquivaria pedido aprovado em %s",
+            approved_dir / approval.queue_path.name,
+        )
+        return
+
+    approved_dir.mkdir(parents=True, exist_ok=True)
+    dest = approved_dir / approval.queue_path.name
+    if dest.exists():
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        dest = approved_dir / f"{approval.request_id}.{ts}.json"
+    dest.write_text(
+        json.dumps(archived_payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    approval.queue_path.unlink(missing_ok=True)
+    log.info("pedido %s arquivado em %s", approval.request_id, dest)
+
+
+def list_pending_queue_request_ids(queue_dir: Path) -> list[str]:
+    if not queue_dir.is_dir():
+        raise ValidationError(f"fila inexistente: {queue_dir}")
+    items: list[tuple[float, str]] = []
+    for path in queue_dir.glob("*.json"):
+        if not path.is_file():
+            continue
+        rid = path.stem.strip().lower()
+        if not REQUEST_ID_PATTERN.fullmatch(rid):
+            continue
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            mtime = 0.0
+        items.append((mtime, rid))
+    items.sort(key=lambda item: (item[0], item[1]))
+    return [rid for _mtime, rid in items]
+
+
+def process_all_pending_requests(args: argparse.Namespace) -> int:
+    try:
+        operator_user = require_authorized_admin_operator(dry_run=bool(args.dry_run))
+        request_ids = list_pending_queue_request_ids(args.queue_dir)
+    except (ValidationError, SystemProvisionError) as e:
+        print(f"Acesso: {e}", file=sys.stderr)
+        return EXIT_VALIDATION if isinstance(e, ValidationError) else EXIT_SYSTEM
+
+    if not request_ids:
+        print(f"Nenhum pedido pendente em {args.queue_dir}.")
+        return EXIT_OK
+
+    print(f"Processando {len(request_ids)} pedido(s) da fila em {args.queue_dir}")
+    print(f"Operador autorizado: {operator_user}")
+    print()
+
+    base_cmd = [sys.executable, str(Path(__file__).resolve())]
+    passthrough_flags: list[str] = []
+
+    if args.dry_run:
+        passthrough_flags.append("--dry-run")
+    if args.verbose:
+        passthrough_flags.append("--verbose")
+    if args.force_index:
+        passthrough_flags.append("--force-index")
+    if args.with_readme:
+        passthrough_flags.append("--with-readme")
+    if args.force_readme:
+        passthrough_flags.append("--force-readme")
+    if args.no_jail:
+        passthrough_flags.append("--no-jail")
+    if args.force_gopher:
+        passthrough_flags.append("--force-gopher")
+    if args.force_gemini:
+        passthrough_flags.append("--force-gemini")
+    if args.no_refresh_landing_members:
+        passthrough_flags.append("--no-refresh-landing-members")
+    if args.no_quota:
+        passthrough_flags.append("--no-quota")
+    if args.require_quota:
+        passthrough_flags.append("--require-quota")
+    if args.no_welcome_email:
+        passthrough_flags.append("--no-welcome-email")
+    if args.no_admin_create_email:
+        passthrough_flags.append("--no-admin-create-email")
+
+    value_flags: list[str] = [
+        "--queue-dir",
+        str(args.queue_dir),
+        "--metadata-file",
+        str(args.metadata_file),
+        "--lock-file",
+        str(args.lock_file),
+        "--log-file",
+        str(args.log_file),
+        "--base-url",
+        str(args.base_url),
+        "--landing-document-root",
+        str(args.landing_document_root),
+        "--quota-soft-mb",
+        str(args.quota_soft_mb),
+        "--quota-hard-mb",
+        str(args.quota_hard_mb),
+        "--quota-inode-soft",
+        str(args.quota_inode_soft),
+        "--quota-inode-hard",
+        str(args.quota_inode_hard),
+    ]
+    if args.members_homes_root is not None:
+        value_flags.extend(["--members-homes-root", str(args.members_homes_root)])
+    if args.welcome_ssh_host:
+        value_flags.extend(["--welcome-ssh-host", str(args.welcome_ssh_host)])
+
+    success = 0
+    failures: list[tuple[str, int]] = []
+    for rid in request_ids:
+        cmd = [*base_cmd, "--request-id", rid, *passthrough_flags, *value_flags]
+        print(f"==> {rid}")
+        proc = subprocess.run(cmd, text=True)
+        if proc.returncode == EXIT_OK:
+            success += 1
+        else:
+            failures.append((rid, proc.returncode))
+        print()
+
+    print("========== create_runv_user.py — lote ==========")
+    print(f"Pedidos totais: {len(request_ids)}")
+    print(f"Sucessos: {success}")
+    print(f"Falhas: {len(failures)}")
+    if failures:
+        print("Pedidos com falha:")
+        for rid, code in failures:
+            print(f"  - {rid} (exit {code})")
+    print("===============================================")
+    return EXIT_OK if not failures else EXIT_INCONSISTENT
 
 
 def read_public_key_from_args(pub: str | None, pub_file: Path | None) -> str:
@@ -1303,6 +1537,7 @@ def try_send_welcome_email(
     username: str,
     user_email: str,
     fingerprint: str,
+    request_id: str | None,
     base_url: str,
     welcome_ssh_host: str | None,
     no_welcome_email: bool,
@@ -1384,6 +1619,11 @@ def try_send_welcome_email(
             username=username,
             email=user_email,
             fingerprint=fingerprint,
+            request_reference=(
+                f"Referência do seu pedido: {request_id}"
+                if request_id
+                else "Referência do seu pedido: não aplicável"
+            ),
             member_url=member_url,
             ssh_instructions=ssh_instructions,
         )
@@ -1399,6 +1639,7 @@ def try_send_admin_user_created_email(
     user_email: str,
     operator_info: str,
     timestamp: str,
+    request_id: str | None,
     no_admin_create_email: bool,
     dry_run: bool,
     log: logging.Logger,
@@ -1471,6 +1712,7 @@ def try_send_admin_user_created_email(
             email=user_email,
             operator_info=operator_info,
             timestamp=timestamp,
+            request_reference=request_id or "manual",
         )
         log.info("email admin (conta criada) enviado para %s", admin)
         print(f"  admin (conta):     email enviado para {admin}")
@@ -1492,6 +1734,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--interactive",
         action="store_true",
         help="modo interativo (perguntas no terminal); também é o padrão se não passar nenhum argumento",
+    )
+    p.add_argument(
+        "--request-id",
+        "--user",
+        dest="request_id",
+        default=None,
+        help="aprova automaticamente um pedido pendente da fila entre-queue pelo UUID",
+    )
+    p.add_argument(
+        "--all-pending",
+        action="store_true",
+        help="aprova e processa todos os pedidos pendentes da entre-queue, em sequência",
     )
     p.add_argument("--username", default=None, help="nome de usuário Unix (minúsculas)")
     p.add_argument("--email", default=None, help="email do utilizador (também em users.json)")
@@ -1553,6 +1807,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=DEFAULT_LOG_PATH,
         help=f"log local (padrão: {DEFAULT_LOG_PATH})",
+    )
+    p.add_argument(
+        "--queue-dir",
+        type=Path,
+        default=DEFAULT_ENTRE_QUEUE_DIR,
+        help=f"fila do entre para aprovar por request_id (padrão: {DEFAULT_ENTRE_QUEUE_DIR})",
     )
     p.add_argument(
         "--base-url",
@@ -1671,6 +1931,33 @@ def main(argv: list[str] | None = None) -> int:
                 return code
             return EXIT_VALIDATION
 
+    if args.all_pending:
+        if args.request_id or args.username or args.email or args.public_key or args.public_key_file:
+            print(
+                "Erro: --all-pending não deve ser combinado com --request-id/--user, --username, --email ou chave manual.",
+                file=sys.stderr,
+            )
+            return EXIT_VALIDATION
+        return process_all_pending_requests(args)
+
+    queue_request: QueueApprovalRequest | None = None
+    if args.request_id:
+        if args.username or args.email or args.public_key or args.public_key_file:
+            print(
+                "Erro: --request-id/--user não deve ser combinado com --username, --email, --public-key ou --public-key-file.",
+                file=sys.stderr,
+            )
+            return EXIT_VALIDATION
+        try:
+            queue_request = load_queue_request_by_id(args.request_id, args.queue_dir)
+        except ValidationError as e:
+            print(f"Validação: {e}", file=sys.stderr)
+            return EXIT_VALIDATION
+        args.username = queue_request.username
+        args.email = queue_request.email
+        args.public_key = queue_request.public_key
+        args.public_key_file = None
+
     if not args.username or not args.email:
         print(
             "Erro: informe --username e --email, ou use --interactive / execute sem argumentos.",
@@ -1691,6 +1978,12 @@ def main(argv: list[str] | None = None) -> int:
         args.dry_run,
         args.interactive,
     )
+
+    try:
+        operator_user = require_authorized_admin_operator(dry_run=bool(args.dry_run))
+    except (ValidationError, SystemProvisionError) as e:
+        print(f"Acesso: {e}", file=sys.stderr)
+        return EXIT_VALIDATION if isinstance(e, ValidationError) else EXIT_SYSTEM
 
     if os.geteuid() != 0 and not args.dry_run:
         print("Erro: execute como root (ou sudo) para criar usuários.", file=sys.stderr)
@@ -1741,6 +2034,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  email:        {email}")
         print(f"  home:         {home}")
         print(f"  fingerprint:  {fingerprint}")
+        print(f"  operador:     {operator_user}")
+        if queue_request is not None:
+            print(f"  pedido fila:  {queue_request.request_id} ({queue_request.queue_path})")
         print(
             "  ações: (1) adduser + skel  (2) authorized_keys  (3) public_html  "
             "(4) public_gopher + public_gemini + bind Gemini  (5) README só com --with-readme  "
@@ -1859,7 +2155,7 @@ def main(argv: list[str] | None = None) -> int:
             email=email,
             public_key_fingerprint=fingerprint,
             created_at=datetime.now(timezone.utc).isoformat(),
-            created_by=os.environ.get("SUDO_USER") or getpass.getuser(),
+            created_by=operator_user,
             home_directory=str(home),
             status=overall_status,
             quota_enabled=qr.enabled,
@@ -1920,6 +2216,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  URL prevista:      {args.base_url.rstrip('/')}/~{user}/")
         print(f"  fingerprint:       {fingerprint}")
         print(f"  metadados:         {args.metadata_file}")
+        if queue_request is not None:
+            print(f"  pedido aprovado:   {queue_request.request_id}")
         dr_resolved = (
             args.landing_document_root.resolve() if args.landing_document_root else None
         )
@@ -1971,6 +2269,7 @@ def main(argv: list[str] | None = None) -> int:
             username=user,
             user_email=email,
             fingerprint=fingerprint,
+            request_id=queue_request.request_id if queue_request else None,
             base_url=args.base_url,
             welcome_ssh_host=welcome_host_opt,
             no_welcome_email=bool(args.no_welcome_email),
@@ -1982,10 +2281,19 @@ def main(argv: list[str] | None = None) -> int:
             user_email=email,
             operator_info=record.created_by,
             timestamp=record.created_at,
+            request_id=queue_request.request_id if queue_request else None,
             no_admin_create_email=bool(args.no_admin_create_email),
             dry_run=bool(args.dry_run),
             log=log,
         )
+        if queue_request is not None:
+            archive_approved_queue_request(
+                queue_request,
+                operator=operator_user,
+                created_username=user,
+                dry_run=bool(args.dry_run),
+                log=log,
+            )
 
         if not args.no_quota and qr.status in ("failed", "not_configured"):
             print(

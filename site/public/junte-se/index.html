@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Junte-se — runv.club</title>
-  <meta name="description" content="Como gerar chave SSH no Linux, macOS ou Windows e pedir entrada na runv.club via ssh entre@runv.club.">
+  <meta name="description" content="Como gerar uma chave SSH no Linux, macOS ou Windows e pedir entrada na runv.club via ssh entre@runv.club.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
@@ -25,7 +25,7 @@
         <span class="hero-nav-current" aria-current="page">Junte-se</span>
       </nav>
       <h1 class="hero-title subpage-title">Junte-se</h1>
-      <p class="subpage-intro">Uma chave SSH no seu computador e um primeiro contacto com <span class="ssh-identity">entre@runv.club</span> — em qualquer sistema.</p>
+      <p class="subpage-intro">Uma chave SSH no seu computador e um primeiro contato com <span class="ssh-identity">entre@runv.club</span> — de um jeito simples, em qualquer sistema.</p>
     </header>
 
     <div class="entre-callout" role="status">
@@ -33,37 +33,59 @@
       <span class="ssh-identity ssh-identity-lg">entre@runv.club</span>
     </div>
 
+    <section class="mini-cards" aria-label="Antes de começar">
+      <article class="mini-card">
+        <p class="mini-card-kicker">O que você precisa</p>
+        <h2>Um computador e alguns minutos</h2>
+        <p>Você só precisa gerar uma chave SSH, copiar a parte pública e seguir o fluxo guiado do <span class="ssh-identity">entre@runv.club</span>.</p>
+      </article>
+      <article class="mini-card">
+        <p class="mini-card-kicker">Sem pressa</p>
+        <h2>Não precisa saber tudo agora</h2>
+        <p>Se esta for sua primeira vez com SSH, tudo bem. A ideia aqui é justamente tornar esse começo mais simples e amigável.</p>
+      </article>
+    </section>
+
     <main class="section prose-block subpage-main join-main">
       <h2>Em resumo</h2>
       <ol class="checklist join-summary">
-        <li><strong>Gere</strong> um par de chaves SSH no seu PC (fica só a <em>pública</em> para colar no pedido).</li>
-        <li><strong>Ligue</strong> com <code>ssh</code> a <span class="ssh-identity">entre@runv.club</span> e siga o que aparecer no ecrã.</li>
-        <li><strong>Aguarde</strong> — a equipa revê a fila; não é cadastro instantâneo.</li>
+        <li><strong>Gere</strong> um par de chaves SSH no seu computador. Você vai usar só a <em>chave pública</em> no pedido.</li>
+        <li><strong>Conecte-se</strong> com <code>ssh</code> a <span class="ssh-identity">entre@runv.club</span> e siga o que aparecer na tela.</li>
+        <li><strong>Aguarde</strong> a revisão. O processo é manual e não há cadastro instantâneo.</li>
       </ol>
 
+      <p>
+        Se esta é a sua primeira vez usando SSH, tudo bem: esta página foi pensada justamente para ajudar você a dar esse primeiro passo com calma.
+      </p>
+
       <h2>Linux</h2>
-      <p>Terminal: gere Ed25519 e copie a linha da chave <strong>pública</strong> (<code>.pub</code>).</p>
+      <p>No terminal, gere uma chave Ed25519 e copie a linha da <strong>chave pública</strong> (<code>.pub</code>).</p>
       <pre class="code-block" tabindex="0"><code>ssh-keygen -t ed25519 -C "seu-email-ou-pc" -f ~/.ssh/id_ed25519_runv
 cat ~/.ssh/id_ed25519_runv.pub</code></pre>
 
       <h2>macOS</h2>
-      <p><strong>Terminal</strong> (Spotlight: “Terminal”) — os mesmos comandos que em Linux. OpenSSH já vem no sistema; opcional: <code>ssh-add ~/.ssh/id_ed25519_runv</code>.</p>
+      <p>No <strong>Terminal</strong> (Spotlight: “Terminal”), use os mesmos comandos do Linux. O OpenSSH já vem no sistema; se quiser, pode adicionar a chave com <code>ssh-add ~/.ssh/id_ed25519_runv</code>.</p>
       <pre class="code-block" tabindex="0"><code>ssh-keygen -t ed25519 -C "seu-email-ou-pc" -f ~/.ssh/id_ed25519_runv
 cat ~/.ssh/id_ed25519_runv.pub</code></pre>
 
       <h2>Windows</h2>
-      <p><strong>PowerShell</strong> ou Terminal do Windows. Confirme o cliente: <code>ssh -V</code>. Se faltar, instale <em>Cliente OpenSSH</em> em Configurações → Aplicativos → Recursos opcionais.</p>
+      <p>No <strong>PowerShell</strong> ou Terminal do Windows, confirme primeiro se o cliente existe com <code>ssh -V</code>. Se faltar, instale o <em>Cliente OpenSSH</em> em Configurações → Aplicativos → Recursos opcionais.</p>
       <pre class="code-block" tabindex="0"><code>ssh-keygen -t ed25519 -C "seu-email-ou-pc" -f $env:USERPROFILE\.ssh\id_ed25519_runv
 Get-Content $env:USERPROFILE\.ssh\id_ed25519_runv.pub</code></pre>
-      <p class="join-note">Nunca partilhe o ficheiro <strong>sem</strong> <code>.pub</code> — esse é o privado.</p>
+      <p class="join-note">Nunca compartilhe o arquivo <strong>sem</strong> <code>.pub</code>. Esse é o arquivo privado e deve ficar só com você.</p>
 
       <h2>Ligar ao <span class="ssh-identity">entre@runv.club</span></h2>
       <p>Linux / macOS:</p>
       <pre class="code-block" tabindex="0"><code>ssh -i ~/.ssh/id_ed25519_runv entre@runv.club</code></pre>
       <p>Windows (PowerShell):</p>
       <pre class="code-block" tabindex="0"><code>ssh -i $env:USERPROFILE\.ssh\id_ed25519_runv entre@runv.club</code></pre>
-      <p>Na primeira vez, aceite a fingerprint se confiar no servidor. Se a sua chave tiver outro nome ou estiver no caminho por defeito, pode omitir <code>-i</code>.</p>
-      <p>Dúvidas ou bloqueios: <a href="mailto:admin@runv.club">admin@runv.club</a>. Tipos de chave: preferência por <strong>Ed25519</strong>; também ECDSA ou RSA conforme política do servidor.</p>
+      <p>Na primeira vez, aceite a fingerprint se estiver conectando ao servidor certo. Se a sua chave tiver outro nome ou estiver no caminho padrão, você pode omitir <code>-i</code>.</p>
+      <p>
+        Dúvidas ou bloqueios: <a href="mailto:admin@runv.club">admin@runv.club</a>. A preferência é por chaves <strong>Ed25519</strong>; ECDSA e RSA também podem ser aceitas conforme a política do servidor.
+      </p>
+      <p>
+        Depois que a conta for aprovada, você poderá entrar na pubnix, criar sua página pessoal, explorar o ambiente e conversar com a comunidade no IRC.
+      </p>
     </main>
 
     <footer class="site-footer">

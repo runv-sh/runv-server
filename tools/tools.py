@@ -19,6 +19,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 TOOL_ROOT: Path = Path(__file__).resolve().parent
+ADMIN_TOOLS_DIR: Path = TOOL_ROOT.parent / "scripts" / "admin"
+if str(ADMIN_TOOLS_DIR) not in sys.path:
+    sys.path.insert(0, str(ADMIN_TOOLS_DIR))
+
+from admin_guard import ensure_admin_cli
+
 MANIFEST_PATH: Path = TOOL_ROOT / "manifests" / "apt_packages.txt"
 
 # Nome no manifesto → pacote apt real ("chat" = IRC no terminal; Debian usa o pacote weechat).
@@ -29,12 +35,15 @@ BIN_DIR: Path = TOOL_ROOT / "bin"
 MOTD_SRC: Path = TOOL_ROOT / "motd" / "60-runv"
 SKEL_DIR: Path = TOOL_ROOT / "skel"
 SSHD_DROPIN_SRC: Path = TOOL_ROOT / "sshd" / "90-runv-jailed.conf"
+SUDOERS_ADMIN_SRC: Path = TOOL_ROOT / "sudoers" / "90-runv-pmurad-admin"
 
 DEST_BIN_DIR: Path = Path("/usr/local/bin")
 DEST_MOTD: Path = Path("/etc/update-motd.d/60-runv")
 DEST_SKEL: Path = Path("/etc/skel")
 DEST_SSHD_DROPIN: Path = Path("/etc/ssh/sshd_config.d/90-runv-jailed.conf")
+DEST_SUDOERS_ADMIN: Path = Path("/etc/sudoers.d/90-runv-pmurad-admin")
 PATCH_IRC_PATH: Path = TOOL_ROOT.parent / "patches" / "patch_irc.py"
+PERM1_PATH: Path = TOOL_ROOT.parent / "scripts" / "admin" / "perm1.py"
 
 
 @dataclass
@@ -237,6 +246,39 @@ def install_motd(
         log=log,
         summary=summary,
     )
+
+
+def install_admin_sudoers(
+    *,
+    force: bool,
+    dry_run: bool,
+    log: logging.Logger,
+    summary: RunSummary,
+) -> None:
+    copy_one(
+        SUDOERS_ADMIN_SRC,
+        DEST_SUDOERS_ADMIN,
+        0o440,
+        force=force,
+        dry_run=dry_run,
+        log=log,
+        summary=summary,
+    )
+    if dry_run or summary.errors:
+        return
+    check = subprocess.run(
+        ["visudo", "-cf", str(DEST_SUDOERS_ADMIN)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if check.returncode != 0:
+        err = (check.stderr or check.stdout or "").strip()
+        msg = f"visudo -cf falhou para {DEST_SUDOERS_ADMIN}: {err}"
+        summary.errors.append(msg)
+        log.error("%s", msg)
+        return
+    log.info("Sudoers validado para pmurad-admin: %s", DEST_SUDOERS_ADMIN)
 
 
 def remove_obsolete_skel_readme(
@@ -485,6 +527,42 @@ def apply_irc_patch(
         log.info("patch IRC: %s", r.stdout.strip().splitlines()[-1])
 
 
+def apply_jail_backfill(
+    *,
+    dry_run: bool,
+    log: logging.Logger,
+    summary: RunSummary,
+) -> None:
+    if not PERM1_PATH.is_file():
+        msg = f"perm1.py não encontrado: {PERM1_PATH}"
+        summary.errors.append(msg)
+        log.error("%s", msg)
+        return
+
+    cmd = [sys.executable, str(PERM1_PATH)]
+    if dry_run:
+        cmd.append("--dry-run")
+    if log.isEnabledFor(logging.DEBUG):
+        cmd.append("--verbose")
+
+    r = run_subprocess(cmd, dry_run=False if not dry_run else True, log=log)
+    if dry_run:
+        summary.copied.append(f"jail backfill (simulado): {' '.join(cmd)}")
+        return
+
+    assert r is not None
+    if r.returncode != 0:
+        err = (r.stderr or r.stdout or "").strip()
+        msg = f"perm1.py falhou (código {r.returncode})" + (f": {err}" if err else "")
+        summary.errors.append(msg)
+        log.error("%s", msg)
+        return
+
+    summary.copied.append("jail SSH aplicado/verificado para utilizadores existentes")
+    if r.stdout.strip():
+        log.info("perm1.py: %s", r.stdout.strip().splitlines()[-1])
+
+
 def print_summary(summary: RunSummary, log: logging.Logger) -> None:
     print()
     print("========== runv-tools — resumo ==========")
@@ -536,11 +614,20 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         action="store_true",
         help="não executa apt-get (útil para reaplicar só arquivos/MOTD/skel)",
     )
+    p.add_argument(
+        "--reconcile-existing-users",
+        action="store_true",
+        help="reaplica/verifica jail SSH e patch IRC em utilizadores já existentes",
+    )
     return p.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    ensure_admin_cli(
+        script_name=Path(__file__).name,
+        dry_run=bool(args.dry_run),
+    )
     log = setup_logging(args.verbose)
     summary = RunSummary(dry_run=args.dry_run)
 
@@ -561,6 +648,14 @@ def main(argv: list[str] | None = None) -> int:
     log.info("Instalando MOTD em %s", DEST_MOTD)
     install_motd(force=args.force, dry_run=args.dry_run, log=log, summary=summary)
 
+    log.info("Garantindo sudo administrativo para pmurad-admin")
+    install_admin_sudoers(
+        force=args.force,
+        dry_run=args.dry_run,
+        log=log,
+        summary=summary,
+    )
+
     log.info("Jailkit / SSH runv-jailed (grupo, drop-in, reload)")
     ensure_jailkit_ssh_baseline(
         force=args.force,
@@ -572,8 +667,17 @@ def main(argv: list[str] | None = None) -> int:
     log.info("Sincronizando skel em %s", DEST_SKEL)
     install_skel(force=args.force, dry_run=args.dry_run, log=log, summary=summary)
 
-    log.info("Aplicando patch IRC (chat / WeeChat)")
-    apply_irc_patch(dry_run=args.dry_run, log=log, summary=summary)
+    if args.reconcile_existing_users:
+        log.info("Aplicando/verificando jail SSH para utilizadores existentes")
+        apply_jail_backfill(dry_run=args.dry_run, log=log, summary=summary)
+    else:
+        log.info("Utilizadores existentes não serão alterados (sem --reconcile-existing-users).")
+
+    if args.reconcile_existing_users:
+        log.info("Aplicando patch IRC (chat / WeeChat) aos utilizadores existentes")
+        apply_irc_patch(dry_run=args.dry_run, log=log, summary=summary)
+    else:
+        log.info("Patch IRC em utilizadores existentes ignorado (sem --reconcile-existing-users).")
 
     print_summary(summary, log)
     return 0

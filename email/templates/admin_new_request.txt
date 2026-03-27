@@ -1,13 +1,15 @@
 runv.club — novo pedido de entrada
 
+Olá,
+
 Foi recebido um novo pedido através do fluxo «entre».
 
 ID do pedido: {request_id}
 Data (UTC): {timestamp}
-
 Nome de utilizador desejado: {username}
 E-mail de contato: {email}
 Fingerprint SHA256 da chave: {fingerprint}
 
----
-Este aviso foi gerado automaticamente. Consulte a fila em /var/lib/runv/entre-queue/
+Consulte a fila em /var/lib/runv/entre-queue/ para revisar o pedido.
+
+Equipe runv.club

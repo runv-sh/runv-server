@@ -1,10 +1,10 @@
 RUNV.CLUB - FAQ
 
 1. O que é o runv.club?
-O runv.club é um sistema de acesso, organização, suporte e uso em ambiente digital. Ele centraliza informações, regras, canais de contato e recursos operacionais.
+O runv.club é uma comunidade brasileira em estilo tilde, com conta SSH, terminal, página pessoal, wiki, notícias e espaço para aprender, publicar e conviver.
 
 2. O sistema é só para alunos do Portal IDEA?
-Não.
+Não. O runv.club pode receber pessoas de perfis diferentes, desde que haja disponibilidade e que as regras da comunidade sejam respeitadas.
 
 3. Como entro no sistema?
 Na pubnix runv.club o acesso é por SSH com chave (não por senha SSH). O pedido de conta segue o fluxo oficial (ver página “Junte-se” no site: chave Ed25519 e ligação a entre@runv.club); a equipe cria a conta após revisão manual. O prazo de aprovação pode ir até 21 dias corridos (somos uma equipe pequena).
@@ -46,4 +46,4 @@ Pelo e-mail oficial: admin@runv.club
 Na wiki oficial do runv.club, especialmente nos arquivos de regras da comunidade, moderação, privacidade e acesso.
 
 16. Onde peço ajuda no IRC?
-No canal #runv, disponível em irc.portalidea.com.br e em irc.runv.club (é o mesmo canal nos dois servidores). Pode usar ligação com TLS/SSL ou sem cifra, conforme o cliente — ambos são aceites. Para questões de conta ou dados sensíveis, use admin@runv.club.
+No canal #runv, em irc.tilde.chat na porta 6697 com TLS/SSL. É um bom lugar para conversa e dúvidas rápidas; para questões de conta ou dados sensíveis, use admin@runv.club.

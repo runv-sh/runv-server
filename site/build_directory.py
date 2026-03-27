@@ -21,6 +21,13 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+ADMIN_DIR = SCRIPT_DIR.parent / "scripts" / "admin"
+if str(ADMIN_DIR) not in sys.path:
+    sys.path.insert(0, str(ADMIN_DIR))
+
+from admin_guard import ensure_admin_cli
+
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Gera members.json público para site/")
@@ -83,6 +90,10 @@ def load_users(path: Path) -> list[dict]:
 
 def main() -> None:
     args = parse_args()
+    ensure_admin_cli(
+        script_name=Path(__file__).name,
+        dry_run=bool(args.dry_run),
+    )
     users = load_users(args.users_json)
     members: list[dict] = []
     for row in users:

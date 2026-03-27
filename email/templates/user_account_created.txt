@@ -5,6 +5,7 @@ Olá {username},
 A sua conta no runv.club foi criada.
 
 Utilizamos o endereço {email} como o seu email de contacto nesta conta.
+{request_reference}
 
 Acesso por SSH
 ----------------
@@ -20,5 +21,7 @@ Espaço web
 A sua página de membro deverá estar disponível em:
 {member_url}
 
-Cumprimentos,
+Se esta for a sua primeira experiência numa pubnix, vá com calma: explore o ambiente, leia a wiki, edite a sua página e apareça no IRC da comunidade quando quiser.
+
+Bem-vindo(a),
 Equipe runv.club

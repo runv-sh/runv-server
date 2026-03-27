@@ -70,6 +70,7 @@ RESERVED_USERNAMES: Final[frozenset[str]] = frozenset(
 
 DEFAULT_METADATA_PATH: Final[Path] = Path("/var/lib/runv/users.json")
 DEFAULT_LOCK_PATH: Final[Path] = Path("/var/lib/runv/users.lock")
+DEFAULT_ALLOWED_ADMIN_USERS: Final[tuple[str, ...]] = ("pmurad-admin",)
 
 VERSION: Final[str] = "0.04"
 
@@ -91,6 +92,35 @@ def setup_del_user_log(*, verbose: bool) -> logging.Logger:
         h.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
         log.addHandler(h)
     return log
+
+
+def resolve_allowed_admin_users() -> set[str]:
+    raw = os.environ.get("RUNV_ADMIN_USERS", "").strip()
+    if not raw:
+        return set(DEFAULT_ALLOWED_ADMIN_USERS)
+    names = {part.strip() for part in raw.split(",") if part.strip()}
+    return names or set(DEFAULT_ALLOWED_ADMIN_USERS)
+
+
+def resolve_operator_user() -> str:
+    sudo_user = os.environ.get("SUDO_USER", "").strip()
+    if sudo_user:
+        return sudo_user
+    user = os.environ.get("USER", "").strip()
+    return user or "root"
+
+
+def require_authorized_admin_operator() -> str:
+    operator = resolve_operator_user()
+    allowed = resolve_allowed_admin_users()
+    if operator not in allowed:
+        allowed_list = ", ".join(sorted(allowed))
+        print(
+            f"Acesso negado: operador {operator!r} não está autorizado. Permitidos: {allowed_list}.",
+            file=sys.stderr,
+        )
+        raise SystemExit(EXIT_VALIDATION)
+    return operator
 
 
 # validação / root
@@ -667,6 +697,7 @@ def main() -> int:
     args = parser.parse_args()
 
     log = setup_del_user_log(verbose=args.verbose)
+    _operator_user = require_authorized_admin_operator()
 
     username = validate_username_syntax(args.username)
 

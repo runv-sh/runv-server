@@ -38,7 +38,12 @@ DEFAULT_METADATA_PATH: Final[Path] = Path("/var/lib/runv/users.json")
 
 _DOOM_DIR = Path(__file__).resolve().parent
 _REPO_SCRIPTS = _DOOM_DIR.parent
+_ADMIN_DIR = _REPO_SCRIPTS / "admin"
+if str(_ADMIN_DIR) not in sys.path:
+    sys.path.insert(0, str(_ADMIN_DIR))
 _DEL_USER_PY: Final[Path] = _REPO_SCRIPTS / "admin" / "del-user.py"
+
+from admin_guard import ensure_admin_cli
 
 
 def eprint(msg: str) -> None:
@@ -237,6 +242,10 @@ def main() -> int:
     )
     p.add_argument("--version", action="version", version=f"%(prog)s {VERSION} — runv.club")
     args = p.parse_args()
+    ensure_admin_cli(
+        script_name=Path(__file__).name,
+        dry_run=bool(args.dry_run),
+    )
 
     keeper = resolve_keeper(args)
     keeper = validate_username_syntax(keeper)

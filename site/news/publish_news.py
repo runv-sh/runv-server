@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
-Lê ficheiros ``*.md`` nesta pasta (``site/news/``), gera entradas em
+Lê ficheiros ``*.md`` e ``*.txt`` nesta pasta (``site/news/``), gera entradas em
 ``site/public/news/data/news.json``, ``site/public/news/feed.rss`` e
 actualiza ``lastmod`` da entrada ``/news/`` em ``site/public/sitemap.xml``.
 
-Formato de cada ``.md``:
+Formato de cada ficheiro:
   - Linha 1: título
-  - Linhas seguintes: corpo (Markdown leve: **negrito**, *itálico*, _itálico_, ++sublinhado++)
+  - Linhas seguintes: corpo
+  - ``.md`` usa Markdown básico seguro
+  - ``.txt`` vira texto simples com parágrafos e quebras de linha preservadas
 
-Os ``.md`` processados são **apagados**. Ficheiros cujo nome começa por ``_`` são ignorados
+Os ficheiros processados são **apagados**. Ficheiros cujo nome começa por ``_`` são ignorados
 (ex.: ``_exemplo.md`` para documentação).
 
 Não versionar notícias no HTML: os dados ficam em ``news.json`` (tipicamente ignorado pelo git
@@ -40,6 +42,11 @@ from zoneinfo import ZoneInfo
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_SITE = SCRIPT_DIR.parent
 _REPO_ROOT = REPO_SITE.parent
+_ADMIN_DIR = _REPO_ROOT / "scripts" / "admin"
+if str(_ADMIN_DIR) not in sys.path:
+    sys.path.insert(0, str(_ADMIN_DIR))
+
+from admin_guard import ensure_admin_cli
 
 PUBLIC_NEWS = REPO_SITE / "public" / "news"
 DATA_DIR = PUBLIC_NEWS / "data"
@@ -53,6 +60,18 @@ BR_FALLBACK_TZ = timezone(timedelta(hours=-3))
 SITE_URL: Final[str] = "https://runv.club"
 DEFAULT_LANDING_DOCUMENT_ROOT: Final[Path] = Path("/var/www/runv.club/html")
 DEFAULT_MEMBERS_USERS_JSON: Final[Path] = Path("/var/lib/runv/users.json")
+SUPPORTED_NEWS_SUFFIXES: Final[tuple[str, ...]] = (".md", ".txt")
+_CODE_PLACEHOLDER_RE: Final[re.Pattern[str]] = re.compile(r"\x00CODE(\d+)\x00")
+_LINK_RE: Final[re.Pattern[str]] = re.compile(r"\[([^\]\n]+)\]\(([^)\s]+)\)")
+_BOLD_RE: Final[re.Pattern[str]] = re.compile(r"(?<!\*)\*\*([^\n*][\s\S]*?[^\n*])\*\*(?!\*)")
+_UNDERLINE_RE: Final[re.Pattern[str]] = re.compile(r"\+\+([^\n+][\s\S]*?[^\n+])\+\+")
+_ITALIC_STAR_RE: Final[re.Pattern[str]] = re.compile(r"(?<!\*)\*([^\s*][^*\n]*?[^\s*])\*(?!\*)")
+_ITALIC_UNDERSCORE_RE: Final[re.Pattern[str]] = re.compile(r"(?<!_)_([^\s_][^_\n]*?[^\s_])_(?!_)")
+_INLINE_CODE_RE: Final[re.Pattern[str]] = re.compile(r"`([^`\n]+)`")
+_SAFE_URL_RE: Final[re.Pattern[str]] = re.compile(
+    r"^(?:https?://|mailto:|/|#|\.{1,2}/)[^\s]*$",
+    re.IGNORECASE,
+)
 
 
 def sync_landing_after_news(
@@ -111,82 +130,206 @@ def sync_landing_after_news(
     return 1
 
 
-def _apply_underline(s: str) -> str:
-    parts = s.split("++")
-    out: list[str] = []
-    for i, p in enumerate(parts):
-        if i % 2 == 0:
-            out.append(_apply_italic_underscore(p))
-        else:
-            out.append("<u>" + html.escape(p) + "</u>")
-    return "".join(out)
+def _preserve_code_span(html_text: str, code_segments: list[str]) -> str:
+    def repl(match: re.Match[str]) -> str:
+        idx = len(code_segments)
+        code_segments.append(f"<code>{html.escape(match.group(1))}</code>")
+        return f"\x00CODE{idx}\x00"
+
+    return _INLINE_CODE_RE.sub(repl, html_text)
 
 
-def _apply_italic_underscore(s: str) -> str:
-    parts = re.split(r"(?<!_)_([^_\n]+)_(?!_)", s)
-    out: list[str] = []
-    for i, p in enumerate(parts):
-        if i % 2 == 0:
-            out.append(_apply_italic_star(p))
-        else:
-            out.append("<em>" + html.escape(p) + "</em>")
-    return "".join(out)
+def _restore_code_span(html_text: str, code_segments: list[str]) -> str:
+    return _CODE_PLACEHOLDER_RE.sub(
+        lambda m: code_segments[int(m.group(1))],
+        html_text,
+    )
 
 
-def _apply_italic_star(s: str) -> str:
-    """Itálico com *simples* (não **)."""
-    result: list[str] = []
-    i = 0
-    n = len(s)
-    while i < n:
-        if s[i] == "*":
-            j = i + 1
-            while j < n and s[j] != "*":
-                j += 1
-            if j < n and s[j] == "*" and j > i + 1:
-                inner = s[i + 1 : j]
-                result.append("<em>" + html.escape(inner) + "</em>")
-                i = j + 1
-                continue
-        result.append(html.escape(s[i]))
-        i += 1
-    return "".join(result)
+def _safe_href(url: str) -> str | None:
+    if not _SAFE_URL_RE.fullmatch(url):
+        return None
+    if url.lower().startswith("javascript:"):
+        return None
+    return html.escape(url, quote=True)
 
 
-def _apply_bold(s: str) -> str:
-    parts = s.split("**")
-    out: list[str] = []
-    for i, p in enumerate(parts):
-        if i % 2 == 0:
-            out.append(_apply_underline(p))
-        else:
-            out.append("<strong>" + html.escape(p) + "</strong>")
-    return "".join(out)
+def inline_markdown_to_html(text: str) -> str:
+    escaped = html.escape(text)
+    code_segments: list[str] = []
+    escaped = _preserve_code_span(escaped, code_segments)
+
+    def repl_link(match: re.Match[str]) -> str:
+        label = inline_markdown_to_html(match.group(1))
+        href = _safe_href(match.group(2).strip())
+        if href is None:
+            return html.escape(match.group(0))
+        return f'<a href="{href}">{label}</a>'
+
+    escaped = _LINK_RE.sub(repl_link, escaped)
+    escaped = _BOLD_RE.sub(lambda m: f"<strong>{m.group(1)}</strong>", escaped)
+    escaped = _UNDERLINE_RE.sub(lambda m: f"<u>{m.group(1)}</u>", escaped)
+    escaped = _ITALIC_STAR_RE.sub(lambda m: f"<em>{m.group(1)}</em>", escaped)
+    escaped = _ITALIC_UNDERSCORE_RE.sub(lambda m: f"<em>{m.group(1)}</em>", escaped)
+    return _restore_code_span(escaped, code_segments)
 
 
-def markdown_body_to_html(body: str) -> str:
+def render_plain_text_html(body: str) -> str:
     body = body.replace("\r\n", "\n").strip()
     if not body:
         return ""
     blocks = re.split(r"\n\s*\n+", body)
-    paras: list[str] = []
+    parts: list[str] = []
     for block in blocks:
-        lines = block.split("\n")
-        inner = "<br>\n".join(_apply_bold(line) for line in lines)
-        paras.append(f"<p>{inner}</p>")
-    return "\n".join(paras)
+        lines = [html.escape(line.rstrip()) for line in block.split("\n")]
+        parts.append(f"<p>{'<br>\n'.join(lines)}</p>")
+    return "\n".join(parts)
 
 
-def parse_md_file(path: Path) -> tuple[str, str]:
+def render_markdown_html(body: str) -> str:
+    body = body.replace("\r\n", "\n").strip()
+    if not body:
+        return ""
+
+    lines = body.split("\n")
+    parts: list[str] = []
+    paragraph_lines: list[str] = []
+    list_type: str | None = None
+    list_items: list[str] = []
+    quote_lines: list[str] = []
+    fence_lang = ""
+    code_lines: list[str] = []
+
+    def flush_paragraph() -> None:
+        nonlocal paragraph_lines
+        if not paragraph_lines:
+            return
+        text = " ".join(line.strip() for line in paragraph_lines if line.strip())
+        parts.append(f"<p>{inline_markdown_to_html(text)}</p>")
+        paragraph_lines = []
+
+    def flush_list() -> None:
+        nonlocal list_type, list_items
+        if not list_items or not list_type:
+            return
+        tag = "ol" if list_type == "ol" else "ul"
+        items = "".join(f"<li>{inline_markdown_to_html(item)}</li>" for item in list_items)
+        parts.append(f"<{tag}>{items}</{tag}>")
+        list_type = None
+        list_items = []
+
+    def flush_quote() -> None:
+        nonlocal quote_lines
+        if not quote_lines:
+            return
+        quote_html = render_markdown_html("\n".join(quote_lines))
+        parts.append(f"<blockquote>{quote_html}</blockquote>")
+        quote_lines = []
+
+    def flush_code() -> None:
+        nonlocal code_lines, fence_lang
+        code = "\n".join(code_lines)
+        lang_attr = ""
+        if fence_lang:
+            lang_attr = f' class="language-{html.escape(fence_lang, quote=True)}"'
+        parts.append(f"<pre><code{lang_attr}>{html.escape(code)}</code></pre>")
+        code_lines = []
+        fence_lang = ""
+
+    def flush_all() -> None:
+        flush_paragraph()
+        flush_list()
+        flush_quote()
+
+    in_code = False
+    for raw_line in lines:
+        line = raw_line.rstrip()
+        stripped = line.strip()
+
+        if in_code:
+            if stripped.startswith("```"):
+                flush_code()
+                in_code = False
+            else:
+                code_lines.append(raw_line)
+            continue
+
+        if stripped.startswith("```"):
+            flush_all()
+            in_code = True
+            fence_lang = stripped[3:].strip()
+            code_lines = []
+            continue
+
+        if not stripped:
+            flush_all()
+            continue
+
+        quote_match = re.match(r"^\s*>\s?(.*)$", line)
+        if quote_match:
+            flush_paragraph()
+            flush_list()
+            quote_lines.append(quote_match.group(1))
+            continue
+        flush_quote()
+
+        heading_match = re.match(r"^(#{1,6})\s+(.+?)\s*$", stripped)
+        if heading_match:
+            flush_all()
+            level = len(heading_match.group(1))
+            text = inline_markdown_to_html(heading_match.group(2))
+            parts.append(f"<h{level}>{text}</h{level}>")
+            continue
+
+        if re.fullmatch(r"(?:-{3,}|\*{3,}|_{3,})", stripped):
+            flush_all()
+            parts.append("<hr>")
+            continue
+
+        ul_match = re.match(r"^\s*[-*+]\s+(.+)$", line)
+        if ul_match:
+            flush_paragraph()
+            if list_type not in (None, "ul"):
+                flush_list()
+            list_type = "ul"
+            list_items.append(ul_match.group(1).strip())
+            continue
+
+        ol_match = re.match(r"^\s*\d+\.\s+(.+)$", line)
+        if ol_match:
+            flush_paragraph()
+            if list_type not in (None, "ol"):
+                flush_list()
+            list_type = "ol"
+            list_items.append(ol_match.group(1).strip())
+            continue
+
+        flush_list()
+        paragraph_lines.append(line)
+
+    if in_code:
+        flush_code()
+    flush_all()
+    return "\n".join(parts)
+
+
+def render_body_html(body: str, *, source_kind: str) -> str:
+    if source_kind == "txt":
+        return render_plain_text_html(body)
+    return render_markdown_html(body)
+
+
+def parse_news_file(path: Path) -> tuple[str, str, str]:
     raw = path.read_text(encoding="utf-8")
     lines = raw.splitlines()
     if not lines:
         raise ValueError(f"{path.name}: ficheiro vazio")
-    title = lines[0].strip()
+    title_line = lines[0].strip()
+    title = re.sub(r"^#\s+", "", title_line).strip() if path.suffix.lower() == ".md" else title_line
     if not title:
         raise ValueError(f"{path.name}: primeira linha (título) vazia")
     body = "\n".join(lines[1:]).lstrip("\n")
-    return title, body
+    return title, body, path.suffix.lower().lstrip(".")
 
 
 def load_articles() -> list[dict[str, Any]]:
@@ -279,20 +422,25 @@ def update_sitemap_lastmod(news_lastmod: str) -> None:
         SITEMAP_PATH.write_text(new_text, encoding="utf-8")
 
 
-def discover_md_files() -> list[Path]:
+def discover_news_files() -> list[Path]:
     out: list[Path] = []
-    skip = frozenset({"readme.md", "readme.markdown"})
-    for p in sorted(SCRIPT_DIR.glob("*.md")):
+    skip = frozenset({"readme.md", "readme.markdown", "readme.txt"})
+    for p in sorted(SCRIPT_DIR.iterdir()):
+        if not p.is_file():
+            continue
         if p.name.startswith("_"):
             continue
-        if p.name.lower() in skip:
+        lower_name = p.name.lower()
+        if lower_name in skip:
+            continue
+        if p.suffix.lower() not in SUPPORTED_NEWS_SUFFIXES:
             continue
         out.append(p)
     return out
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Publica notícias a partir de .md em site/news/")
+    ap = argparse.ArgumentParser(description="Publica notícias a partir de .md e .txt em site/news/")
     ap.add_argument("--dry-run", action="store_true", help="Só mostra o que faria")
     ap.add_argument("--verbose", "-v", action="store_true")
     ap.add_argument(
@@ -322,15 +470,19 @@ def main() -> int:
         help="Não copiar site/public para DocumentRoot após publicar",
     )
     args = ap.parse_args()
+    ensure_admin_cli(
+        script_name=Path(__file__).name,
+        dry_run=bool(args.dry_run),
+    )
 
     try:
         now = datetime.now(timezone.utc).astimezone(ZoneInfo(TZ_BR))
     except Exception:
         now = datetime.now(BR_FALLBACK_TZ)
 
-    md_files = discover_md_files()
-    if not md_files:
-        print("Nenhum ficheiro .md para processar (ignore _*.md).", file=sys.stderr)
+    news_files = discover_news_files()
+    if not news_files:
+        print("Nenhum ficheiro .md ou .txt para processar (ignore _*).", file=sys.stderr)
         return 0
 
     articles = load_articles()
@@ -339,13 +491,13 @@ def main() -> int:
     w3c = w3c_date(now)
 
     new_entries: list[dict[str, Any]] = []
-    for path in md_files:
+    for path in news_files:
         try:
-            title, body_md = parse_md_file(path)
+            title, body_source, source_kind = parse_news_file(path)
         except ValueError as e:
             print(f"Erro em {path.name}: {e}", file=sys.stderr)
             return 1
-        body_html = markdown_body_to_html(body_md)
+        body_html = render_body_html(body_source, source_kind=source_kind)
         entry = {
             "id": uuid.uuid4().hex[:12],
             "title": title,
