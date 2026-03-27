@@ -37,7 +37,7 @@ printf '  %b%-12s%b %b—%b o seu bichinho virtual do servidor.\n' "${G}" "gotch
 printf '\n'
 
 printf '%b%bVoltar%b\n' "${Y}" "${B}" "${R}"
-printf '  Prima %bEnter%b para regressar à shell.\n' "${C}" "${R}"
+printf '  Pressione %bEnter%b para voltar ao terminal.\n' "${C}" "${R}"
 printf '\n%s\n' '→ Escolha um jogo ou volte quando quiser.'
 
 if [ -t 0 ]; then
